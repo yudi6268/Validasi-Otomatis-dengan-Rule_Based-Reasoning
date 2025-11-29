@@ -47,13 +47,15 @@
       flex: 1;
       display: grid;
       grid-template-columns: 150px 1fr;
-      gap: 15px 20px;
+      gap: 12px 20px;
+      align-items: center; 
     }
 
     label {
-      text-align: right;
+      text-align: left;  
       font-weight: 600;
       font-size: 14px;
+      padding-left: 10px; 
     }
 
     input[type="text"], input[type="email"] {
@@ -61,19 +63,26 @@
       border-radius: 8px;
       border: 1px solid #ccc;
       width: 100%;
+      font-size: 14px;
+    }
+
+    .input-wrap {
+      width: 100%;
+      display: flex;
     }
 
     .edit-btn, .save-btn {
       grid-column: span 2;
-      margin-top: 20px;
-      padding: 7px 18px;
+      margin-top: 25px;
+      padding: 12px 18px;     
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       background: #009970;
-      font-size: 13px;
+      font-size: 15px;        
       color: white;
       cursor: pointer;
       font-weight: 600;
+      height: 40px;          
     }
 
     .right-section {
@@ -218,25 +227,39 @@
       @csrf
 
       <label>Nama Pegawai</label>
+      <div class="input-wrap">
       <input type="text" name="nama" value="{{ $user->nama }}" readonly>
+    </div>
 
       <label>ID Pegawai</label>
-      <input type="text" value="{{ $user->id_pegawai }}" readonly>
+      <div class="input-wrap">
+      <input type="text" name="id_pegawai" value="{{ $user->id_pegawai }}" readonly>
+    </div>
 
       <label>NIP</label>
-      <input type="text" value="{{ $user->nip }}" readonly>
+      <div class="input-wrap">
+      <input type="text" name="nip" value="{{ $user->nip }}" readonly>
+    </div>
 
       <label>Email</label>
-      <input type="email" name="email" value="{{ $user->email }}" readonly>
+      <div class="input-wrap">
+      <input type="text" name="email" value="{{ $user->email }}" readonly>
+    </div>
 
       <label>Jabatan</label>
+      <div class="input-wrap">
       <input type="text" name="jabatan" value="{{ $user->jabatan }}" readonly>
+    </div>
 
       <label>Pangkat</label>
+      <div class="input-wrap">
       <input type="text" name="pangkat" value="{{ $user->pangkat }}" readonly>
+    </div>
 
       <label>Divisi</label>
+      <div class="input-wrap">
       <input type="text" name="divisi" value="{{ $user->divisi }}" readonly>
+    </div>
 
       <input type="hidden" name="signature_data" id="signatureData">
       <input type="hidden" name="croppedPhotoData" id="croppedPhotoData">
@@ -335,6 +358,7 @@ document.getElementById('editBtn').addEventListener('click', () => {
   document.querySelectorAll("input").forEach(i => i.removeAttribute("readonly"));
   document.getElementById('editBtn').style.display = "none";
   document.getElementById('saveBtn').style.display = "block";
+  document.getElementById('saveBtn').style.marginTop = "25px";
 });
 
 /* === FILE INPUT === */
