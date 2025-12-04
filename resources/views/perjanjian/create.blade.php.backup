@@ -192,21 +192,9 @@ table td:first-child {
                 <option>Wadir Pelayanan</option>
             </select>
 
-            <input type="text" class="input-box" name="pihak2_nip" placeholder="NIP (Pihak Kedua)">
-
             <p style="text-align:center; font-size:12px; margin-top:3px;">
                 Selanjutnya disebut <b>PIHAK KEDUA</b>.
             </p>
-        </div>
-    </div>
-
-    {{-- LOCATION AND DATE --}}
-    <div class="flex-row">
-        <div class="flex-col">
-            <input type="text" class="input-box" name="location" placeholder="Tempat" value="Pasuruan">
-        </div>
-        <div class="flex-col">
-            <input type="date" class="input-box" name="agreement_date">
         </div>
     </div>
 
@@ -777,71 +765,82 @@ function deleteSubKegiatan(pIdx, kIdx, sIdx) {
 // =========================
 function updateHierarchicalTotals() {
     const tbody = document.getElementById('hierarchical-budget-tbody');
-    if (!tbody) return;
-
-    // Read current structure (amounts are digits-only strings)
-    const structure = getHierarchicalBudgetStructure();
-
-    // Helper to safely convert numeric string to BigInt
-    const toBigInt = (s) => {
-        try {
-            // ensure digits only
-            const digits = String(s || '0').replace(/\D/g, '') || '0';
-            return BigInt(digits);
-        } catch (e) {
-            // fallback to Number
-            return BigInt(Math.floor(Number(String(s).replace(/\D/g, '') || 0)));
-        }
-    };
-
-    let grandTotal = 0n;
-
-    structure.programs.forEach((program, pIdx) => {
-        let programTotal = 0n;
-
-        // If there are kegiatan, sum their sub-kegiatan or their own amount
-        if (Array.isArray(program.kegiatan) && program.kegiatan.length > 0) {
-            program.kegiatan.forEach((kegiatan, kIdx) => {
-                let kegiatanTotal = 0n;
-
-                if (Array.isArray(kegiatan.subKegiatan) && kegiatan.subKegiatan.length > 0) {
-                    kegiatan.subKegiatan.forEach(sk => {
-                        kegiatanTotal += toBigInt(sk.amount || '0');
-                    });
-                } else {
-                    // no sub-kegiatan: use kegiatan.amount (entered manually)
-                    kegiatanTotal += toBigInt(kegiatan.amount || '0');
+    const rows = tbody.querySelectorAll('tr');
+    
+    // First pass: calculate sub-kegiatan totals
+    // Second pass: calculate kegiatan totals
+    // Third pass: calculate program totals
+    // Fourth pass: calculate grand total
+    
+    // Create a map of all rows by level and index
+    const programTotals = {};
+    const kegiatanTotals = {};
+    
+    rows.forEach(row => {
+        const level = row.dataset.level;
+        const amountInput = row.querySelector('input[name^="hb_amount"]');
+        
+        if (level === 'subkegiatan' && amountInput) {
+            const nameInput = row.querySelector('textarea[name^="hb_subkegiatan"]');
+            const name = nameInput?.name || '';
+            // Extract indices from name: hb_subkegiatan_P_K_S_amount
+            const match = name.match(/hb_subkegiatan_(\d+)_(\d+)_(\d+)/);
+            if (match) {
+                const [, pIdx, kIdx, sIdx] = match;
+                const key = `${pIdx}_${kIdx}`;
+                if (!kegiatanTotals[key]) {
+                    kegiatanTotals[key] = [];
                 }
-
-                // Update kegiatan input display
-                const kInput = document.querySelector(`input[name="hb_kegiatan_${pIdx}_${kIdx}_amount"]`);
-                if (kInput) {
-                    const formatted = formatNumberInput(kegiatanTotal.toString()) || '0';
-                    kInput.value = formatted;
-                }
-
-                programTotal += kegiatanTotal;
-            });
-        } else {
-            // no kegiatan: use program.amount (entered manually)
-            programTotal += toBigInt(program.amount || '0');
+                const amt = parseAmount(amountInput.value || '0');
+                kegiatanTotals[key].push(amt);
+            }
         }
-
-        // Update program input display
-        const pInput = document.querySelector(`input[name="hb_program_${pIdx}_amount"]`);
-        if (pInput) {
-            const formatted = formatNumberInput(programTotal.toString()) || '0';
-            pInput.value = formatted;
-        }
-
-        grandTotal += programTotal;
     });
-
-    // Update grand total display
+    
+    // Update kegiatan amounts (sum of sub-kegiatan)
+    rows.forEach(row => {
+        const level = row.dataset.level;
+        const amountInput = row.querySelector('input[name^="hb_kegiatan"]');
+        
+        if (level === 'kegiatan' && amountInput) {
+            const nameInput = row.querySelector('textarea[name^="hb_kegiatan"]');
+            const name = nameInput?.name || '';
+            const match = name.match(/hb_kegiatan_(\d+)_(\d+)/);
+            if (match) {
+                const [, pIdx, kIdx] = match;
+                const key = `${pIdx}_${kIdx}`;
+                const total = kegiatanTotals[key]?.length > 0 
+                    ? parseInt(addBigNumbers(kegiatanTotals[key])) 
+                    : 0;
+                amountInput.value = total > 0 ? total.toLocaleString('id-ID') : '0';
+                programTotals[pIdx] = (programTotals[pIdx] || 0) + total;
+            }
+        }
+    });
+    
+    // Update program amounts (sum of kegiatan)
+    let grandTotal = 0;
+    rows.forEach(row => {
+        const level = row.dataset.level;
+        const amountInput = row.querySelector('input[name^="hb_program"]');
+        
+        if (level === 'program' && amountInput) {
+            const nameInput = row.querySelector('textarea[name^="hb_program"]');
+            const name = nameInput?.name || '';
+            const match = name.match(/hb_program_(\d+)/);
+            if (match) {
+                const [, pIdx] = match;
+                const total = programTotals[pIdx] || 0;
+                amountInput.value = total > 0 ? total.toLocaleString('id-ID') : '0';
+                grandTotal += total;
+            }
+        }
+    });
+    
+    // Update grand total
     const grandTotalInput = document.getElementById('totalBudget');
     if (grandTotalInput) {
-        const formatted = formatNumberInput(grandTotal.toString()) || '0';
-        grandTotalInput.value = formatted;
+        grandTotalInput.value = grandTotal > 0 ? grandTotal.toLocaleString('id-ID') : '0';
     }
 }
 
@@ -876,8 +875,6 @@ function saveToSupabase(e) {
     
     // Serialize hierarchical budget structure and add to form
     const hierarchicalStructure = getHierarchicalBudgetStructure();
-    // Debug: log payload structure (amounts are digits-only strings)
-    console.log('Hierarchical payload:', JSON.stringify(hierarchicalStructure, null, 2));
     formData.append('hierarchical_budget_json', JSON.stringify(hierarchicalStructure));
     
     // Tampilkan loading

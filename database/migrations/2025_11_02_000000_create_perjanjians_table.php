@@ -19,12 +19,9 @@ return new class extends Migration
             $table->string('pihak2_name')->nullable()->after('pihak1_ttd');
             $table->string('pihak2_jabatan')->nullable()->after('pihak2_name');
 
-            // Input tambahan
-            $table->text('tugas')->nullable()->after('pihak2_jabatan');
-            $table->text('fungsi')->nullable()->after('tugas');
-
+            
             // Tabel A/B/C/D
-            $table->json('tabelA')->nullable()->after('fungsi');
+            $table->json('tabelA')->nullable()->after('jabatan');
             $table->json('tabelB')->nullable();
             $table->json('tabelC')->nullable();
             $table->json('tabelD')->nullable();
@@ -33,21 +30,30 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::table('perjanjians', function (Blueprint $table) {
+        $columns = [
+            'pihak1_name',
+            'pihak1_jabatan',
+            'pihak1_ttd',
+            'pihak2_name',
+            'pihak2_jabatan',
+           
+            'tabelA',
+            'tabelB',
+            'tabelC',
+            'tabelD',
+        ];
 
-            $table->dropColumn([
-                'pihak1_name',
-                'pihak1_jabatan',
-                'pihak1_ttd',
-                'pihak2_name',
-                'pihak2_jabatan',
-                'tugas',
-                'fungsi',
-                'tabelA',
-                'tabelB',
-                'tabelC',
-                'tabelD',
-            ]);
-        });
+        $toDrop = [];
+        foreach ($columns as $col) {
+            if (Schema::hasColumn('perjanjians', $col)) {
+                $toDrop[] = $col;
+            }
+        }
+
+        if (!empty($toDrop)) {
+            Schema::table('perjanjians', function (Blueprint $table) use ($toDrop) {
+                $table->dropColumn($toDrop);
+            });
+        }
     }
 };

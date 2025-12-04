@@ -32,8 +32,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'index'])->name('perjanjian.index');
     Route::get('/perjanjian/create', [App\Http\Controllers\PerjanjianController::class, 'create'])->name('perjanjian.create');
     Route::post('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'store'])->name('perjanjian.store');
+    Route::post('/perjanjian/save', [App\Http\Controllers\PerjanjianController::class, 'savePerjanjian'])->name('perjanjian.save');
     Route::get('/perjanjian/{id}/print', [App\Http\Controllers\PerjanjianController::class, 'print'])->name('perjanjian.print');
-    Route::get('/perjanjian/{id}/pdf', [App\Http\Controllers\PerjanjianController::class, 'pdf'])->name('perjanjian.pdf');
+    Route::get('/perjanjian/{id}/pdf', [App\Http\Controllers\PerjanjianController::class, 'exportPdf'])->name('perjanjian.pdf');
 
     Route::get('/laporan', [App\Http\Controllers\LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/laporan/create/{id}', [App\Http\Controllers\LaporanController::class, 'createFromPerjanjian'])->name('laporan.create_from_perjanjian');
@@ -82,11 +83,3 @@ Route::get('/tentang', function () {
 Route::get('/settings', function () {
     return view('settings');
 })->name('settings');
-
-// === FORM PERJANJIAN ==
-Route::get('/perjanjian/create', function () {
-    return view('perjanjian.create');
-})->name('perjanjian.create');
-
-Route::post('/perjanjian/store', [PerjanjianController::class, 'store'])
-    ->name('perjanjian.store');

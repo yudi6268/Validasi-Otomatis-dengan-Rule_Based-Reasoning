@@ -212,7 +212,10 @@
   <div class="logout-confirm" id="logout-popup">
     <div class="logout-box">
       <h3>Apa anda ingin keluar?</h3>
-      <button class="btn-yes" onclick="window.location='{{ route('logout') }}'">Iya</button>
+      <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display:inline;">
+        @csrf
+        <button type="submit" class="btn-yes">Iya</button>
+      </form>
       <button class="btn-no" onclick="closeLogout()">Tidak</button>
     </div>
   </div>

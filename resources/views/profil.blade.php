@@ -207,6 +207,27 @@
       margin-right: 35px; 
     }
 
+        .upload-preview {
+        text-align: center;
+    }
+
+    .upload-box {
+        width: 380px;
+        height: 200px;
+        border: 2px dashed #ccc;
+        border-radius: 12px;
+        background: #fafafa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px auto;
+    }
+
+    .upload-box img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -271,12 +292,14 @@
     <div class="right-section">
 
       <div class="photo" id="photoPreview">
-        @if($user->foto_profil)
-    <img src="{{ $user->foto_profil }}">
-      @else
-        FOTO PROFIL
-      @endif
-      </div>
+        @if($user->foto_profil && str_starts_with($user->foto_profil, 'http'))
+            <img src="{{ $user->foto_profil }}">
+        @elseif($user->foto_profil)
+            <img src="{{ asset('storage/'.$user->foto_profil) }}">
+        @else
+            FOTO PROFIL
+        @endif
+    </div>
 
       <div class="btn-group">
         <button class="btn btn-upload" id="uploadBtn">Upload Foto</button>
@@ -285,16 +308,14 @@
 
       <div class="signature-box" id="signatureBox">
         @if($user->tanda_tangan && str_starts_with($user->tanda_tangan, 'http'))
-          <img src="{{ $user->tanda_tangan }}">
+            <img src="{{ $user->tanda_tangan }}">
         @elseif($user->tanda_tangan)
-          <img src="{{ asset('storage/'.$user->tanda_tangan) }}">
+            <img src="{{ asset('storage/'.$user->tanda_tangan) }}">
         @else
-          Klik untuk tanda tangan
+            Klik untuk tanda tangan
         @endif
       </div>
-
     </div>
-
   </div>
 </main>
 
@@ -334,15 +355,21 @@
   <div class="signature-actions">
     <button class="btn btn-upload" id="clearBtn">Hapus</button>
     <button class="btn btn-upload" id="saveSignature">Simpan</button>
+<input type="file" id="signatureUploadInput" accept="image/*" style="display:none;">
   </div>
 </div>
 
-<div id="signatureUploadPreview" style="display:none;margin-top:10px;">
-  <img id="uploadedSignatureImg" style="max-width:100%;border:1px solid #ccc;border-radius:8px;">
-  <div class="signature-actions">
-    <button class="btn btn-upload" onclick="saveUploadedSignature()">Simpan</button>
-  </div>
+<div id="signatureUploadPreview" class="upload-preview" style="display:none;">
+    <h4 style="margin-bottom:10px; font-weight:600;">Upload TTD</h4>
+
+    <div class="upload-box">
+        <img id="uploadedSignatureImg">
     </div>
+
+    <button class="btn btn-upload" style="margin-top:15px;" onclick="saveUploadedSignature()">
+        Simpan
+    </button>
+</div>
   </div>
 </div>
 
@@ -473,9 +500,25 @@ function saveUploadedSignature(){
   closeSignatureModal();
 }
 
-</script>
+const uploadTTDInput = document.getElementById("signatureUploadInput");
 
-<input type="file" id="signatureUploadInput" accept="image/*" style="display:none;">
+function openSignatureUpload(){
+    uploadTTDInput.click();
+}
 
-</body>
+uploadTTDInput.addEventListener("change", function() {
+    let file = this.files[0];
+    if(!file) return;
+
+    let reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById("uploadedSignatureImg").src = e.target.result;
+        document.getElementById("signatureUploadPreview").style.display = "block";
+        document.getElementById("signatureCanvasContainer").style.display = "none";
+    };
+    reader.readAsDataURL(file);
+});
+
+        </script>
+    </body>
 </html>
