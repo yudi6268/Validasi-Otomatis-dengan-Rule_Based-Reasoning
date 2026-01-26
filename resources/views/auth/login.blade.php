@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Akun</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             background-color: #E9F8F8;
@@ -90,6 +91,50 @@
         .links a:hover {
             text-decoration: underline;
         }
+
+        .alert-box {
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.5;
+            border-left: 5px solid;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left-color: #28a745;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+
+        .alert-box i {
+            margin-top: 2px;
+            font-size: 16px;
+        }
+
+        .alert-content {
+            text-align: left;
+        }
+
+        .alert-content strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .alert-content small {
+            display: block;
+            margin-top: 6px;
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
@@ -102,41 +147,65 @@
         <h2>Masuk ke Akun Anda</h2>
 
         @if(session('success'))
-        <div style="
-            background-color: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            text-align: center;">
-            {{ session('success') }}
-        </div>
+            <div class="alert-box alert-success">
+                <i class="fas fa-check-circle"></i>
+                <div class="alert-content">
+                    <strong>Sukses!</strong>
+                    {{ session('success') }}
+                </div>
+            </div>
         @endif
 
-        @if(session('error'))
-        <div style="
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            text-align: center;">
-            {{ session('error') }}
-        </div>
+        @if($errors->has('login'))
+            <div class="alert-box alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="alert-content">
+                    <strong>Login Gagal!</strong>
+                    {{ $errors->first('login') }}
+                    <small>
+                        <i class="fas fa-lightbulb"></i> 
+                        Periksa kembali ID Pegawai dan Password Anda.
+                    </small>
+                </div>
+            </div>
+        @endif
+
+        @if($errors->has('user_id'))
+            <div class="alert-box alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="alert-content">
+                    <strong>Data Tidak Lengkap!</strong>
+                    {{ $errors->first('user_id') }}
+                </div>
+            </div>
+        @endif
+
+        @if($errors->has('password'))
+            <div class="alert-box alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="alert-content">
+                    <strong>Data Tidak Lengkap!</strong>
+                    {{ $errors->first('password') }}
+                </div>
+            </div>
         @endif
 
         <form method="POST" action="{{ route('login.post') }}">
     @csrf
     <div class="input-group">
-        <label>USER</label>
-        <input type="text" name="user_id" placeholder="Masukkan ID" required>
+        <label>ID PEGAWAI (bukan email)</label>
+        <input type="text" name="user_id" placeholder="Contoh: RS01, ADM001" required style="width:100%;box-sizing:border-box;">
+        <small style="color: #666; display: block; margin-top: 5px;">💡 Gunakan ID Pegawai Anda, bukan email</small>
     </div>
 
     <div class="input-group">
         <label>PASSWORD</label>
-        <input type="password" name="password" placeholder="Masukkan Password" required>
+        <div style="display:flex;align-items:center;position:relative;width:100%;max-width:100%;">
+            <input type="password" name="password" id="loginPasswordInput" placeholder="Masukkan Password" required style="width:100%;box-sizing:border-box;padding-right:38px;min-width:0;">
+            <button type="button" id="toggleLoginPassword" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:transparent;padding:0;margin:0;outline:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-eye" id="iconLoginPassword" style="font-size:1.1rem;color:#888;"></i>
+            </button>
+        </div>
     </div>
 
     <button type="submit">MASUK</button>
@@ -144,8 +213,24 @@
     <div class="links">
         <a href="/register">Daftar Akun</a>
         <a href="/forgot-password">Lupa Password?</a>
-            </div>
+    </div>
         </form>
     </div>
 </body>
 </html>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginPasswordInput = document.getElementById('loginPasswordInput');
+        const toggleLoginPassword = document.getElementById('toggleLoginPassword');
+        const iconLoginPassword = document.getElementById('iconLoginPassword');
+        if(toggleLoginPassword) {
+            toggleLoginPassword.addEventListener('click', function() {
+                const type = loginPasswordInput.type === 'password' ? 'text' : 'password';
+                loginPasswordInput.type = type;
+                iconLoginPassword.classList.toggle('fa-eye');
+                iconLoginPassword.classList.toggle('fa-eye-slash');
+            });
+        }
+    });
+</script>

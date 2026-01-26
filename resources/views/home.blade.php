@@ -268,7 +268,7 @@
       color: #fff;
     }
     #noBtn:hover {
-      background: #008F7E;
+      background: #00B5A0;
     }
 
   </style>
@@ -284,7 +284,7 @@
     </div>
 
     <nav>
-      <a href="#">Panduan</a>
+      <a href="{{ route('panduan') }}">Panduan</a>
       <a href="{{ route('kontak') }}">Kontak</a>
       <a href="{{ route('tentang') }}">Tentang</a>
     </nav>
@@ -303,7 +303,7 @@
   <!-- MAIN -->
   <main> 
     <div class="welcome-text">Selamat datang di Sistem</div> 
-    <div class="hospital-title">Laporan Kinerja RSUD Bangil</div> 
+    <div class="hospital-title">Perjanjian Kinerja RSUD Bangil</div> 
     <p>Pilih menu di bawah untuk melanjutkan</p>
 
     <div class="menu-container">
@@ -317,61 +317,36 @@
           <button>Buka</button>
         </a>
       </div>
-
-      <!-- CARD 2 -->
-      <div class="card">
-        <i class="fa-solid fa-chart-line"></i>
-        <h3>Laporan Kinerja</h3>
-        <p>Akses dan analisis laporan kinerja rumah sakit</p>
-        <a href="{{ route('laporan.index') }}">
-          <button>Buka</button>
-        </a>
-      </div>
-
     </div>
   </main>
 
   <!-- FOOTER -->
-  <footer>© 2025 RSUD Bangil | Dikelola oleh Tim IT RSUD Bangil</footer>
+  <footer>© 2025 RSUD Bangil – Sistem Perjanjian Kinerja</footer>
 
-  <!-- MODAL LOGOUT -->
-  <div id="logoutModal">
-    <div class="logout-box">
-      <h3>Apa anda ingin keluar?</h3>
-      <div class="logout-buttons">
-        <form method="POST" action="{{ route('logout') }}">
-          @csrf
-          <button type="submit">YA</button>
-        </form>
-        <button id="noBtn">TIDAK</button>
-      </div>
-    </div>
-  </div>
+  @include('components.logout-modal')
 
   <script>
     const profileIcon = document.getElementById('profileIcon');
     const profileMenu = document.getElementById('profileMenu');
     const logoutIcon = document.getElementById('logoutIcon');
-    const logoutModal = document.getElementById('logoutModal');
-    const noBtn = document.getElementById('noBtn');
 
-    profileIcon?.addEventListener('click', () => {
-      profileMenu.style.display = profileMenu.style.display === 'flex' ? 'none' : 'flex';
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!profileIcon.contains(e.target) && !profileMenu.contains(e.target)) {
-        profileMenu.style.display = 'none';
-      }
-    });
-
-    logoutIcon?.addEventListener('click', () => {
-      logoutModal.style.display = 'flex';
-    });
-
-    noBtn?.addEventListener('click', () => {
-      logoutModal.style.display = 'none';
-    });
+    if (profileIcon && profileMenu) {
+      profileIcon.addEventListener('click', () => {
+        profileMenu.style.display = profileMenu.style.display === 'flex' ? 'none' : 'flex';
+      });
+      document.addEventListener('click', (e) => {
+        if (!profileIcon.contains(e.target) && !profileMenu.contains(e.target)) {
+          profileMenu.style.display = 'none';
+        }
+      });
+    }
+    // Pastikan tombol logout memanggil showLogoutModal()
+    if (logoutIcon) {
+      logoutIcon.addEventListener('click', function(e) {
+        e.preventDefault();
+        showLogoutModal();
+      });
+    }
   </script>
 </body>
 </html>

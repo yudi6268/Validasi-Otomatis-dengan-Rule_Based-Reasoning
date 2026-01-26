@@ -107,6 +107,26 @@
                 font-size: 16px;
             }
         }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background-color: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background-color: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
     </style>
 </head>
 <body>
@@ -117,7 +137,20 @@
             <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo rsud">
         </div>
         <h2>Verifikasi Kode</h2>
-        <p>Kode 6 digit telah dikirim ke email Anda.</p>
+        <p>Kode 6 digit telah dikirim ke email Anda. Masukkan kode dengan benar untuk melanjutkan.</p>
+
+        <!-- ALERTS -->
+        @if(session('error'))
+        <div class="alert alert-error">
+            ❌ {{ session('error') }}
+        </div>
+        @endif
+
+        @if(session('success'))
+        <div class="alert alert-success">
+            ✅ {{ session('success') }}
+        </div>
+        @endif
 
         <form action="{{ route('verify.code') }}" method="POST">
             @csrf

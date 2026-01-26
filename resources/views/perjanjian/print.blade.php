@@ -2,54 +2,308 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perjanjian Kinerja</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Perjanjian Kinerja - Preview</title>
+    @if(empty($for_pdf) || !$for_pdf)
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @endif
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
         html, body {
-            font-family: Arial, sans-serif;
-            color: #333;
-            line-height: 1.5;
-            font-size: 12px;
-        }
-        body {
-            background: #f5f5f5;
+            height: 100%;
+            min-height: 100vh;
             margin: 0;
-            padding: 10px;
+            padding: 0;
+            width: 100vw;
+            background: #e6fcfc;
         }
+        
+        body {
+            background: #fff;
+        }
+
+        .preview-center-wrapper {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #e6fcfc;
+            padding: 0;
+            padding-bottom: 80px;
+        }
+
+        .preview-card {
+            background: transparent !important;
+            border-radius: 0;
+            box-shadow: none;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0;
+            display: block;
+            width: 100%;
+        }
+
+        .header {
+            background: #fff !important;
+            border-radius: 16px 16px 0 0;
+            padding-top: 16px;
+            padding-bottom: 8px;
+            text-align: center;
+            margin-bottom: 24px;
+            width: 100%;
+        }
+
+        .user-header-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            padding: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 70px;
+        }
+
+        .user-header-fixed h1 {
+            margin: 0;
+            text-align: center;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .bell-icon {
+            position: absolute;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: #ff2222;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            display: block !important;
+        }
+
+        .status-badge {
+            position: fixed;
+            top: 75px;
+            right: 24px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            height: auto;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .footer-fixed {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background: #fff;
+            color: #222;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 14px 0;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+            z-index: 100;
+        }
+
+            @media print {
+                .footer-fixed { display: none !important; }
+                .user-header-fixed { display: none !important; }
+                .status-badge { display: none !important; }
+                .bell-icon { display: none !important; }
+                .modal-overlay { display: none !important; }
+                .preview-center-wrapper { 
+                    background: #fff !important; 
+                    padding: 0 !important;
+                }
+                .preview-card { 
+                    box-shadow: none !important; 
+                    border-radius: 0 !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    width: 100% !important;
+                    max-width: none !important;
+                }
+                body { 
+                    background: #fff !important; }
+        }
+
+            table th {
+                background: #e0e0e0;
+                color: #222;
+                font-weight: 600;
+                text-align: center;
+                font-family: Arial, sans-serif;
+                padding: 10px;
+            }
+
         .page {
             width: 210mm;
             height: 330mm;
-            margin: 10mm auto;
+            margin: 25mm auto;
             background: white;
-            padding: 25mm 20mm;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 18mm 12mm;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+            border: none;
+            border-radius: 0;
             page-break-after: always;
             page-break-inside: avoid;
+            position: relative;
+            display: block;
+        }
+
+        .page::after {
+            content: '';
+            position: absolute;
+            bottom: -25mm;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #009970, transparent);
+        }
+
+        .page-landscape {
+            width: 297mm !important;  
+            height: 210mm !important;  
+            page-break-after: always;
+            page-break-inside: avoid;
+            padding: 15mm !important;
+        }
+
+        .page-landscape .content-section {
+            overflow-x: auto; 
+        }
+
+        .page-break {
+            page-break-before: auto; 
+        }
+
+        body {
+            background: #e0e0e0;
+            color: #222;
+        }
+        
+        .rejected-stamp {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #DC3545;
+            color: white;
+            padding: 15px 25px;
+            border: 4px solid #DC3545;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transform: rotate(0deg);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+            z-index: 100;
+        }
+
+        .rejection-notice {
+            background: #f8d7da;
+            border: 2px solid #DC3545;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .rejection-notice-title {
+            color: #721c24;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rejection-notice-title::before {
+            content: "⚠";
+            font-size: 20px;
+        }
+
+        .rejection-notice-content {
+            color: #721c24;
+            font-size: 12px;
+            line-height: 1.6;
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .rejection-notice-label {
+            font-weight: bold;
+            margin-bottom: 5px;
         }
         .header {
             text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #009970;
-            padding-bottom: 15px;
+            margin-bottom: 0px;
+            /* border-bottom removed */
+            padding-bottom: 0px;
         }
-        .logo {
-            height: 60px;
-            margin-bottom: 8px;
-        }
-        .header h1 {
-            font-size: 12px;
-            font-weight: 600;
-            margin: 3px 0;
-            text-transform: uppercase;
-            font-family: Arial, sans-serif;
-            text-align: center;
+
+        .page {
+            width: 210mm;
+            height: 330mm;
+            margin: 0 auto !important;
+            background: white;
+            padding: 0 20mm !important;
+            box-shadow: none !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+            position: relative;
             line-height: 1.5;
         }
+
         .header p {
             font-size: 12px;
             margin: 2px 0;
@@ -63,16 +317,7 @@
             line-height: 1.5;
         }
         .section-title {
-            font-size: 12px;
-            font-weight: 600;
-            background: #009970;
-            color: white;
-            padding: 8px 12px;
-            margin-bottom: 10px;
-            margin-top: 10px;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            border-radius: 0;
+            display: none !important;
         }
         .parties {
             display: flex;
@@ -104,23 +349,48 @@
             font-family: Arial, sans-serif;
             line-height: 1.5;
         }
+        @media print {
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr { page-break-inside: avoid; }
+        }
+        /* Fixed table variants for better print fitting */
+        .table {
+            width: 100%;
+        }
+        .table-fixed {
+            table-layout: fixed;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+        }
+        .table-b th, .table-b td, .table-c th, .table-c td {
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
         table th, table td {
             border: 1px solid #000;
-            padding: 6px;
+            padding: 0;
             text-align: left;
             font-family: Arial, sans-serif;
             font-size: 12px;
+            line-height: 1.5;
+            margin: 0;
         }
         table th {
-            background: #009970;
-            color: white;
+            background: #e7e7e7;
+            color: #222;
             font-weight: 600;
             text-align: center;
             font-family: Arial, sans-serif;
+            line-height: 1.5;
+            margin: 0;
         }
         table td {
             vertical-align: top;
             line-height: 1.5;
+            margin: 0;
         }
         .no-data {
             text-align: center;
@@ -129,6 +399,38 @@
             font-style: italic;
             font-size: 12px;
         }
+        .total-row {
+            background: #009970;
+            color: white;
+            font-weight: bold;
+        }
+        .total-row td {
+            padding: 0;
+            font-weight: bold;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Table wrapper for mobile scrolling */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media screen and (max-width: 768px) {
+            .table-responsive {
+                display: block;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-bottom: 10px;
+            }
+            .table-responsive table {
+                min-width: 600px;
+            }
+        }
+
         p {
             text-align: justify;
             margin: 10px 0;
@@ -152,7 +454,43 @@
         .signature-block {
             text-align: center;
             width: 45%;
+            min-height: 160px;
+            page-break-inside: avoid;
         }
+
+        .signature-wrapper {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 24px;
+            page-break-inside: avoid; 
+        }
+
+        .preview-wrapper {
+            max-height: 90vh; 
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        @media print {
+            .signature-wrapper {
+                display: block !important;
+                page-break-before: always;  
+                page-break-inside: avoid;   
+                margin-top: 30px;
+            }
+
+            .signature-block {
+                width: 100%;
+                text-align: center;
+            }
+
+            .signature-block img {
+                max-height: 70px;
+                height: auto;
+            }
+        }
+
         .signature-block .sig-line {
             height: 80px;
             margin: 20px 0;
@@ -173,6 +511,111 @@
             page-break-after: always;
             margin-top: 40px;
         }
+
+        /* MOBILE RESPONSIVE STYLES */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 5px;
+                font-size: 10px;
+            }
+            .page {
+                width: 100%;
+                height: auto;
+                min-height: auto;
+                margin: 5px auto;
+                padding: 15px 10px;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            }
+            .rejected-stamp {
+                top: 10px;
+                right: 10px;
+                padding: 10px 15px;
+                font-size: 10px;
+                border-width: 3px;
+            }
+            .rejection-notice {
+                padding: 15px;
+                margin: 15px 0;
+            }
+            .rejection-notice-title {
+                font-size: 11px;
+            }
+            .rejection-notice-content {
+                font-size: 10px;
+                padding: 10px;
+            }
+            .header {
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+            }
+            .logo {
+                height: 45px;
+            }
+            .header h1 {
+                font-size: 10px;
+            }
+            .header p {
+                font-size: 9px;
+            }
+            .section-title {
+                font-size: 10px;
+                padding: 6px 8px;
+                margin: 8px 0;
+            }
+            table {
+                font-size: 9px;
+            }
+            table th, table td {
+                padding: 4px 3px;
+                font-size: 9px;
+            }
+            .parties {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .party {
+                font-size: 10px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            body {
+                font-size: 9px;
+                padding: 2px;
+            }
+            .page {
+                padding: 10px 8px;
+                margin: 3px auto;
+            }
+            .logo {
+                height: 35px;
+            }
+            .header h1 {
+                font-size: 9px;
+            }
+            .header p {
+                font-size: 8px;
+            }
+            .section-title {
+                font-size: 9px;
+                padding: 5px 6px;
+            }
+            table {
+                font-size: 8px;
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            table th, table td {
+                padding: 3px 2px;
+                font-size: 8px;
+            }
+            .content-section p {
+                font-size: 8px;
+                line-height: 1.4;
+            }
+        }
+
         @media print {
             * {
                 margin: 0;
@@ -184,13 +627,15 @@
                 margin: 0;
             }
             .page {
-                width: 210mm;
-                height: 330mm;
+                width: 100%;
+                max-width: 210mm;
+                min-height: 330mm;
                 margin: 0;
-                padding: 25mm 20mm;
+                padding: 20mm 16mm;
                 box-shadow: none;
                 page-break-after: always;
                 page-break-inside: avoid;
+                box-sizing: border-box;
             }
             /* Ensure signature elements display correctly in PDF */
             .sig-nama {
@@ -208,344 +653,1149 @@
                 min-width: 80px;
                 height: 0;
             }
+            .section-title {
+                display: none !important;
+            }
+            table th, table td {
+                padding: 0 !important;
+                line-height: 1.5 !important;
+                margin: 0 !important;
+            }
         }
         @page {
+            /* Prefer named F4 and portrait to match Dompdf's setPaper('F4','portrait') */
             size: 210mm 330mm;
             margin: 0;
-            padding: 0;
         }
+
+        @media print {
+            table, table th, table td {
+                font-size: 10pt !important;
+                line-height: 1.1 !important;
+                padding: 3px 5px !important;
+            }
+        }
+
+        /* Reduce header sizes slightly for PDF */
+        .header h1 { 
+            font-size: 11px !important; 
+        }
+
+        .logo { 
+            height: 48px !important; 
+            max-height: 60px !important; 
+            width: auto !important; 
+            display: inline-block; 
+        }
+        
+        /* Ensure signatures keep correct height */
+        .signature-block .sig-line { 
+            height: 80px 
+            !important; 
+        }
+
         /* Signature styling for proper alignment and garis width */
         .sig-nama {
             font-weight: 600;
             font-size: 12px;
-            margin: 0 auto 1px auto; /* 1px spacing under name */
+            margin: 0 auto 1px auto; 
             word-wrap: break-word;
             text-align: center;
             max-width: 100%;
             display: block;
-            line-height: 1.0; /* tighten spacing so garis sits right under nama */
+            line-height: 1.0;
         }
+
         .sig-garis {
             border-bottom: 1px solid #000;
-            margin: 0 auto 1px auto; /* 1px gap */
+            margin: 0 auto 1px auto; 
             display: block;
             width: auto;
             min-width: 60px;
-            max-width: 220px; /* allow longer names to have wider garis */
+            max-width: 220px; 
             height: 0;
         }
+        </style>
+
+        @if(!empty($for_pdf))
+        <style>
+            body {
+                background: #fff !important;
+            }
+
+            .page {
+                width: 210mm !important;
+                min-height: 330mm !important;
+                padding: 14mm 12mm !important;
+                margin: 0 auto !important;
+            }
+        </style>
+        @endif
+
+        @if($isDirektur)
+        <style>
+            body, html {
+                font-family: Arial, 
+                sans-serif !important;
+                font-size: 12pt !important;
+            }
+
+            .page {
+                font-family: Arial, sans-serif !important;
+                font-size: 12pt !important;
+                padding-top: 24px !important;
+                margin-top: 2.5cm !important;
+                margin-bottom: 2.5cm !important;
+                margin-left: 3cm !important;
+                margin-right: 2.5cm !important;
+            }
+
+            .header {
+                margin-top: 0 !important;
+                margin-bottom: 18px !important;
+                text-align: center !important;
+            }
+
+            .header h1, .header p {
+                font-family: Arial, sans-serif !important;
+                font-size: 16pt !important;
+                font-weight: 700 !important;
+                margin: 0 0 2px 0 !important;
+                text-align: center !important;
+                letter-spacing: 0.5px;
+                line-height: 1.15 !important;
+            }
+
+            .header h1:last-of-type, .header p {
+                margin-bottom: 6px !important;
+            }
+
+            .judul-halaman {
+                font-family: Arial, sans-serif !important;
+                font-size: 14pt !important;
+                font-weight: 700 !important;
+                text-align: center !important;
+                margin: 18px 0 12px 0 !important;
+            }
+
+            .content-section, .parties, .party, .table, .table th, .table td, p, td, th, .identitas, .ttd-block, .ttd-block * {
+                font-family: Arial, sans-serif !important;
+                font-size: 12pt !important;
+                line-height: 1.15 !important;
+            }
+        </style>
+        @else
+    
+        <style>
+           html, body {
+                font-family: Arial, sans-serif;
+                font-size: 12px;
+                margin: 0;
+                padding: 0;
+                min-height: 100vh;
+            }
+
+            .preview-center-wrapper {
+                width: 100vw;
+                min-height: 100vh;
+                display: block;
+                background: #e6fcfc;
+            }
+
+            .preview-card {
+                background: #fff !important;
+                border-radius: 16px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+                max-width: 900px;
+                margin: 40px auto 32px auto;
+                padding: 40px 50px 32px 50px;
+                display: block;
+                width: 100%;
+            }
+
+            .header {
+                background: #fff !important;
+                border-radius: 16px 16px 0 0;
+                padding-top: 16px;
+                padding-bottom: 8px;
+                text-align: center;
+                margin-bottom: 24px;
+                width: 100%;
+            }
+
+            .footer-fixed {
+                position: static;
+                left: 0;
+                bottom: 0;
+                width: 100vw;
+                background: #fff;
+                color: #222;
+                text-align: center;
+                font-size: 1.08rem;
+                font-weight: 600;
+                padding: 14px 0 12px 0;
+                box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+                letter-spacing: 0.1px;
+                z-index: 100;
+                border-radius: 0 0 16px 16px;
+                margin: 0 auto;
+            }
+            </style>
+        @endif
+
+        <style>
+            @media print {
+                body, html {
+                    font-family: Arial, sans-serif !important;
+                    font-size: 11pt !important;
+                    line-height: 1.15 !important;
+                }
+
+                p, td, th, li, span, div {
+                    font-size: 11pt !important;
+                    line-height: 1.15 !important;
+                }
+
+                table {
+                    font-size: 11pt !important;
+                    line-height: 1.15 !important;
+                }
+
+                h1 { font-size: 14pt !important; }
+                h2 { font-size: 13pt !important; }
+                h3 {
+                    font-size: 11pt !important;
+                    font-weight: 700 !important;
+                }
+            }
     </style>
 </head>
-<body>
+<body style="background:#e6fcfc;min-height:100vh;">
+
     @php
-        use Illuminate\Support\Str;
-        $perjanjian = $data;
-        $tabelA = json_decode($perjanjian->tabelA ?? '[]', true);
-        $tabelB = json_decode($perjanjian->tabelB ?? '[]', true);
-        $tabelC = json_decode($perjanjian->tabelC ?? '[]', true);
+        // Handle tabelA, tabelB, tabelC - check if already array or JSON string
+        $tabelA = is_array($perjanjian->tabelA) ? $perjanjian->tabelA : json_decode($perjanjian->tabelA ?? '[]', true);
+        $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true);
+        $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true);
+        // Penentuan role dan status preview
+        $user = auth()->user();
+        // Cek role direktur/pimpinan hanya berdasarkan jabatan (bukan id)
+        $isDirektur = false;
+        if ($user) {
+            $jabatan = strtolower($user->jabatan ?? '');
+            // Hanya jabatan yang persis "direktur" atau mengandung "direktur" TANPA diawali "wakil "
+            if ((\Illuminate\Support\Str::contains($jabatan, 'direktur') && !\Illuminate\Support\Str::startsWith($jabatan, 'wakil ')) || \Illuminate\Support\Str::contains($jabatan, 'pimpinan')) {
+                $isDirektur = true;
+            }
+        }
+        // Default
+        $showAksi = false;
+        $showAlasanTolak = false;
+        $showTtdPihak2 = false;
+        $showBarDitolak = false;
+        // Logic preview dinamis
+        // Kunci logika preview direktur dan user
+        // Semua blok aksi/modal/notifikasi bar hanya untuk direktur
+
+        // Override status dari query (untuk refresh cepat setelah aksi)
+        $statusQuery = request()->get('status');
+        if (in_array($statusQuery, ['ditolak','disetujui','menunggu'], true)) {
+            $status = $statusQuery;
+        }
     @endphp
 
-    <!-- PAGE 1: HEADER & PARTIES -->
-    <div class="page">
-        <div class="header">
-            @php
-                // prefer inline base64 for PDF if available
-                $logoSrc = null;
-                if(!empty($logo_data)){
-                    $logoSrc = $logo_data;
-                } else {
-                    if(!empty($for_pdf) && file_exists(public_path('images/logo_pemda.png'))){
-                        $logoSrc = public_path('images/logo_pemda.png');
-                    } elseif(file_exists(public_path('images/logo_pemda.png'))){
-                        $logoSrc = asset('images/logo_pemda.png');
-                    }
-                }
-            @endphp
-            @if(!empty($logoSrc))
-                <img src="{{ $logoSrc }}" class="logo" alt="Logo">
+    {{-- Header with title for user --}}
+    @if(!$isDirektur)
+        <div class="user-header-fixed">
+            <h1 style="font-size:20px;font-weight:700;color:#009970;margin:0;">PERJANJIAN</h1>
+            
+            @if(isset($perjanjian->rejected) && $perjanjian->rejected)
+            <div class="bell-icon" onclick='document.getElementById("modal-alasan-tolak").style.display="flex";'>
+                <span style="color:#009970;font-size:24px;position:relative;">🔔</span>
+                <span class="notification-dot"></span>
+            </div>
             @endif
-            <h1>PERJANJIAN KINERJA TAHUN 2025</h1>
-            <h1>WAKIL DIREKTUR PELAYANAN</h1>
-            <p>UOBK RSUD BANGIL KABUPATEN PASURUAN</p>
         </div>
+        <div style="height:70px;"></div>
+        @endif
 
-        <p style="text-align: justify; font-size: 12px; line-height: 1.6;">
-            Dalam rangka mewujudkan manajemen pemerintahan yang efektif, transparan dan akuntabel serta berorientasi pada hasil,
-            kami yang bertanda tangan dibawah ini :
-        </p>
+    {{-- Header with title for direktur --}}
+    @if($isDirektur)
+    <div class="user-header-fixed">
+        <h1 style="font-size:20px;font-weight:700;color:#009970;margin:0;">PERJANJIAN</h1>
+    </div>
+    <div style="height:70px;"></div>
+    @endif
 
-        <!-- PARTIES: 2-COLUMN TABLE FORMAT -->
-        <table style="width: 100%; border: none; margin: 20px 0; font-size: 12px;">
-            <tr>
-                <td style="border: none; width: 50%; padding: 0; vertical-align: top; font-weight: 600;">
-                    PIHAK PERTAMA
-                </td>
-                <td style="border: none; width: 50%; padding: 0; vertical-align: top; font-weight: 600;">
-                    PIHAK KEDUA
-                </td>
-            </tr>
-            <tr>
-                <td style="border: none; padding: 0; vertical-align: top;">
-                    Nama: <br>
-                    <strong>{{ $perjanjian->pihak1_name ?? '-' }}</strong><br><br>
-                    Jabatan: <br>
-                    <strong>{{ $perjanjian->pihak1_jabatan ?? '-' }}</strong>
-                </td>
-                <td style="border: none; padding: 0; vertical-align: top;">
-                    Nama: <br>
-                    <strong>{{ $perjanjian->pihak2_name ?? '-' }}</strong><br><br>
-                    Jabatan: <br>
-                    <strong>{{ $perjanjian->pihak2_jabatan ?? '-' }}</strong>
-                </td>
-            </tr>
-        </table>
+    {{-- Tombol Setujui/Tolak hanya untuk Direktur/Pimpinan (bukan user/pihak pertama) --}}
+    {{-- Blok aksi/modal hanya untuk direktur/pimpinan --}}
+    @if($isDirektur && $status === 'menunggu')
+    <style>
+        .aksi-container {
+            position: fixed;
+            top: 88px; 
+            right: 20px;
+            z-index: 1200;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .aksi-btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.18s cubic-bezier(.4,2,.6,1), box-shadow 0.18s, background 0.18s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            backdrop-filter: blur(2px);
+        }
+        .aksi-btn:hover {
+            transform: scale(1.06);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.13);
+        }
+        .aksi-btn:active {
+            transform: scale(0.96);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+        }
+        .aksi-btn.terima {
+            background: #F5E94E;
+            color: #222;
+        }
+        .aksi-btn.tolak {
+            background: #FF2E2E;
+            color: #fff;
+        }
+    </style>
+    <div class="aksi-container">
+        <button id="btn-setujui" type="button" class="aksi-btn terima" onclick="document.getElementById('modal-setujui').style.display='flex'">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M13.485 1.929a1 1 0 0 1 0 1.414l-7.071 7.071a1 1 0 0 1-1.414 0L2.515 8.071a1 1 0 1 1 1.414-1.414l1.071 1.071 6.364-6.364a1 1 0 0 1 1.414 0z"/></svg>
+            Terima
+        </button>
+        <button id="btn-tolak" type="button" class="aksi-btn tolak" onclick="document.getElementById('modal-tolak').style.display='flex'">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+            Tolak
+        </button>
+    </div>
+        <!-- Modal Notifikasi Persetujuan -->
+        <div id="modal-setujui" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.25); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:#fff; border-radius:12px; padding:32px 28px; max-width:420px; width:95vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+            <h2 style="text-align:center; font-size:22px; font-weight:700; margin-bottom:18px;">Konfirmasi Persetujuan</h2>
+            <p style="text-align:center; font-size:15px; margin-bottom:22px;">Apa anda yakin untuk menyetujui perjanjian ini?</p>
+                <form id="form-setujui" action="{{ route('direktur.perjanjian.approve', $perjanjian->id) }}" method="POST">
+                    @csrf
+                    <div style="display:flex;justify-content:center;gap:12px;">
+                        <button type="button" onclick="document.getElementById('modal-setujui').style.display='none'" style="background:#6c757d;color:#fff;padding:10px 32px;border:none;border-radius:7px;font-weight:bold;font-size:17px; cursor:pointer;">Batal</button>
+                        <button id="btn-submit-setujui" type="submit" style="background:#F5E94E;color:#222;padding:10px 32px;border:none;border-radius:7px;font-weight:bold;font-size:17px; cursor:pointer;">Setujui</button>
+                    </div>
+                </form>
+                <button onclick="document.getElementById('modal-setujui').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;font-weight:bold;color:#888;cursor:pointer;">&times;</button>
+            </div>
+        </div>
+        <!-- Modal Alasan Tolak -->
+        <div id="modal-tolak" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.25); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:#fff; border-radius:12px; padding:32px 28px; max-width:420px; width:95vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+                <h2 style="text-align:center; font-size:22px; font-weight:700; margin-bottom:18px;">ALASAN MENOLAK</h2>
+                <form id="form-tolak" action="{{ route('direktur.perjanjian.reject', $perjanjian->id) }}" method="POST" autocomplete="off">
+                    @csrf
+                    <input type="text" name="nama" value="{{ $perjanjian->pihak2_name ?? '' }}" readonly placeholder="Nama Lengkap" style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
+                    <input type="text" name="jabatan" value="{{ auth()->user()->jabatan ?? '' }}" readonly placeholder="Jabatan" style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
+                    <input type="text" name="tanggal" value="{{ date('d-m-Y') }}" readonly placeholder="Tanggal" style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
+                    <textarea name="rejection_reason" required placeholder="Tulis Alasan" style="width:100%;min-height:100px;margin-bottom:16px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;"></textarea>
+                    <div style="display:flex;justify-content:center;">
+                        <button id="btn-submit-tolak" type="submit" style="background:#0DA45C;color:#fff;padding:10px 32px;border:none;border-radius:7px;font-weight:bold;font-size:17px; cursor:pointer;">KIRIM ALASAN</button>
+                    </div>
+                </form>
+                <button onclick="document.getElementById('modal-tolak').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;font-weight:bold;color:#888;cursor:pointer;">&times;</button>
+            </div>
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var btnSetujui = document.getElementById('btn-setujui');
+            var modalSetujui = document.getElementById('modal-setujui');
+            var formSetujui = document.getElementById('form-setujui');
+            var btnSubmitSetujui = document.getElementById('btn-submit-setujui');
+            var btnSubmitTolak = document.getElementById('btn-submit-tolak');
+            var btnTolak = document.getElementById('btn-tolak');
+            var modalTolak = document.getElementById('modal-tolak');
+            var formTolak = document.getElementById('form-tolak');
 
-        <p style="text-align: justify; font-size: 12px; line-height: 1.6;">
-            Pihak pertama berjanji akan mewujudkan target kinerja yang seharusnya sesuai lampiran perjanjian ini, dalam rangka mencapai target kinerja jangka menengah seperti yang telah ditetapkan dalam dokumen perencanaan.
-        </p>
+            // Show modal setujui
+            if(btnSetujui && modalSetujui) {
+                btnSetujui.onclick = function() {
+                    modalSetujui.style.display = 'flex';
+                };
+            }
+            // Handle submit setujui
+            if(formSetujui) {
+                formSetujui.onsubmit = function(e) {
+                    e.preventDefault();
+                    if(btnSubmitSetujui) {
+                        btnSubmitSetujui.disabled = true;
+                        btnSubmitSetujui.innerHTML = 'Memproses...';
+                    }
+                    var formData = new FormData(formSetujui);
+                    fetch(formSetujui.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': formSetujui.querySelector('[name=_token]').value
+                        },
+                        body: formData,
+                        cache: 'no-store',
+                        credentials: 'same-origin'
+                    })
+                    .then(data => {
+                    try {
+                        if (window.opener && window.opener.postMessage) {
+                            window.opener.postMessage({
+                                type: 'PERJANJIAN_STATUS_CHANGED',
+                                id: perjanjianId
+                            }, window.location.origin);
+                        }
+                    } catch (e) {}
 
-        <p style="text-align: justify; font-size: 12px; line-height: 1.6;">
-            Pihak kedua akan melakukan evaluasi terhadap capaian kinerja dari perjanjian ini dan mengambil tindakan yang diperlukan dalam rangka pemberian penghargaan dan sanksi.
-        </p>
+                    const target = window.location.pathname + '?status=disetujui&ts=' + Date.now();
+                    window.location = target;
+                })
+                .catch(() => {
+                    try {
+                        if (window.opener && window.opener.postMessage) {
+                            window.opener.postMessage({
+                                type: 'PERJANJIAN_STATUS_CHANGED',
+                                id: perjanjianId
+                            }, window.location.origin);
+                        }
+                    } catch (e) {}
 
-        <!-- TABEL A: INDIKATOR KINERJA INDIVIDU -->
-        <div class="content-section">
-            <div class="section-title">INDIKATOR KINERJA INDIVIDU</div>
-            @if(!empty($tabelA['indikator']) && count($tabelA['indikator']) > 0)
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 30px;">NO</th>
-                            <th>INDIKATOR KINERJA</th>
-                            <th style="width: 80px;">SATUAN</th>
-                            <th style="width: 80px;">TARGET</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($tabelA['indikator'] as $idx => $indikator)
-                            <tr>
-                                <td style="text-align: center;">{{ $idx + 1 }}</td>
-                                <td>{{ $indikator ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelA['satuan'][$idx] ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelA['target'][$idx] ?? '-' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                    const target = window.location.pathname + '?status=disetujui&ts=' + Date.now();
+                    window.location = target;
+                });
+                };
+            }
+            // Show modal alasan tolak
+            if(btnTolak && modalTolak) {
+                btnTolak.onclick = function() {
+                    modalTolak.style.display = 'flex';
+                };
+            }
+            // Handle submit alasan dengan AJAX
+            if(formTolak) {
+                formTolak.onsubmit = function(e) {
+                    e.preventDefault();
+                    if(btnSubmitTolak) {
+                        btnSubmitTolak.disabled = true;
+                        btnSubmitTolak.innerHTML = 'Mengirim...';
+                    }
+                    var formData = new FormData(formTolak);
+                    fetch(formTolak.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': formTolak.querySelector('[name=_token]').value
+                        },
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        try { if (window.opener && window.opener.postMessage) { window.opener.postMessage({ type: 'PERJANJIAN_STATUS_CHANGED', id: {{ (int)$perjanjian->id }} }, window.location.origin); } } catch(e) {}
+                        // Sukses tolak -> reload preview (cache-busted) agar badge "Perjanjian Ditolak" tampil
+                        const target = window.location.pathname + '?status=ditolak&ts=' + Date.now();
+                        window.location = target;
+                    })
+                    .catch(() => {
+                        try { if (window.opener && window.opener.postMessage) { window.opener.postMessage({ type: 'PERJANJIAN_STATUS_CHANGED', id: {{ (int)$perjanjian->id }} }, window.location.origin); } } catch(e) {}
+                        const target = window.location.pathname + '?status=ditolak&ts=' + Date.now();
+                        window.location = target;
+                    });
+                };
+            }
+        });
+        </script>
+    @endif
+
+    {{-- Wrapper for centered preview card (only for non-print view) --}}
+    <div class="preview-center-wrapper">
+        {{-- Status badge for user (below bell icon) --}}
+        @if(!$isDirektur)
+            @if($perjanjian->rejected)
+            {{-- Status badge di bawah bell --}}
+            <div class="status-badge" style="background:#DC3545;color:#fff;">
+                @if(empty($for_pdf) || !$for_pdf)
+                    <i class="fa-solid fa-circle-xmark"></i>
+                @else
+                    <span>✕</span>
+                @endif
+                <span>Perjanjian Kinerja Ditolak</span>
+            </div>
+            {{-- Modal untuk menampilkan alasan penolakan --}}
+            <div id="modal-alasan-tolak" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;" onclick="if(event.target === this) this.style.display='none';">
+                <div class="modal-content" style="background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:0;overflow:hidden;border:2px solid #e0e0e0;width:420px;max-width:calc(100vw - 40px);" onclick="event.stopPropagation();">
+                    <button onclick="document.getElementById('modal-alasan-tolak').style.display='none';" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:28px;font-weight:bold;color:#888;cursor:pointer;line-height:1;z-index:10;">&times;</button>
+                    
+                    {{-- Header modal dengan info penolakan --}}
+                    <div style="background:#f8f9fa;padding:20px 24px;border-bottom:1px solid #dee2e6;">
+                        <div style="margin-bottom:8px;display:flex;align-items:flex-start;">
+                            <span style="font-weight:600;color:#333;min-width:85px;display:inline-block;flex-shrink:0;">Status</span>
+                            <span style="font-weight:600;color:#333;margin:0 8px;flex-shrink:0;">:</span>
+                            <span style="font-weight:600;color:#DC3545;flex:1;word-wrap:break-word;">Ditolak</span>
+                        </div>
+                        <div style="margin-bottom:8px;display:flex;align-items:flex-start;">
+                            <span style="font-weight:600;color:#333;min-width:85px;display:inline-block;flex-shrink:0;">Dari</span>
+                            <span style="font-weight:600;color:#333;margin:0 8px;flex-shrink:0;">:</span>
+                            <span style="color:#333;flex:1;word-wrap:break-word;">{{ $perjanjian->pihak2_name ?? 'dr. ARMA ROOSALINA, M.Kes' }}</span>
+                        </div>
+                        <div style="margin-bottom:8px;display:flex;align-items:flex-start;">
+                            <span style="font-weight:600;color:#333;min-width:85px;display:inline-block;flex-shrink:0;">Jabatan</span>
+                            <span style="font-weight:600;color:#333;margin:0 8px;flex-shrink:0;">:</span>
+                            <span style="color:#333;flex:1;word-wrap:break-word;">{{ $perjanjian->pihak2_jabatan ?? 'Direktur UOBK RSUD Bangil' }}</span>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;">
+                            <span style="font-weight:600;color:#333;min-width:85px;display:inline-block;flex-shrink:0;">Tanggal</span>
+                            <span style="font-weight:600;color:#333;margin:0 8px;flex-shrink:0;">:</span>
+                            <span style="color:#333;flex:1;word-wrap:break-word;">{{ $perjanjian->updated_at ? \Carbon\Carbon::parse($perjanjian->updated_at)->translatedFormat('d F Y') : '-' }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Body modal dengan alasan --}}
+                    <div style="padding:24px;">
+                        <div style="background:#fff;border:1px solid #f8d7da;border-left:4px solid #DC3545;border-radius:6px;padding:20px;margin-bottom:20px;">
+                            <div style="display:flex;align-items:flex-start;gap:12px;">
+                                <span style="color:#DC3545;font-size:20px;margin-top:2px;">ℹ</span>
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;color:#333;margin-bottom:12px;font-size:15px;">Alasan penolakan :</div>
+                                    <div style="color:#333;line-height:1.6;font-size:16px;font-weight:500;">
+                                        {{ $perjanjian->rejection_reason ?? 'Target kinerja tidak sesuai dari perjanjian sebelumnya. harap revisi bagian target di indikator kinerja individu.' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align:center;">
+                            <a href="{{ route('perjanjian.edit', $perjanjian->id) }}" style="display:inline-block;background:#0DA45C;color:#fff;padding:12px 36px;border:none;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;box-shadow:0 2px 4px rgba(13,164,92,0.3);">Revisi Perjanjian</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @elseif(!empty($perjanjian->pihak2_signature))
+            <div class="status-badge" style="background:#28a745;color:#fff;">
+                @if(empty($for_pdf) || !$for_pdf)
+                    <i class="fa-solid fa-circle-check"></i>
+                @else
+                    <span>✓</span>
+                @endif
+                <span>Perjanjian Disetujui</span>
+            </div>
             @else
-                <div class="no-data">Tidak ada data Indikator Kinerja</div>
+            <div class="status-badge" style="background:#ffc107;color:#222;">
+                @if(empty($for_pdf) || !$for_pdf)
+                    <i class="fa-solid fa-clock"></i>
+                @else
+                    🕐
+                @endif
+                <span>Menunggu Persetujuan</span>
+            </div>
             @endif
+        @endif
+
+        {{-- Status badge for direktur (no bell icon) --}}
+        @if($isDirektur)
+            @if($status === 'ditolak' || $perjanjian->rejected)
+            <div class="status-badge" style="background:#DC3545;color:#fff;">
+                @if(empty($for_pdf) || !$for_pdf)
+                    <i class="fa-solid fa-circle-xmark"></i>
+                @else
+                    <span>✕</span>
+                @endif
+                <span>Perjanjian Kinerja Ditolak</span>
+            </div>
+            @elseif($status === 'disetujui' || !empty($perjanjian->pihak2_signature))
+            <div class="status-badge" style="background:#28a745;color:#fff;">
+                @if(empty($for_pdf) || !$for_pdf)
+                    <i class="fa-solid fa-circle-check"></i>
+                @else
+                    <span>✓</span>
+                @endif
+                <span>Perjanjian Disetujui</span>
+            </div>
+            @else
+            {{-- Menunggu Persetujuan - no status badge shown, actions shown in header instead --}}
+            @endif
+        @endif
+        
+        <div class="preview-card">
+
+    <!-- PAGE 1: COVER & IDENTITAS -->
+    <div class="page">
+        <div class="header" style="text-align:center;">
+            @if(!empty($logoSrc))
+                <img src="{{ $logoSrc }}" class="logo" alt="Logo" style="max-height:70px;width:auto;display:inline-block;margin-bottom:8px;">
+            @endif
+            <div style="font-weight:bold;font-size:1.15rem;margin-bottom:2px;">PEMERINTAH KABUPATEN PASURUAN</div>
+            <div style="font-weight:bold;font-size:1.15rem;margin-bottom:2px;">PERJANJIAN KINERJA TAHUN 2025</div>
+            <div style="font-weight:bold;font-size:1.15rem;margin-bottom:2px;">UOBK RSUD BANGIL</div>
+        </div>
+        <div class="content-section" style="margin-top:18px; text-align: justify; line-height: 1.6;">
+            <div style="margin-bottom:12px;">Dalam rangka mewujudkan manajemen pemerintahan yang efektif, transparan dan akuntabel serta berorientasi pada hasil, kami yang bertanda tangan dibawah ini :</div>
+            <div style="margin-bottom:12px; text-align:left;"> 
+                <span style="display:inline-block;width:120px;">Nama</span>: {{ $perjanjian->pihak1_name ?: ($user->name ?? '-') }}
+            </div>
+            <div style="margin-bottom:2px; text-align:left;">
+                <span style="display:inline-block;width:120px;">Jabatan</span>: {{ $perjanjian->pihak1_jabatan ?: ($user->jabatan ?? '-') }}
+            </div>
+            <div style="margin-bottom:8px;">Selanjutnya disebut pihak pertama.</div>
+            <div style="margin-bottom:2px; text-align:left;">
+                <span style="display:inline-block;width:120px;">Nama</span>: {{ $perjanjian->pihak2_name ?? '-' }}
+            </div>
+            <div style="margin-bottom:2px; text-align:left;">
+                <span style="display:inline-block;width:120px;">Jabatan</span>: {{ $perjanjian->pihak2_jabatan ?? '-' }}
+            </div>
+            <div style="margin-bottom:8px;">Selaku atasan pihak pertama, selanjutnya disebut pihak kedua.</div>
+            <div style="margin-bottom:10px;">Pihak pertama berjanji akan mewujudkan target kinerja yang seharusnya sesuai lampiran perjanjian ini, dalam rangka mencapai target kinerja jangka menengah seperti yang telah ditetapkan dalam dokumen perencanaan. Keberhasilan dan kegagalan pencapaian target kinerja tersebut menjadi tanggung jawab kami.</div>
+            <div style="margin-bottom:24px;">Pihak kedua akan melakukan evaluasi terhadap capaian kinerja dari perjanjian ini dan mengambil tindakan yang diperlukan dalam rangka pemberian penghargaan dan sanksi.</div>
+            <div style="display:flex;justify-content:space-between;margin-top:32px;">
+                <div style="text-align:center;width:45%;">
+                    PIHAK KEDUA<br><br>
+                    @if(!empty($perjanjian->pihak2_signature))
+                        <img src="{{ $perjanjian->pihak2_signature }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 2">
+                    @elseif(!empty($perjanjian->pihak2_ttd_path))
+                        <img src="{{ asset('storage/' . $perjanjian->pihak2_ttd_path) }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 2">
+                    @else
+                        <div style="height:60px;"></div>
+                    @endif
+                    <br>
+                    <u>{{ $perjanjian->pihak2_name ?? '-' }}</u><br>
+                    {{ $perjanjian->pihak2_pangkat ?? '-' }}<br>
+                    NIP. {{ $perjanjian->pihak2_nip ?? '-' }}
+                </div>
+                <div style="text-align:center;width:45%;">
+                    Pasuruan, {{ Carbon\Carbon::parse($perjanjian->tanggal ?? now())->translatedFormat('d F Y') }}<br>
+                    PIHAK PERTAMA<br>
+                    @if(!empty($perjanjian->pihak1_ttd))
+                        <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 1">
+                    @else
+                        <div style="height:60px;"></div>
+                    @endif
+                    <br>
+                    <u>{{ $perjanjian->pihak1_name ?: ($user->name ?? '-') }}</u><br>
+                    {{ $perjanjian->pihak1_pangkat ?: ($user->pangkat ?? '-') }}<br>
+                    NIP. {{ $perjanjian->pihak1_nip ?: ($user->nip ?? '-') }}
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- PAGE 2: TABEL B & C -->
-    <div class="page page-break">
-        <!-- TABEL B: RENCANA AKSI -->
-        <div class="content-section">
-            <div class="section-title">RENCANA AKSI</div>
-            @if(!empty($tabelB['sasaran']) && count($tabelB['sasaran']) > 0)
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 30px;">NO</th>
-                            <th>SASARAN</th>
-                            <th>INDIKATOR KINERJA</th>
-                            <th style="width: 60px;">TARGET</th>
-                            <th style="width: 50px;">TW 1</th>
-                            <th style="width: 50px;">TW 2</th>
-                            <th style="width: 50px;">TW 3</th>
-                            <th style="width: 50px;">TW 4</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($tabelB['sasaran'] as $idx => $sasaran)
-                            <tr>
-                                <td style="text-align: center;">{{ $idx + 1 }}</td>
-                                <td>{{ $sasaran ?? '-' }}</td>
-                                <td>{{ $tabelB['indikator'][$idx] ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelB['target'][$idx] ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelB['tw1'][$idx] ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelB['tw2'][$idx] ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelB['tw3'][$idx] ?? '-' }}</td>
-                                <td style="text-align: center;">{{ $tabelB['tw4'][$idx] ?? '-' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <div class="no-data">Tidak ada data Rencana Aksi</div>
-            @endif
+    <!-- PAGE 2: INDIKATOR KINERJA, TUGAS, FUNGSI, TABEL -->
+    <div class="page">
+        <div class="header" style="text-align:center;">
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">INDIKATOR KINERJA INDIVIDU</div>
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">UOBK RSUD BANGIL</div>
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">TAHUN 2025</div>
         </div>
+        <div class="content-section" style="margin-top:10px;">
+            @php
+                $tugasValue = $perjanjian->tugas_pelaksana;
+                if ($tugasValue === null || $tugasValue === '') {
+                    $tugasValue = $perjanjian->tugas ?: '-';
+                }
+                $fungsiValue = $perjanjian->fungsi_pelaksana;
+                if ($fungsiValue === null || $fungsiValue === '') {
+                    $fungsiValue = $perjanjian->fungsi ?: '-';
+                }
+            @endphp
 
-        <!-- TABEL C: RENCANA ANGGARAN -->
-        <div class="content-section">
-            <div class="section-title">RENCANA ANGGARAN</div>
-            @if(is_array($tabelC) && isset($tabelC['programs']) && count($tabelC['programs']) > 0)
-                {{-- Hierarchical structure: programs > kegiatan > subKegiatan --}}
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;">NO</th>
-                            <th>PROGRAM / KEGIATAN / SUB KEGIATAN</th>
-                            <th style="width: 150px;">ANGGARAN (Rp)</th>
-                            <th style="width: 120px;">KETERANGAN</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @php $no = 1; @endphp
-                        @foreach($tabelC['programs'] as $pIdx => $program)
-                            <!-- PROGRAM ROW -->
-                            <tr style="background: #f9f9f9; font-weight: 600;">
-                                <td style="text-align: center;">{{ $no }}</td>
-                                <td style="padding-left: 8px;">{{ $program['name'] ?? 'Program ' . ($pIdx + 1) }}</td>
-                                <td style="text-align: right;">{{ number_format($program['amount'] ?? 0, 0, ',', '.') }}</td>
-                                <td>{{ $program['keterangan'] ?? '-' }}</td>
-                            </tr>
-                            @php $no++; @endphp
+            <!-- TABLE TANPA BORDER UNTUK JABATAN, TUGAS, FUNGSI -->
+            <table style="width:100%;border-collapse:collapse;border:0;outline:0;border-spacing:0;margin-bottom:8px;line-height:1.15;">
+                <!-- JABATAN -->
+                <tr style="border:0 !important;">
+                    <td style="width:80px;padding:6px 0;font-weight:500;vertical-align:top;border:none !important;">Jabatan</td>
+                    <td style="width:10px;padding:6px 6px;text-align:center;border:none !important;">:</td>
+                    <td style="padding:6px 0;vertical-align:top;border:none !important;">{{ $perjanjian->pihak1_jabatan ?? ($user->jabatan ?? '-') }}</td>
+                </tr>
 
-                            {{-- KEGIATAN ROWS --}}
-                            @if(isset($program['kegiatan']) && is_array($program['kegiatan']))
-                                @foreach($program['kegiatan'] as $kIdx => $kegiatan)
-                                    <tr style="background: #fcfcfc;">
-                                        <td style="text-align: center;">{{ ($pIdx + 1) }}.{{ ($kIdx + 1) }}</td>
-                                        <td style="padding-left: 30px;">{{ $kegiatan['name'] ?? 'Kegiatan ' . ($kIdx + 1) }}</td>
-                                        <td style="text-align: right;">{{ number_format($kegiatan['amount'] ?? 0, 0, ',', '.') }}</td>
-                                        <td>{{ $kegiatan['keterangan'] ?? '-' }}</td>
-                                    </tr>
+                <!-- TUGAS -->
+                <tr style="border:0 !important;">
+                    <td style="width:80px;padding:6px 0;font-weight:500;vertical-align:top;border:none !important;">Tugas</td>
+                    <td style="width:10px;padding:6px 6px;text-align:center;border:none !important;">:</td>
+                    <td style="padding:6px 0;vertical-align:top;text-align:justify;line-height:1.15;border:none !important;">{!! nl2br(e($tugasValue)) !!}</td>
+                </tr>
 
-                                    {{-- SUB-KEGIATAN ROWS --}}
-                                    @if(isset($kegiatan['subKegiatan']) && is_array($kegiatan['subKegiatan']))
-                                        @foreach($kegiatan['subKegiatan'] as $sIdx => $subKegiatan)
-                                            <tr>
-                                                <td style="text-align: center;">{{ ($pIdx + 1) }}.{{ ($kIdx + 1) }}.{{ ($sIdx + 1) }}</td>
-                                                <td style="padding-left: 50px;">{{ $subKegiatan['name'] ?? 'Sub-Kegiatan ' . ($sIdx + 1) }}</td>
-                                                <td style="text-align: right;">{{ number_format($subKegiatan['amount'] ?? 0, 0, ',', '.') }}</td>
-                                                <td>{{ $subKegiatan['keterangan'] ?? '-' }}</td>
-                                            </tr>
-                                        @endforeach
-                                    @endif
+                <!-- FUNGSI -->
+                <tr style="border:0 !important;">
+                    <td style="width:80px;padding:6px 0;font-weight:500;vertical-align:top;border:none !important;">Fungsi</td>
+                    <td style="width:10px;padding:6px 6px;text-align:center;border:none !important;">:</td>
+                    <td style="padding:6px 0;vertical-align:top;line-height:1.15;border:none !important;">
+                        @php
+                            // Build a clean lower-alpha list from fungsi value
+                            $fungsiItems = [];
+                            if (is_array($fungsiValue)) {
+                                $fungsiItems = $fungsiValue;
+                            } elseif (is_string($fungsiValue)) {
+                                $decoded = json_decode($fungsiValue, true);
+                                if (is_array($decoded)) {
+                                    $fungsiItems = $decoded;
+                                } else {
+                                    // fallback split by newline
+                                    $fungsiItems = preg_split("/\r\n|\n|\r/", $fungsiValue);
+                                }
+                            }
+
+                            // Normalize: trim items and drop empties
+                            $fungsiItems = array_values(array_filter(array_map(function($s){
+                                return is_string($s) ? trim($s) : '';
+                            }, (array)$fungsiItems), function($s){ return $s !== ''; }));
+
+                            // If it's explicitly a single dash, show '-' without numbering
+                            $rawFungsiStr = is_string($fungsiValue) ? trim($fungsiValue) : '';
+                            if ($rawFungsiStr === '-' || (count($fungsiItems) === 1 && $fungsiItems[0] === '-')) {
+                                $fungsiItems = [];
+                                $fungsiValue = '-';
+                            }
+                        @endphp
+                        @if(!empty($fungsiItems))
+                            <ol style="margin:0;padding-left:18px;list-style-type:lower-alpha;line-height:1.15;">
+                                @foreach($fungsiItems as $fi)
+                                    @php
+                                        // Remove any existing alphabetical prefix like "a. " to avoid duplication
+                                        $cleanFi = preg_replace('/^[a-zA-Z]\.\s*/', '', trim((string)$fi));
+                                    @endphp
+                                    <li style="margin-bottom:3px;text-align:justify;">{{ $cleanFi }}</li>
                                 @endforeach
-                            @endif
-                        @endforeach
-                    </tbody>
-                </table>
-            @elseif(is_array($tabelC) && (isset($tabelC['program']) || isset($tabelC['anggaran'])))
-                {{-- Fallback: flat structure (legacy format) --}}
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;">NO</th>
-                            <th>PROGRAM</th>
-                            <th style="width: 150px;">ANGGARAN (Rp)</th>
-                            <th style="width: 120px;">KETERANGAN</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if(isset($tabelC['program']) && is_array($tabelC['program']))
-                            @foreach($tabelC['program'] as $idx => $prog)
-                                <tr>
-                                    <td style="text-align: center;">{{ $idx + 1 }}</td>
-                                    <td>{{ $prog ?? '-' }}</td>
-                                    <td style="text-align: right;">{{ isset($tabelC['anggaran'][$idx]) ? number_format($tabelC['anggaran'][$idx], 0, ',', '.') : '0' }}</td>
-                                    <td>{{ $tabelC['keterangan'][$idx] ?? '-' }}</td>
-                                </tr>
-                            @endforeach
+                            </ol>
+                        @else
+                            -
                         @endif
-                    </tbody>
-                </table>
-            @else
-                <div class="no-data">Tidak ada data Tabel C</div>
-            @endif
-        </div>
-
-        <!-- SIGNATURES WITH DATE, PLACE, AND NIP -->
-        <div style="margin-top: 50px; font-size: 12px; font-family: Arial, sans-serif; line-height: 1.5;">
-            <!-- Signature blocks with job titles and NIP -->
-            <table style="width: 100%; border: none; border-collapse: collapse; table-layout: fixed;">
-                <!-- place/date will be placed proportionally inside the right (Pihak Pertama) cell; left cell keeps a small placeholder to preserve alignment -->
-                <tr style="vertical-align: top;">
-                    <!-- Pihak Kedua (Left) -->
-                    <td style="border: none; text-align: center; width: 50%; font-size: 12px; padding: 0 10px; font-family: Arial, sans-serif;">
-                        <!-- placeholder to balance place/date in right cell -->
-                        <div style="height:20px; margin-bottom:4px;"></div>
-                        <!-- Jabatan -->
-                        <div style="font-weight: 600; margin-bottom: 60px; min-height: 16px; line-height: 1.4;">{{ $perjanjian->pihak2_jabatan ?? 'PIHAK KEDUA' }}</div>
-                        <!-- Tanda Tangan -->
-                        <div style="height: 80px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 8px;">
-                            @if($perjanjian->pihak2_signature)
-                                @php
-                                    // prefer controller-provided base64 data for PDF
-                                    if(!empty($pihak2_ttd_data)){
-                                        $sig2src = $pihak2_ttd_data;
-                                    } else {
-                                        $sig2 = $perjanjian->pihak2_signature;
-                                        $sig2src = $sig2;
-                                        if(!empty($for_pdf)){
-                                            if(Str::startsWith($sig2, 'data:')){
-                                                $sig2src = $sig2;
-                                            } elseif(file_exists(public_path($sig2))){
-                                                $sig2src = public_path($sig2);
-                                            } elseif(file_exists(public_path('storage/' . ltrim($sig2, '/')))){
-                                                $sig2src = public_path('storage/' . ltrim($sig2, '/'));
-                                            }
-                                        }
-                                    }
-                                @endphp
-                                <img src="{{ $sig2src }}" alt="TTD Pihak 2" style="max-height: 80px; max-width: 85%;">
-                            @endif
-                        </div>
-                        <!-- Nama + Garis wrapper -->
-                        <div style="display: inline-block; text-align: center; margin: 0 auto;">
-                            <!-- Nama -->
-                            <div class="sig-nama">{{ $perjanjian->pihak2_name ?? '-' }}</div>
-                            <!-- Garis sesuai nama -->
-                            <div class="sig-garis"></div>
-                        </div>
-                        <!-- NIP -->
-                        <div style="font-size: 12px; margin-top: 3px;">NIP. {{ $perjanjian->pihak2_nip ?? '-' }}</div>
-                    </td>
-                    <!-- Pihak Pertama (Right) -->
-                    <td style="border: none; text-align: center; width: 50%; font-size: 12px; padding: 0 10px; font-family: Arial, sans-serif; position: relative;">
-                        <!-- place/date positioned inside right cell so it's proportional to Pihak Pertama -->
-                        <div style="text-align: right; margin-bottom: 6px; font-size: 12px;">{{ $perjanjian->location ?? 'Pasuruan' }}, {{ isset($perjanjian->agreement_date) ? \Carbon\Carbon::parse($perjanjian->agreement_date)->format('d F Y') : \Carbon\Carbon::now()->format('d F Y') }}</div>
-                        <!-- Jabatan -->
-                        <div style="font-weight: 600; margin-bottom: 60px; min-height: 16px; line-height: 1.4;">{{ $perjanjian->pihak1_jabatan ?? 'PIHAK PERTAMA' }}</div>
-                        <!-- Tanda Tangan -->
-                        <div style="height: 80px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 8px;">
-                            @if($perjanjian->pihak1_ttd)
-                                @php
-                                    if(!empty($pihak1_ttd_data)){
-                                        $sig1src = $pihak1_ttd_data;
-                                    } else {
-                                        $sig1 = $perjanjian->pihak1_ttd;
-                                        $sig1src = $sig1;
-                                        if(!empty($for_pdf)){
-                                            if(Str::startsWith($sig1, 'data:')){
-                                                $sig1src = $sig1;
-                                            } elseif(file_exists(public_path($sig1))){
-                                                $sig1src = public_path($sig1);
-                                            } elseif(file_exists(public_path('storage/' . ltrim($sig1, '/')))){
-                                                $sig1src = public_path('storage/' . ltrim($sig1, '/'));
-                                            }
-                                        }
-                                    }
-                                @endphp
-                                <img src="{{ $sig1src }}" alt="TTD Pihak 1" style="max-height: 80px; max-width: 85%;">
-                            @endif
-                        </div>
-                        <!-- Nama + Garis wrapper -->
-                        <div style="display: inline-block; text-align: center; margin: 0 auto;">
-                            <!-- Nama -->
-                            <div class="sig-nama">{{ $perjanjian->pihak1_name ?? '-' }}</div>
-                            <!-- Garis sesuai nama -->
-                            <div class="sig-garis"></div>
-                        </div>
-                        <!-- NIP -->
-                        <div style="font-size: 12px; margin-top: 3px;">NIP. {{ $perjanjian->pihak1_nip ?? '-' }}</div>
                     </td>
                 </tr>
             </table>
+            <div class="table-responsive">
+                <table class="table table-fixed">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">NO</th>
+                            <th style="width:35%;">SASARAN</th>
+                            <th style="width:35%;">INDIKATOR KINERJA</th>
+                            <th style="width:12%;">SATUAN</th>
+                            <th style="width:10%;">TARGET</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php
+                            $sasaranData = [];
+                            if (isset($tabelA['sasaran']) && is_array($tabelA['sasaran'])) {
+                                $count = count($tabelA['sasaran']);
+                                for ($i = 0; $i < $count; $i++) {
+                                    $sasaranData[] = [
+                                        'sasaran' => $tabelA['sasaran'][$i] ?? '',
+                                        'indikator' => $tabelA['indikator'][$i] ?? '',
+                                        'satuan' => $tabelA['satuan'][$i] ?? '',
+                                        'target' => $tabelA['target'][$i] ?? ''
+                                    ];
+                                }
+                            } elseif (is_array($tabelA) && isset($tabelA[0]) && is_array($tabelA[0])) {
+                                $sasaranData = $tabelA;
+                            }
+                        @endphp
+                        @forelse($sasaranData as $i => $row)
+                        <tr>
+                            <td style="text-align:center;">{{ (int)$i+1 }}</td>
+                            <td>{{ $row['sasaran'] ?? '' }}</td>
+                            <td>{{ $row['indikator'] ?? '' }}</td>
+                            <td style="text-align:center;">{{ $row['satuan'] ?? '' }}</td>
+                            <td style="text-align:center;">{{ $row['target'] ?? '' }}</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="5" class="no-data">Tidak ada data</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-fixed">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">No</th>
+                            <th>Program</th>
+                            <th style="width:100px;">Anggaran</th>
+                            <th style="width:120px;">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php
+                            // Fungsi untuk flatten struktur hierarchical program sekaligus numbering dan total
+                            function flattenProgramHierarchy($tabelC) {
+                                $flatList = [];
+                                $programTotal = 0;
+                                
+                                if (empty($tabelC)) {
+                                    return ['rows' => $flatList, 'total' => $total];
+                                }
+                                
+                                // Format 1: Hierarchical dengan 'programs' array (format baru)
+                                if (isset($tabelC['programs']) && is_array($tabelC['programs']) && !empty($tabelC['programs'])) {
+                                    foreach ($tabelC['programs'] as $pIdx => $program) {
+                                        $programNo = ($pIdx + 1);
+                                        $pAmount = (int)preg_replace('/[^0-9]/', '', (string)($program['amount'] ?? '0'));
+                                        if (!empty($program['name']) || $pAmount > 0) {
+                                            $flatList[] = [
+                                                'no' => $programNo,
+                                                'name' => $program['name'] ?? '',
+                                                'amount' => $pAmount,
+                                                'source' => isset($program['source']) && $program['source'] !== '-' ? $program['source'] : '',
+                                            ];
+                                            $programTotal += $pAmount;
+                                        }
+                                        
+                                        // Tambah kegiatan
+                                        if (isset($program['kegiatan']) && is_array($program['kegiatan'])) {
+                                            foreach ($program['kegiatan'] as $kIdx => $kegiatan) {
+                                                $kegiatanNo = $programNo . '.' . ($kIdx + 1);
+                                                $kAmount = (int)preg_replace('/[^0-9]/', '', (string)($kegiatan['amount'] ?? '0'));
+                                                if (!empty($kegiatan['name']) || $kAmount > 0) {
+                                                    $flatList[] = [
+                                                        'no' => $kegiatanNo,
+                                                        'name' => $kegiatan['name'] ?? '',
+                                                        'amount' => $kAmount,
+                                                        'source' => isset($kegiatan['source']) && $kegiatan['source'] !== '-' ? $kegiatan['source'] : '',
+                                                    ];
+                                                }
+                                                
+                                                // Tambah sub-kegiatan
+                                                if (isset($kegiatan['subKegiatan']) && is_array($kegiatan['subKegiatan'])) {
+                                                    foreach ($kegiatan['subKegiatan'] as $sIdx => $subKegiatan) {
+                                                        $subNo = $kegiatanNo . '.' . ($sIdx + 1);
+                                                        $sAmount = (int)preg_replace('/[^0-9]/', '', (string)($subKegiatan['amount'] ?? '0'));
+                                                        if (!empty($subKegiatan['name']) || $sAmount > 0) {
+                                                            $flatList[] = [
+                                                                'no' => $subNo,
+                                                                'name' => $subKegiatan['name'] ?? '',
+                                                                'amount' => $sAmount,
+                                                                'source' => isset($subKegiatan['source']) && $subKegiatan['source'] !== '-' ? $subKegiatan['source'] : '',
+                                                            ];
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    return ['rows' => $flatList, 'total' => $programTotal];
+                                }
+                                
+                                // Format 2: Flat lama dengan 'program', 'anggaran', 'keterangan' arrays (format lama)
+                                if (isset($tabelC['program']) && is_array($tabelC['program'])) {
+                                    $count = count($tabelC['program']);
+                                    for ($i = 0; $i < $count; $i++) {
+                                        $name = $tabelC['program'][$i] ?? '';
+                                        $amt = (int)preg_replace('/[^0-9]/', '', (string)($tabelC['anggaran'][$i] ?? '0'));
+                                        if (!empty($name) || $amt > 0) {
+                                            $flatList[] = [
+                                                'no' => $i + 1,
+                                                'name' => $name,
+                                                'amount' => $amt,
+                                                'source' => isset($tabelC['keterangan'][$i]) && $tabelC['keterangan'][$i] !== '-' ? (string)$tabelC['keterangan'][$i] : '',
+                                            ];
+                                            $programTotal += $amt;
+                                        }
+                                    }
+                                    return ['rows' => $flatList, 'total' => $programTotal];
+                                }
+                                
+                                return ['rows' => $flatList, 'total' => $programTotal];
+                            }
+                            
+                            $programResult = flattenProgramHierarchy($tabelC);
+                            $programData = $programResult['rows'];
+                            $programTotal = $programResult['total'];
+                        @endphp
+                        @forelse($programData as $i => $row)
+                        <tr>
+                            <td style="text-align:center;">{{ $row['no'] ?? ($i + 1) }}</td>
+                            <td>{{ $row['name'] ?? '' }}</td>
+                            <td style="text-align:right;">{{ number_format((int)$row['amount'], 0, ',', '.') }}</td>
+                            <td style="font-size:11px; word-wrap:break-word; white-space:normal;">{{ $row['source'] ?? '-' }}</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="4" class="no-data">Tidak ada data</td></tr>
+                        @endforelse
+                    </tbody>
+                    @if(($programTotal ?? 0) > 0)
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" style="text-align:right;font-weight:700;">Total</td>
+                            <td style="text-align:right;font-weight:700;">{{ number_format((int)$programTotal, 0, ',', '.') }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                    @endif
+                </table>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:32px;">
+                <div style="text-align:center;width:45%;">
+                    PIHAK KEDUA<br><br>
+                    @if(!empty($perjanjian->pihak2_signature))
+                        <img src="{{ $perjanjian->pihak2_signature }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 2">
+                    @elseif(!empty($perjanjian->pihak2_ttd_path))
+                        <img src="{{ asset('storage/' . $perjanjian->pihak2_ttd_path) }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 2">
+                    @else
+                        <div style="height:60px;"></div>
+                    @endif
+                    <br>
+                    <u>{{ $perjanjian->pihak2_name ?? '-' }}</u><br>
+                    {{ $perjanjian->pihak2_pangkat ?? '-' }}<br>
+                    NIP. {{ $perjanjian->pihak2_nip ?? '-' }}
+                </div>
+                <div style="text-align:center;width:45%;">
+                    Pasuruan, {{ Carbon\Carbon::parse($perjanjian->tanggal ?? now())->translatedFormat('d F Y') }}<br>
+                    PIHAK PERTAMA<br>
+                    @if(!empty($perjanjian->pihak1_ttd))
+                        <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 1">
+                    @else
+                        <div style="height:60px;"></div>
+                    @endif
+                    <br>
+                    <u>{{ $perjanjian->pihak1_name ?: ($user->name ?? '-') }}</u><br>
+                    {{ $perjanjian->pihak1_pangkat ?: ($user->pangkat ?? '-') }}<br>
+                    NIP. {{ $perjanjian->pihak1_nip ?: ($user->nip ?? '-') }}
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- PAGE 3: RENCANA AKSI -->
+    <div class="page page-landscape">
+        <div class="header" style="text-align:center;">
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">RENCANA AKSI</div>
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">{{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}</div>
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">UOBK RSUD BANGIL KABUPATEN PASURUAN</div>
+            <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">TAHUN 2025</div>
+        </div>
+        <div class="content-section" style="margin-top:10px;">
+            <div class="table-responsive">
+                <table class="table table-fixed">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">No</th>
+                            <th>Sasaran</th>
+                            <th>Indikator Kinerja</th>
+                            <th>Target</th>
+                            <th>Triwulan I</th>
+                            <th>Triwulan II</th>
+                            <th>Triwulan III</th>
+                            <th>Triwulan IV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php
+                            $rencanaAksiData = [];
+                            if (isset($tabelB['sasaran']) && is_array($tabelB['sasaran'])) {
+                                $count = count($tabelB['sasaran']);
+                                for ($i = 0; $i < $count; $i++) {
+                                    $rencanaAksiData[] = [
+                                        'sasaran' => $tabelB['sasaran'][$i] ?? '',
+                                        'indikator' => $tabelB['indikator'][$i] ?? '',
+                                        'target' => $tabelB['target'][$i] ?? '',
+                                        'tw1' => $tabelB['tw1'][$i] ?? '',
+                                        'tw2' => $tabelB['tw2'][$i] ?? '',
+                                        'tw3' => $tabelB['tw3'][$i] ?? '',
+                                        'tw4' => $tabelB['tw4'][$i] ?? ''
+                                    ];
+                                }
+                            } elseif (is_array($tabelC) && isset($tabelC[0]) && is_array($tabelC[0]) && isset($tabelC[0]['sasaran'])) {
+                                $rencanaAksiData = $tabelC;
+                            }
+                        @endphp
+                        @forelse($rencanaAksiData as $i => $row)
+                        <tr>
+                            <td style="text-align:center;">{{ (int)$i+1 }}</td>
+                            <td>{{ $row['sasaran'] ?? '' }}</td>
+                            <td>{{ $row['indikator'] ?? '' }}</td>
+                            <td style="text-align:center;">{{ $row['target'] ?? '' }}</td>
+                            <td style="text-align:right;">{{ !empty($row['tw1']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw1']), 0, ',', '.') : '' }}</td>
+                            <td style="text-align:right;">{{ !empty($row['tw2']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw2']), 0, ',', '.') : '' }}</td>
+                            <td style="text-align:right;">{{ !empty($row['tw3']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw3']), 0, ',', '.') : '' }}</td>
+                            <td style="text-align:right;">{{ !empty($row['tw4']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw4']), 0, ',', '.') : '' }}</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="8" class="no-data">Tidak ada data</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @php 
+                // Fungsi untuk flatten struktur hierarchical Tabel Ke-4 dengan numbering dan total program saja
+                function flattenHierarchicalBudget($tabelC) {
+                    $flatList = [];
+                    $programTotal = 0;
+                    
+                    if (isset($tabelC['programs']) && is_array($tabelC['programs']) && !empty($tabelC['programs'])) {
+                        foreach ($tabelC['programs'] as $pIdx => $program) {
+                            $programNo = ($pIdx + 1);
+                            $pAmount = (int)preg_replace('/[^0-9]/', '', (string)($program['amount'] ?? '0'));
+                            if (!empty($program['name']) || $pAmount > 0) {
+                                $flatList[] = [
+                                    'no' => $programNo,
+                                    'level' => 'program',
+                                    'name' => $program['name'] ?? '',
+                                    'amount' => $pAmount,
+                                    'tw1' => $program['tw1'] ?? '',
+                                    'tw2' => $program['tw2'] ?? '',
+                                    'tw3' => $program['tw3'] ?? '',
+                                    'tw4' => $program['tw4'] ?? '',
+                                ];
+                                $programTotal += $pAmount;
+                            }
+                            
+                            if (isset($program['kegiatan']) && is_array($program['kegiatan'])) {
+                                foreach ($program['kegiatan'] as $kIdx => $kegiatan) {
+                                    $kegiatanNo = $programNo . '.' . ($kIdx + 1);
+                                    $kAmount = (int)preg_replace('/[^0-9]/', '', (string)($kegiatan['amount'] ?? '0'));
+                                    if (!empty($kegiatan['name']) || $kAmount > 0) {
+                                        $flatList[] = [
+                                            'no' => $kegiatanNo,
+                                            'level' => 'kegiatan',
+                                            'name' => $kegiatan['name'] ?? '',
+                                            'amount' => $kAmount,
+                                            'tw1' => $kegiatan['tw1'] ?? '',
+                                            'tw2' => $kegiatan['tw2'] ?? '',
+                                            'tw3' => $kegiatan['tw3'] ?? '',
+                                            'tw4' => $kegiatan['tw4'] ?? '',
+                                        ];
+                                    }
+                                    
+                                    if (isset($kegiatan['subKegiatan']) && is_array($kegiatan['subKegiatan'])) {
+                                        foreach ($kegiatan['subKegiatan'] as $sIdx => $subKegiatan) {
+                                            $subNo = $kegiatanNo . '.' . ($sIdx + 1);
+                                            $sAmount = (int)preg_replace('/[^0-9]/', '', (string)($subKegiatan['amount'] ?? '0'));
+                                            if (!empty($subKegiatan['name']) || $sAmount > 0) {
+                                                $flatList[] = [
+                                                    'no' => $subNo,
+                                                    'level' => 'subkegiatan',
+                                                    'name' => $subKegiatan['name'] ?? '',
+                                                    'amount' => $sAmount,
+                                                    'tw1' => $subKegiatan['tw1'] ?? '',
+                                                    'tw2' => $subKegiatan['tw2'] ?? '',
+                                                    'tw3' => $subKegiatan['tw3'] ?? '',
+                                                    'tw4' => $subKegiatan['tw4'] ?? '',
+                                                ];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return ['rows' => $flatList, 'total' => $programTotal];
+                    }
+                    
+                    // Fallback ke format flat lama
+                    if (isset($tabelC['program']) && is_array($tabelC['program'])) {
+                        $count = count($tabelC['program']);
+                        for ($i = 0; $i < $count; $i++) {
+                            $name = $tabelC['program'][$i] ?? '';
+                            $amt = (int)preg_replace('/[^0-9]/', '', (string)($tabelC['anggaran'][$i] ?? '0'));
+                            if (!empty($name) || $amt > 0) {
+                                $flatList[] = [
+                                    'no' => $i + 1,
+                                    'level' => 'program',
+                                    'name' => $name,
+                                    'amount' => $amt,
+                                    'tw1' => $tabelC['tw1'][$i] ?? '',
+                                    'tw2' => $tabelC['tw2'][$i] ?? '',
+                                    'tw3' => $tabelC['tw3'][$i] ?? '',
+                                    'tw4' => $tabelC['tw4'][$i] ?? '',
+                                ];
+                                $programTotal += $amt;
+                            }
+                        }
+                        return ['rows' => $flatList, 'total' => $programTotal];
+                    }
+                    
+                    return ['rows' => $flatList, 'total' => $programTotal];
+                }
+                
+                $hierarchicalBudgetResult = flattenHierarchicalBudget($tabelC);
+                $programs = $hierarchicalBudgetResult['rows'];
+                $hierarchicalBudgetTotal = $hierarchicalBudgetResult['total'];
+            @endphp
+            <div class="table-responsive" style="margin-top:18px;">
+                <table class="table table-fixed">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">No</th>
+                            <th>Program</th>
+                            <th>Anggaran</th>
+                            <th>Triwulan I</th>
+                            <th>Triwulan II</th>
+                            <th>Triwulan III</th>
+                            <th>Triwulan IV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($programs as $i => $row)
+                        <tr>
+                            <td style="text-align:center;">{{ $row['no'] ?? ($i + 1) }}</td>
+                            <td style="font-weight: {{ ($row['level'] ?? '') === 'program' ? 'bold' : 'normal' }}; font-style: {{ ($row['level'] ?? '') === 'kegiatan' ? 'italic' : 'normal' }};">{{ $row['name'] }}</td>
+                            <td style="text-align:right;">{{ number_format((int)$row['amount'], 0, ',', '.') }}</td>
+                            <td style="text-align:right; background-color: {{ empty($row['tw1']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw1']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw1']), 0, ',', '.') : '' }}</td>
+                            <td style="text-align:right; background-color: {{ empty($row['tw2']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw2']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw2']), 0, ',', '.') : '' }}</td>
+                            <td style="text-align:right; background-color: {{ empty($row['tw3']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw3']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw3']), 0, ',', '.') : '' }}</td>
+                            <td style="text-align:right; background-color: {{ empty($row['tw4']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw4']) ? number_format((int)preg_replace('/[^0-9]/', '', (string)$row['tw4']), 0, ',', '.') : '' }}</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="7" class="no-data">Tidak ada data</td></tr>
+                        @endforelse
+                    </tbody>
+                    @if(($hierarchicalBudgetTotal ?? 0) > 0)
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" style="text-align:right;font-weight:700;">Total</td>
+                            <td style="text-align:right;font-weight:700;">{{ number_format((int)$hierarchicalBudgetTotal, 0, ',', '.') }}</td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tfoot>
+                    @endif
+                </table>
+            </div>
+             {{-- Tanda tangan, pisah div sendiri --}}
+                <div class="signature-wrapper" style="page-break-before: always; page-break-inside: avoid;">
+                    <div class="signature-block">
+                        Pasuruan, {{ Carbon\Carbon::parse($perjanjian->tanggal ?? now())->translatedFormat('d F Y') }}<br>
+                        {{ strtoupper($perjanjian->pihak1_jabatan ?: ($user->jabatan ?? '-')) }}<br><br>
+
+                        @if(!empty($perjanjian->pihak1_ttd))
+                            <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 1">
+                        @else
+                            <div style="height:60px;"></div>
+                        @endif
+                        <br>
+
+                        <u>{{ $perjanjian->pihak1_name ?: ($user->name ?? '-') }}</u><br>
+                        {{ $perjanjian->pihak1_pangkat ?: ($user->pangkat ?? '-') }}<br>
+                        NIP. {{ $perjanjian->pihak1_nip ?: ($user->nip ?? '-') }}
+                    </div>
+                </div>
+        </div>
+    </div>
+
+    </div>{{-- End preview-card --}}
+    </div>{{-- End preview-center-wrapper --}}
+
+    {{-- Footer for user preview --}}
+    @if(!$isDirektur)
+    <div class="footer-fixed">
+        © {{ date('Y') }} RSUD Bangil – Sistem Perjanjian Kinerja
+    </div>
+    @endif
+
+    {{-- Footer for direktur preview --}}
+    @if($isDirektur)
+    <div class="footer-fixed">
+        © {{ date('Y') }} RSUD Bangil – Sistem Perjanjian Kinerja
+    </div>
+    @endif
+
 </body>
 </html>

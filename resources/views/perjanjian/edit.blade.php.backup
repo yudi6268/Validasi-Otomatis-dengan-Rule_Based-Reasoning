@@ -1,0 +1,1917 @@
+@extends('layouts.app')
+
+@section('title', 'Edit Perjanjian')
+
+@section('back')
+<a href="{{ route('perjanjian.index') }}" style="text-decoration:none; color:#009970; font-size:20px;">
+    <i class="fa-solid fa-arrow-left"></i>
+</a>
+@endsection
+
+@section('header_title', 'Edit Perjanjian')
+
+@section('content')
+
+{{-- Google Font --}}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+    body { font-family: 'Poppins', sans-serif; }
+
+    .paper {
+        background: #fff;
+        width: 100%;
+        max-width: 900px;
+        margin: auto;
+        padding: 40px 50px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        font-size: 13px;
+    }
+
+    .input-box {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #dcdcdc;
+        background: #f8f8f8;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    table {
+       width: 100%;
+    border-collapse: collapse;
+    margin-top: 25px;
+    background: white;
+    table-layout: fixed; /* penting supaya kolom tidak melebar sesuai isi */
+    word-wrap: break-word; /* teks panjang otomatis pindah baris */ 
+    }
+
+    table th, table td {
+          border: 1px solid #000;
+    padding: 8px;
+    font-size: 12px;
+    text-align: center;
+    vertical-align: top; /* teks mulai dari atas sel */
+    }
+
+    table th:first-child,
+table td:first-child {
+    width: 40px; /* sesuaikan dengan kebutuhan */
+}
+
+    table td input {
+        width: 95%;           /* jangan 100%, supaya ada padding */
+    border: none;
+    text-align: left;     /* teks rata kiri */
+    background: transparent;
+    font-size: 12px;
+    box-sizing: border-box;
+    padding: 4px;
+    }
+
+    table td textarea {
+    width: 95%;           /* agar tidak terlalu melebar */
+    min-height: 35px;     /* tinggi minimum */
+    resize: none;         /* agar tidak bisa di-drag */
+    padding: 4px;
+    box-sizing: border-box;
+    text-align: left;     /* teks rata kiri */
+    vertical-align: top;  /* teks mulai dari atas */
+    font-size: 12px;
+    overflow: hidden;
+    font-family: inherit;
+}
+
+    table td input[type="number"] {
+        width: 95%;
+        border: none;
+        text-align: center;
+        background: transparent;
+        font-size: 12px;
+        box-sizing: border-box;
+        padding: 4px;
+    }
+
+    .table-action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px 8px;
+        color: #009970;
+    }
+
+    .table-action-btn:hover {
+        opacity: 0.7;
+    }
+
+    .delete-btn {
+        color: #dc3545;
+    }
+
+    .add-btn {
+        color: #009970;
+    }
+
+    table thead th {
+        background: #efefef;
+    font-weight: 600;
+    word-wrap: break-word;
+    }
+
+    .save-btn {
+        background:#009970; 
+        color:white; 
+        padding:11px 30px;
+        border:none;
+        border-radius:8px;
+        font-size:14px;
+        font-weight:600;
+        cursor:pointer;
+        box-shadow:0 3px 5px rgba(0,0,0,0.15);
+    }
+
+    .flex-row {
+        display:flex;
+        gap:40px;
+        margin-top:20px;
+    }
+
+    .flex-col {
+        flex:1;
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+    }
+
+    /* Styling untuk dropdown Program/Kegiatan/Sub Kegiatan */
+    .dropdown-program {
+        font-weight: 700 !important;
+        color: #000;
+        background: #f0f0f0;
+    }
+
+    .dropdown-kegiatan {
+        font-style: italic !important;
+        color: #333;
+        padding-left: 15px;
+    }
+
+    .dropdown-subkegiatan {
+        font-weight: normal !important;
+        color: #555;
+        padding-left: 30px;
+    }
+
+    .dropdown-custom {
+        border-top: 2px solid #009970;
+        color: #009970;
+        font-weight: 500;
+    }
+</style>
+
+<div class="paper">
+<form action="{{ route('perjanjian.update', $perjanjian->id) }}" method="POST">
+@csrf
+@method('PUT')
+
+    {{-- HEADER --}}
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="{{ asset('images/logo_pemda.png') }}" style="width: 70px;">
+        <h2 style="font-size:16px; font-weight:600; margin-top:10px;">
+            PERJANJIAN KINERJA TAHUN 2025 <br>
+            WAKIL DIREKTUR PELAYANAN <br>
+            UOBK RSUD BANGIL KABUPATEN PASURUAN
+        </h2>
+    </div>
+
+    <p style="text-align:justify;">
+        Dalam rangka mewujudkan manajemen pemerintahan yang efektif, transparan dan akuntabel serta berorientasi pada hasil,
+        kami yang bertanda tangan dibawah ini :
+    </p>
+
+    {{-- PIHAK PERTAMA & PIHAK KEDUA --}}
+    <div class="flex-row">
+        {{-- PIHAK PERTAMA --}}
+        <div class="flex-col">
+            <input type="text" class="input-box" name="pihak1_name"
+                value="{{ auth()->user()->nama ?? '' }}" readonly>
+
+            <input type="text" class="input-box" name="pihak1_jabatan"
+                value="{{ auth()->user()->jabatan ?? '' }}" readonly>
+
+            <p style="text-align:center; font-size:12px; margin-top:3px;">
+                Selanjutnya disebut <b>PIHAK PERTAMA</b>.
+            </p>
+        </div>
+
+        {{-- PIHAK KEDUA --}}
+        <div class="flex-col">
+            <input type="text" class="input-box" name="pihak2_name" id="pihak2_name" 
+                   value="{{ old('pihak2_name', $perjanjian->pihak2_name ?? $direktur->nama ?? '') }}" readonly>
+
+            <input type="text" class="input-box" name="pihak2_jabatan" id="pihak2_jabatan" 
+                   value="{{ old('pihak2_jabatan', $perjanjian->pihak2_jabatan ?? 'Direktur') }}" readonly>
+
+            <input type="hidden" name="pihak2_nip" id="pihak2_nip" 
+                   value="{{ old('pihak2_nip', $perjanjian->pihak2_nip ?? $direktur->nip ?? '') }}">
+
+            <p style="text-align:center; font-size:12px; margin-top:3px;">
+                Selanjutnya disebut <b>PIHAK KEDUA</b>.
+            </p>
+        </div>
+    </div>
+
+    {{-- LOCATION AND DATE --}}
+    <div class="flex-row">
+        <div class="flex-col">
+            <input type="text" class="input-box" name="location" placeholder="Tempat" 
+                value="{{ old('location', $perjanjian->location ?? 'Pasuruan') }}">
+        </div>
+        <div class="flex-col">
+            <input type="date" class="input-box" name="agreement_date"
+                value="{{ old('agreement_date', $perjanjian->agreement_date ? \Carbon\Carbon::parse($perjanjian->agreement_date)->format('Y-m-d') : '') }}">
+        </div>
+    </div>
+
+    {{-- PENJELASAN --}}
+    <p style="text-align:justify; margin-top:18px;"> Pihak pertama berjanji akan mewujudkan target kinerja yang seharusnya sesuai lampiran perjanjian ini, dalam rangka mencapai target kinerja jangka menengah seperti yang telah ditetapkan dalam dokumen perencanaan. </p> 
+    <p style="text-align:justify;"> Pihak kedua akan melakukan evaluasi terhadap capaian kinerja dari perjanjian ini dan mengambil tindakan yang diperlukan dalam rangka pemberian penghargaan dan sanksi. </p> 
+    
+    {{-- =========================
+    JABATAN, TUGAS & FUNGSI (SEBELUM TABEL)
+    ========================= --}}
+    <div style="
+        margin: 25px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        background: #f9fafb;
+    ">
+
+        <div style="margin-bottom: 12px;">
+            <label style="font-weight: 600;">Jabatan</label>
+            <input
+                type="text"
+                name="jabatan_pelaksana"
+                id="jabatan_pelaksana"
+                value="{{ old('jabatan_pelaksana', $perjanjian->jabatan_pelaksana ?? auth()->user()->jabatan ?? '') }}"
+                readonly
+                style="
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                    background: #e9ecef;
+                "
+            >
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <label style="font-weight: 600;">Tugas</label>
+            <textarea
+                name="tugas_pelaksana"
+                id="tugas_pelaksana"
+                rows="3"
+                readonly
+                style="
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                    background: #e9ecef;
+                "
+            >{{ old('tugas_pelaksana', $perjanjian->tugas_pelaksana ?? $jabatanData->tugas ?? '') }}</textarea>
+        </div>
+
+        <div>
+            <label style="font-weight: 600;">Fungsi</label>
+            <div id="fungsi_container" style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                background: #e9ecef;
+                min-height: 60px;
+            ">
+                @php
+                    $fungsiValue = old('fungsi_pelaksana', $perjanjian->fungsi_pelaksana ?? null);
+                    if (!$fungsiValue && $jabatanData && $jabatanData->fungsi) {
+                        $fungsiValue = $jabatanData->fungsi;
+                    }
+                    
+                    // Check if it's JSON string
+                    if (is_string($fungsiValue) && (strpos($fungsiValue, '[') === 0 || strpos($fungsiValue, '{') === 0)) {
+                        $fungsiValue = json_decode($fungsiValue, true);
+                    }
+                @endphp
+                
+                @if($fungsiValue)
+                    @if(is_array($fungsiValue))
+                        <ol style="margin: 0; padding-left: 20px;">
+                            @foreach($fungsiValue as $fungsi)
+                                <li style="margin-bottom: 4px;">{{ $fungsi }}</li>
+                            @endforeach
+                        </ol>
+                    @else
+                        {{ $fungsiValue }}
+                    @endif
+                @endif
+            </div>
+            <input type="hidden" name="fungsi_pelaksana" id="fungsi_pelaksana" 
+                   value="{{ is_array($fungsiValue) ? json_encode($fungsiValue) : $fungsiValue }}">
+        </div>
+    </div>
+
+    {{-- TABEL A --}}
+<table id="tabelA">
+    <thead>
+        <tr>
+            <th>NO</th>
+            <th>SASARAN</th>
+            <th>INDIKATOR KINERJA</th>
+            <th>SATUAN</th>
+            <th>TARGET</th>
+            <th style="width: 60px;">AKSI</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td><textarea name="a_sasaran[]" onkeyup="autoExpand(this)"></textarea></td>
+            <td><textarea name="a_indikator[]" onkeyup="autoExpand(this)"></textarea></td>
+            <td><textarea name="a_satuan[]" onkeyup="autoExpand(this)"></textarea></td>
+            <td><textarea name="a_target[]" onkeyup="autoExpand(this)"></textarea></td>
+            <td>
+                <button type="button" class="table-action-btn delete-btn" onclick="deleteRow(this, 'tabelA')" title="Hapus">🗑</button>
+                <button type="button" class="table-action-btn add-btn" onclick="addRow('tabelA')" title="Tambah">➕</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+{{-- TABEL C --}}
+<table id="tabel2" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th rowspan="2" style="width: 25%;">SASARAN</th>
+            <th rowspan="2" style="width: 20%;">Indikator Kinerja</th>
+            <th rowspan="2" style="width: 12%;">Target</th>
+            <th colspan="4" style="width: 40%;">Target Triwulan</th>
+            <th rowspan="2" style="width: 60px;">AKSI</th>
+        </tr>
+        <tr>
+            <th style="width: 10%;">I</th>
+            <th style="width: 10%;">II</th>
+            <th style="width: 10%;">III</th>
+            <th style="width: 10%;">IV</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td style="width: 25%;"><textarea name="c_sasaran[]"></textarea></td>
+            <td style="width: 20%;"><textarea name="c_indikator[]"></textarea></td>
+            <td style="width: 12%;"><textarea name="c_target[]"></textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw1[]"></textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw2[]"></textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw3[]"></textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw4[]"></textarea></td>
+            <td style="width: 60px;">
+                <button type="button" class="table-action-btn delete-btn" onclick="deleteRow(this, 'tabel2')" title="Hapus">🗑</button>
+                <button type="button" class="table-action-btn add-btn" onclick="addRow('tabel2')" title="Tambah">➕</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+{{-- TABEL D: HIERARCHICAL BUDGET (PROGRAM -> KEGIATAN -> SUB KEGIATAN) --}}
+
+<div style="overflow-x: auto;">
+    <table id="tabel3" style="table-layout: auto; min-width: 1200px; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th rowspan="2" style="width: 40px; border: 1px solid #000; padding: 8px; text-align: center;">NO</th>
+                <th rowspan="2" style="min-width: 250px; border: 1px solid #000; padding: 8px; text-align: center;">PROGRAM / KEGIATAN / SUB KEGIATAN</th>
+                <th rowspan="2" style="width: 140px; border: 1px solid #000; padding: 8px; text-align: center;">ANGGARAN (Rp)</th>
+                <th colspan="4" style="border: 1px solid #000; padding: 8px; text-align: center; background: #f0f8ff;">TARGET PER TRIWULAN</th>
+                <th rowspan="2" style="width: 90px; border: 1px solid #000; padding: 8px; text-align: center;">AKSI</th>
+            </tr>
+            <tr>
+                <th style="width: 100px; border: 1px solid #000; padding: 6px; text-align: center;">I</th>
+                <th style="width: 100px; border: 1px solid #000; padding: 6px; text-align: center;">II</th>
+                <th style="width: 100px; border: 1px solid #000; padding: 6px; text-align: center;">III</th>
+                <th style="width: 100px; border: 1px solid #000; padding: 6px; text-align: center;">IV</th>
+            </tr>
+        </thead>
+        <tbody id="hierarchical-budget-tbody">
+            <!-- Row will be dynamically added via addProgram() -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Total Budget Summary -->
+<div style="margin-top: 15px; padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #009970;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <label style="font-weight: 600; font-size: 14px;">TOTAL ANGGARAN KESELURUHAN:</label>
+        <input type="text" id="totalBudget" readonly style="background: transparent; border: none; font-weight: bold; font-size: 16px; color: #009970; text-align: right; width: 250px; padding: 4px;">
+    </div>
+</div>
+
+<!-- Hidden inputs for form submission (will store hierarchical data) -->
+<input type="hidden" id="hierarchical-budget-json" name="hierarchical_budget_json" value="[]">
+
+    {{-- BUTTON --}}
+    <div style="margin-top:25px; text-align:right; display:flex; gap:10px; justify-content:space-between;">
+        <button type="button" class="save-btn" onclick="addProgram()" style="background:#17a2b8;">
+            ➕ TAMBAH PROGRAM
+        </button>
+        <button class="save-btn" type="submit" style="background:#009970;">
+            💾 SIMPAN
+        </button>
+    </div>
+    </form>
+</div>
+
+<!-- POPUP GAGAL SIMPAN (jika TTD kosong) -->
+<div id="popupTTDKosong" 
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+     background:rgba(0,0,0,0.2); backdrop-filter:blur(3px); 
+     justify-content:center; align-items:center; z-index:9999;">
+    
+    <div style="background:#fff; padding:25px 30px; border-radius:12px;
+        width:330px; box-shadow:0 4px 10px rgba(0,0,0,0.2); text-align:center;">
+        
+        <p style="font-size:15px; font-weight:600; margin-bottom:8px;">
+            Gagal menyimpan data dikarenakan<br>TTD kosong
+        </p>
+
+        <p style="font-size:12px; color:#555;">
+            *atur TTD anda di menu profil*
+        </p>
+
+        <button onclick="closePopupTTD()" 
+            style="margin-top:15px; background:#009970; color:white; padding:8px 25px;
+            border:none; border-radius:8px; font-size:13px; cursor:pointer;">
+            OK
+        </button>
+    </div>
+</div>
+
+{{-- AUTO ADD & VALIDASI TTD --}}
+<script>
+// =========================
+// DATA MASTER PROGRAM/KEGIATAN/SUB KEGIATAN
+// =========================
+const masterProgram = [
+    {
+        name: 'PEMENUHAN UPAYA KESEHATAN PERORANGAN DAN UPAYA KESEHATAN MASYARAKAT',
+        kegiatan: [
+            {
+                name: 'Penyediaan fasilitas pelayanan kesehatan untuk UKM dan UKP kewenangan daerah Kabupaten Kota',
+                subKegiatan: [
+                    'Pengembangan Rumah Sakit',
+                    'Rehabilitasi dan Pemeliharaan Rumah Sakit',
+                    'Pengadaan Alat Kesehatan/Alat Penunjang Medik Fasilitas Pelayanan Kesehatan',
+                    'Pengadaan Obat, Bahan Habis Pakai, Bahan Medis Habis Pakai, Vaksin, Makanan dan Minuman di Fasilitas Kesehatan'
+                ]
+            }
+        ]
+    },
+    {
+        name: 'PENUNJANG URUSAN PEMERINTAH DAERAH',
+        kegiatan: [
+            {
+                name: 'Peningkatan Pelayanan BLUD',
+                subKegiatan: [
+                    'Pelayanan dan Penunjang Pelayanan BLUD'
+                ]
+            }
+        ]
+    }
+];
+
+// =========================
+// AUTO EXPAND TEXTAREA
+// =========================
+function autoExpand(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+}
+
+// Initialize auto-expand for all textareas
+document.querySelectorAll('table textarea').forEach(ta => {
+    ta.addEventListener('input', function() {
+        autoExpand(this);
+    });
+    autoExpand(ta);
+});
+
+// Initialize budget calculation on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing budget calculation...');
+    
+    // Attach listeners to all budget inputs
+    document.querySelectorAll(".budget-input").forEach(inp => {
+        inp.addEventListener('input', calculateTotal);
+    });
+    
+    // Calculate initial total
+    calculateTotal();
+    
+    // Attach event listeners untuk sync Tabel A ke Tabel C
+    const tabelA = document.getElementById('tabelA');
+    if (tabelA) {
+        tabelA.addEventListener('input', function(e) {
+            if (e.target.tagName === 'TEXTAREA') {
+                syncTabelAToC();
+            }
+        });
+        
+        // Trigger sync saat page load
+        syncTabelAToC();
+    }
+});
+
+// =========================
+// SYNC TABEL A KE TABEL C
+// =========================
+function syncTabelAToC() {
+    const tabelA = document.getElementById('tabelA');
+    const tabel2 = document.getElementById('tabel2');
+    
+    if (!tabelA || !tabel2) return;
+    
+    const tbodyA = tabelA.querySelector('tbody');
+    const tbody2 = tabel2.querySelector('tbody');
+    
+    if (!tbodyA || !tbody2) return;
+    
+    // Simpan data Target Triwulan yang sudah ada
+    const existingData = [];
+    const existingRows = tbody2.querySelectorAll('tr');
+    existingRows.forEach(row => {
+        const tw1Input = row.querySelector('textarea[name="c_tw1[]"]');
+        const tw2Input = row.querySelector('textarea[name="c_tw2[]"]');
+        const tw3Input = row.querySelector('textarea[name="c_tw3[]"]');
+        const tw4Input = row.querySelector('textarea[name="c_tw4[]"]');
+        
+        existingData.push({
+            tw1: tw1Input ? tw1Input.value : '',
+            tw2: tw2Input ? tw2Input.value : '',
+            tw3: tw3Input ? tw3Input.value : '',
+            tw4: tw4Input ? tw4Input.value : ''
+        });
+    });
+    
+    // Clear tabel2 tbody
+    tbody2.innerHTML = '';
+    
+    // Copy semua baris dari tabel A ke tabel 2 (tabel C)
+    const rowsA = tbodyA.querySelectorAll('tr');
+    
+    if (rowsA.length === 0) return;
+    
+    rowsA.forEach((rowA, index) => {
+        const sasaranInput = rowA.querySelector('textarea[name="a_sasaran[]"]');
+        const indikatorInput = rowA.querySelector('textarea[name="a_indikator[]"]');
+        const targetInput = rowA.querySelector('textarea[name="a_target[]"]');
+        
+        const sasaran = sasaranInput ? sasaranInput.value : '';
+        const indikator = indikatorInput ? indikatorInput.value : '';
+        const target = targetInput ? targetInput.value : '';
+        
+        // Ambil data Target Triwulan yang sudah ada (jika ada)
+        const tw1 = existingData[index]?.tw1 || '';
+        const tw2 = existingData[index]?.tw2 || '';
+        const tw3 = existingData[index]?.tw3 || '';
+        const tw4 = existingData[index]?.tw4 || '';
+        
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${sasaran}</textarea></td>
+            <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${indikator}</textarea></td>
+            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${target}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="autoExpand(this)">${tw1}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="autoExpand(this)">${tw2}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="autoExpand(this)">${tw3}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw4[]" onkeyup="autoExpand(this)">${tw4}</textarea></td>
+            <td style="width: 60px;">
+                <button type="button" class="table-action-btn delete-btn" onclick="deleteRow(this, 'tabel2')" title="Hapus" style="visibility: hidden;">🗑</button>
+                <button type="button" class="table-action-btn add-btn" onclick="addRow('tabel2')" title="Tambah" style="visibility: hidden;">➕</button>
+            </td>
+        `;
+        tbody2.appendChild(newRow);
+        
+        // Auto expand all textareas
+        newRow.querySelectorAll('textarea').forEach(ta => {
+            if (ta) autoExpand(ta);
+        });
+    });
+}
+
+// =========================
+// SYNC TABEL A KE TABEL 3 (HIERARCHICAL BUDGET)
+// =========================
+function syncTabelAToTabel3() {
+    const tabelA = document.getElementById('tabelA');
+    if (!tabelA) return;
+    
+    const tbodyA = tabelA.querySelector('tbody');
+    const rowsA = tbodyA.querySelectorAll('tr');
+    
+    // Ambil struktur yang ada
+    let structure = getHierarchicalBudgetStructure();
+    
+    // Jika belum ada program, buat program default
+    if (structure.programs.length === 0) {
+        structure.programs.push({
+            name: 'PEMENUHAN UPAYA KESEHATAN PERORANGAN DAN UPAYA KESEHATAN MASYARAKAT',
+            amount: '0',
+            kegiatan: [{
+                name: 'Penyediaan fasilitas pelayanan kesehatan untuk UKM dan UKP kewenangan daerah Kabupaten Kota',
+                amount: '0',
+                subKegiatan: []
+            }]
+        });
+    }
+    
+    // Pastikan ada kegiatan
+    if (structure.programs[0].kegiatan.length === 0) {
+        structure.programs[0].kegiatan.push({
+            name: 'Penyediaan fasilitas pelayanan kesehatan untuk UKM dan UKP kewenangan daerah Kabupaten Kota',
+            amount: '0',
+            subKegiatan: []
+        });
+    }
+    
+    // Clear sub kegiatan yang ada
+    structure.programs[0].kegiatan[0].subKegiatan = [];
+    
+    // Tambahkan sub kegiatan dari Tabel A
+    rowsA.forEach((rowA, index) => {
+        const sasaran = rowA.querySelector('textarea[name="a_sasaran[]"]')?.value || '';
+        const indikator = rowA.querySelector('textarea[name="a_indikator[]"]')?.value || '';
+        const target = rowA.querySelector('textarea[name="a_target[]"]')?.value || '';
+        
+        // Buat nama sub kegiatan dari sasaran dan indikator
+        let subKegiatanName = '';
+        if (sasaran && indikator) {
+            subKegiatanName = `${sasaran} - ${indikator}`;
+        } else if (sasaran) {
+            subKegiatanName = sasaran;
+        } else if (indikator) {
+            subKegiatanName = indikator;
+        } else {
+            subKegiatanName = `Sub Kegiatan ${index + 1}`;
+        }
+        
+        structure.programs[0].kegiatan[0].subKegiatan.push({
+            name: subKegiatanName,
+            amount: target || '0',
+            tw1: '0',
+            tw2: '0',
+            tw3: '0',
+            tw4: '0'
+        });
+    });
+    
+    // Render ulang tabel
+    renderHierarchicalBudgetTable(structure);
+    updateHierarchicalTotals();
+}
+
+// =========================
+// TAMBAH BARIS OTOMATIS
+// =========================
+function addRow(tableId) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector("tbody");
+    const lastRow = tbody.rows[tbody.rows.length - 1];
+    
+    // Simpan nilai dropdown sebelum clone (untuk tabel3/anggaran)
+    let savedDropdownValue = null;
+    if (tableId === 'tabel3') {
+        const lastDropdown = lastRow.querySelector('select');
+        if (lastDropdown) {
+            savedDropdownValue = lastDropdown.value;
+        }
+    }
+    
+    const newRow = lastRow.cloneNode(true);
+    
+    // Reset values untuk input dan textarea, tapi pertahankan dropdown
+    newRow.querySelectorAll("input, textarea").forEach(el => {
+        el.value = "";
+    });
+    
+    // Kembalikan nilai dropdown ke pilihan yang sama - dengan force set selected
+    if (tableId === 'tabel3' && savedDropdownValue) {
+        const newDropdown = newRow.querySelector('select');
+        if (newDropdown) {
+            // Set value
+            newDropdown.value = savedDropdownValue;
+            
+            // Force set selected attribute pada option yang benar
+            Array.from(newDropdown.options).forEach(option => {
+                if (option.value === savedDropdownValue) {
+                    option.selected = true;
+                } else {
+                    option.selected = false;
+                }
+            });
+            
+            // Trigger change event jika ada listener
+            const changeEvent = new Event('change', { bubbles: true });
+            newDropdown.dispatchEvent(changeEvent);
+        }
+    }
+
+    // Update NO otomatis (jika ada di cell pertama)
+    if (tableId === 'tabel3' && !isNaN(parseInt(newRow.cells[0].innerText))) {
+        newRow.cells[0].innerText = tbody.rows.length + 1;
+    } else if (tableId !== 'tabel2' && !isNaN(parseInt(newRow.cells[0].innerText))) {
+        newRow.cells[0].innerText = tbody.rows.length + 1;
+    }
+
+    tbody.appendChild(newRow);
+
+    // Attach event listeners untuk textarea baru
+    newRow.querySelectorAll("textarea").forEach(ta => {
+        ta.addEventListener('input', function() {
+            autoExpand(this);
+        });
+        autoExpand(ta);
+    });
+
+    // Attach event listeners untuk input number (anggaran) - REALTIME
+    newRow.querySelectorAll(".budget-input").forEach(inp => {
+        inp.addEventListener('input', calculateTotalBudget);
+        inp.addEventListener('change', calculateTotalBudget);
+    });
+    
+    // Recalculate total for budget table
+    if (tableId === 'tabel3') {
+        calculateTotalBudget();
+    }
+    
+    // Sync tabel A ke C jika menambah baris di tabelA
+    if (tableId === 'tabelA') {
+        syncTabelAToC();
+    }
+}
+
+// =========================
+// HAPUS BARIS
+// =========================
+function deleteRow(button, tableId) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector("tbody");
+    
+    // Jangan hapus jika hanya ada 1 baris
+    if (tbody.rows.length <= 1) {
+        alert("Harus ada minimal 1 baris!");
+        return;
+    }
+    
+    const row = button.closest("tr");
+    row.remove();
+    
+    // Update nomor otomatis
+    updateRowNumbers(tableId);
+    
+    // Sync tabel A ke C jika menghapus baris di tabelA
+    if (tableId === 'tabelA') {
+        syncTabelAToC();
+    }
+}
+
+// =========================
+// UPDATE NOMOR BARIS OTOMATIS
+// =========================
+function updateRowNumbers(tableId) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector("tbody");
+    
+    tbody.querySelectorAll("tr").forEach((row, index) => {
+        if (tableId !== 'tabel2') {
+            row.cells[0].innerText = index + 1;
+        }
+    });
+}
+
+// =========================
+// BIG-NUMBER SAFE ADDITION
+// =========================
+function addBigNumbers(numArray) {
+    // Use BigInt for safe large number addition
+    try {
+        let sum = 0n;
+        numArray.forEach(n => {
+            const parsed = BigInt(Math.floor(Number(n) || 0));
+            sum += parsed;
+        });
+        return sum.toString();
+    } catch (e) {
+        console.error('BigInt addition failed:', e);
+        // Fallback: simple sum
+        return numArray.reduce((acc, n) => acc + (Number(n) || 0), 0).toString();
+    }
+}
+
+// =========================
+// GENERATE HIERARCHICAL STRUCTURE
+// =========================
+function getHierarchicalBudgetStructure() {
+    const tbody = document.getElementById('hierarchical-budget-tbody');
+    const rows = tbody.querySelectorAll('tr');
+    
+    const structure = {
+        programs: []
+    };
+    
+    let currentProgram = null;
+    let currentKegiatan = null;
+    
+    rows.forEach(row => {
+        const level = row.dataset.level || 'program';
+        // Cari select (dropdown) atau textarea untuk nama
+        const nameInput = row.querySelector('select[name*="_name"]') || row.querySelector('textarea[name*="_name"]');
+        const amountInput = row.querySelector('input[name*="_amount"]');
+        
+        if (level === 'program') {
+            currentProgram = {
+                name: nameInput?.value || '',
+                amount: (amountInput?.value || '0').replace(/\D/g, ''),
+                kegiatan: []
+            };
+            structure.programs.push(currentProgram);
+        } else if (level === 'kegiatan' && currentProgram) {
+            currentKegiatan = {
+                name: nameInput?.value || '',
+                amount: (amountInput?.value || '0').replace(/\D/g, ''),
+                subKegiatan: []
+            };
+            currentProgram.kegiatan.push(currentKegiatan);
+        } else if (level === 'subkegiatan' && currentKegiatan) {
+            const tw1Input = row.querySelector('input[name*="_tw1"]');
+            const tw2Input = row.querySelector('input[name*="_tw2"]');
+            const tw3Input = row.querySelector('input[name*="_tw3"]');
+            const tw4Input = row.querySelector('input[name*="_tw4"]');
+            
+            currentKegiatan.subKegiatan.push({
+                name: nameInput?.value || '',
+                amount: (amountInput?.value || '0').replace(/\D/g, ''),
+                tw1: (tw1Input?.value || '0').replace(/\D/g, ''),
+                tw2: (tw2Input?.value || '0').replace(/\D/g, ''),
+                tw3: (tw3Input?.value || '0').replace(/\D/g, ''),
+                tw4: (tw4Input?.value || '0').replace(/\D/g, '')
+            });
+        }
+    });
+    
+    return structure;
+}
+
+// =========================
+// RENDER HIERARCHICAL BUDGET TABLE
+// =========================
+function renderHierarchicalBudgetTable(structure) {
+    const tbody = document.getElementById('hierarchical-budget-tbody');
+    tbody.innerHTML = '';
+    
+    let rowNum = 1;
+    
+    structure.programs.forEach((program, pIdx) => {
+        const programNo = rowNum.toString();
+        
+        // PROGRAM ROW
+        const programRow = createBudgetRow({
+            no: programNo,
+            name: program.name,
+            amount: program.amount,
+            tw1: program.tw1 || '',
+            tw2: program.tw2 || '',
+            tw3: program.tw3 || '',
+            tw4: program.tw4 || '',
+            level: 'program',
+            isParent: program.kegiatan.length > 0 || true,
+            inputNames: { 
+                name: `hb_program_${pIdx}_name`, 
+                amount: `hb_program_${pIdx}_amount`
+            },
+            indexes: { pIdx },
+            onDelete: () => deleteProgram(pIdx),
+            onAddKegiatan: () => addKegiatan(pIdx),
+            onAmountChange: () => updateHierarchicalTotals()
+        });
+        tbody.appendChild(programRow);
+        rowNum++;
+        
+        // KEGIATAN ROWS
+        program.kegiatan.forEach((kegiatan, kIdx) => {
+            const kegiatanNo = (programNo + '.' + (kIdx + 1)).toString();
+            
+            const kegiatanRow = createBudgetRow({
+                no: kegiatanNo,
+                name: kegiatan.name,
+                amount: kegiatan.amount,
+                tw1: kegiatan.tw1 || '',
+                tw2: kegiatan.tw2 || '',
+                tw3: kegiatan.tw3 || '',
+                tw4: kegiatan.tw4 || '',
+                level: 'kegiatan',
+                isParent: kegiatan.subKegiatan.length > 0 || true,
+                inputNames: { 
+                    name: `hb_kegiatan_${pIdx}_${kIdx}_name`, 
+                    amount: `hb_kegiatan_${pIdx}_${kIdx}_amount`
+                },
+                indexes: { pIdx, kIdx },
+                onDelete: () => deleteKegiatan(pIdx, kIdx),
+                onAddSubKegiatan: () => addSubKegiatan(pIdx, kIdx),
+                onAmountChange: () => updateHierarchicalTotals()
+            });
+            tbody.appendChild(kegiatanRow);
+            
+            // SUB-KEGIATAN ROWS
+            kegiatan.subKegiatan.forEach((subKegiatan, sIdx) => {
+                const subKegiatanNo = (kegiatanNo + '.' + (sIdx + 1)).toString();
+                
+                const subKegiatanRow = createBudgetRow({
+                    no: subKegiatanNo,
+                    name: subKegiatan.name,
+                    amount: subKegiatan.amount,
+                    tw1: subKegiatan.tw1 || '0',
+                    tw2: subKegiatan.tw2 || '0',
+                    tw3: subKegiatan.tw3 || '0',
+                    tw4: subKegiatan.tw4 || '0',
+                    level: 'subkegiatan',
+                    isParent: false,
+                    inputNames: { 
+                        name: `hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_name`, 
+                        amount: `hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_amount`,
+                        tw1: `hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw1`,
+                        tw2: `hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw2`,
+                        tw3: `hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw3`,
+                        tw4: `hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw4`
+                    },
+                    indexes: { pIdx, kIdx, sIdx },
+                    onDelete: () => deleteSubKegiatan(pIdx, kIdx, sIdx),
+                    onAmountChange: () => updateHierarchicalTotals()
+                });
+                tbody.appendChild(subKegiatanRow);
+            });
+        });
+    });
+}
+
+// =========================
+// CREATE BUDGET ROW HTML
+// =========================
+function createBudgetRow(config) {
+    const tr = document.createElement('tr');
+    tr.dataset.level = config.level;
+    
+    const noPadding = config.level === 'program' ? '0px' : (config.level === 'kegiatan' ? '20px' : '40px');
+    const fontWeight = config.level === 'program' ? '600' : (config.level === 'kegiatan' ? '500' : '400');
+    const bgColor = config.level === 'program' ? '#f8f8f8' : (config.level === 'kegiatan' ? '#fafafa' : '#fff');
+    
+    // NO CELL
+    const noCell = document.createElement('td');
+    noCell.style.cssText = `border: 1px solid #000; padding: 8px; text-align: center; font-weight: ${fontWeight}; background: ${bgColor};`;
+    noCell.textContent = config.no;
+    tr.appendChild(noCell);
+    
+    // NAME CELL - Menggunakan dropdown untuk Program/Kegiatan/Sub-Kegiatan
+    const nameCell = document.createElement('td');
+    nameCell.style.cssText = `border: 1px solid #000; padding: 8px; text-align: left; font-weight: ${fontWeight}; padding-left: calc(8px + ${noPadding}); background: ${bgColor};`;
+    
+    // Gunakan dropdown (select) untuk Program, Kegiatan, Sub-Kegiatan
+    const nameSelect = document.createElement('select');
+    nameSelect.name = config.inputNames.name;
+    nameSelect.style.cssText = 'width: 95%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 12px; background: white;';
+    
+    // Tambahkan opsi default
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Pilih ' + (config.level === 'program' ? 'Program' : (config.level === 'kegiatan' ? 'Kegiatan' : 'Sub-Kegiatan'));
+    defaultOption.disabled = true;
+    // Set selected jika config.name kosong
+    if (!config.name) defaultOption.selected = true;
+    nameSelect.appendChild(defaultOption);
+    
+    // Flag untuk cek apakah ada option yang match
+    let hasSelectedOption = false;
+    
+    // Tambahkan opsi dari data master
+    if (config.level === 'program') {
+        masterProgram.forEach(program => {
+            const option = document.createElement('option');
+            option.value = program.name;
+            option.textContent = program.name;
+            option.className = 'dropdown-program';
+            option.style.fontWeight = '700';
+            if (config.name === program.name) {
+                option.selected = true;
+                hasSelectedOption = true;
+            }
+            nameSelect.appendChild(option);
+        });
+    } else if (config.level === 'kegiatan' && config.indexes) {
+        const programData = masterProgram[config.indexes.pIdx] || masterProgram[0];
+        if (programData && programData.kegiatan) {
+            programData.kegiatan.forEach(kegiatan => {
+                const option = document.createElement('option');
+                option.value = kegiatan.name;
+                option.textContent = kegiatan.name;
+                option.className = 'dropdown-kegiatan';
+                option.style.fontStyle = 'italic';
+                if (config.name === kegiatan.name) {
+                    option.selected = true;
+                    hasSelectedOption = true;
+                }
+                nameSelect.appendChild(option);
+            });
+        }
+    } else if (config.level === 'subkegiatan' && config.indexes) {
+        const programData = masterProgram[config.indexes.pIdx] || masterProgram[0];
+        const kegiatanData = programData?.kegiatan[config.indexes.kIdx];
+        if (kegiatanData && kegiatanData.subKegiatan) {
+            kegiatanData.subKegiatan.forEach(subKegiatan => {
+                const option = document.createElement('option');
+                option.value = subKegiatan;
+                option.textContent = subKegiatan;
+                option.className = 'dropdown-subkegiatan';
+                option.style.fontWeight = 'normal';
+                if (config.name === subKegiatan) {
+                    option.selected = true;
+                    hasSelectedOption = true;
+                }
+                nameSelect.appendChild(option);
+            });
+        }
+    }
+    
+    // Tambahkan opsi untuk input manual
+    const customOption = document.createElement('option');
+    customOption.value = '__custom__';
+    customOption.textContent = '✏️ Input Manual...';
+    customOption.className = 'dropdown-custom';
+    customOption.style.borderTop = '2px solid #009970';
+    customOption.style.color = '#009970';
+    customOption.style.fontWeight = '500';
+    nameSelect.appendChild(customOption);
+    
+    // Jika value saat ini tidak ada di dropdown, set sebagai selected dan tambahkan option
+    if (config.name && !hasSelectedOption) {
+        const existingOption = document.createElement('option');
+        existingOption.value = config.name;
+        existingOption.textContent = config.name;
+        existingOption.selected = true;
+        hasSelectedOption = true;
+        nameSelect.insertBefore(existingOption, customOption);
+    }
+    
+    // Pastikan ada yang selected, jika tidak ada set ke default
+    if (!hasSelectedOption && config.name) {
+        defaultOption.selected = true;
+    }
+    
+    nameSelect.addEventListener('change', function() {
+        if (this.value === '__custom__') {
+            // Switch ke textarea untuk input manual
+            const textarea = document.createElement('textarea');
+            textarea.name = this.name;
+            textarea.value = '';
+            textarea.placeholder = 'Masukkan nama ' + (config.level === 'program' ? 'program' : (config.level === 'kegiatan' ? 'kegiatan' : 'sub-kegiatan')) + '...';
+            textarea.style.cssText = 'width: 95%; min-height: 35px; resize: none; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 12px;';
+            textarea.addEventListener('input', function() { autoExpand(this); config.onAmountChange(); });
+            nameCell.replaceChild(textarea, this);
+            textarea.focus();
+            autoExpand(textarea);
+        } else {
+            config.onAmountChange();
+        }
+    });
+    
+    nameCell.appendChild(nameSelect);
+    tr.appendChild(nameCell);
+    
+    // AMOUNT CELL
+    const amountCell = document.createElement('td');
+    amountCell.style.cssText = `border: 1px solid #000; padding: 8px; text-align: right; font-weight: ${fontWeight}; background: ${bgColor};`;
+    const amountInput = document.createElement('input');
+    amountInput.type = 'text';
+    amountInput.name = config.inputNames.amount;
+    amountInput.value = config.amount;
+    amountInput.placeholder = '0';
+    amountInput.className = 'hierarchy-amount-input';
+    amountInput.style.cssText = 'width: 95%; border: none; background: transparent; text-align: right; font-family: inherit; font-size: 12px; font-weight: ' + fontWeight;
+    amountInput.addEventListener('input', function() {
+        this.value = formatNumberInput(this.value);
+        config.onAmountChange();
+    });
+    amountCell.appendChild(amountInput);
+    tr.appendChild(amountCell);
+    
+    // TARGET TRIWULAN CELLS (only for Sub Kegiatan)
+    if (config.level === 'subkegiatan') {
+        // TW1
+        const tw1Cell = document.createElement('td');
+        tw1Cell.style.cssText = 'border: 1px solid #000; padding: 6px; text-align: center; background: #fff;';
+        const tw1Input = document.createElement('input');
+        tw1Input.type = 'text';
+        tw1Input.name = config.inputNames.tw1;
+        tw1Input.value = formatNumberInput(config.tw1 || '0');
+        tw1Input.placeholder = '0';
+        tw1Input.style.cssText = 'width: 90%; border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 11px; border-radius: 3px;';
+        tw1Input.addEventListener('input', function() {
+            this.value = formatNumberInput(this.value);
+            validateTriwulanSum(config.indexes.pIdx, config.indexes.kIdx, config.indexes.sIdx);
+        });
+        tw1Cell.appendChild(tw1Input);
+        tr.appendChild(tw1Cell);
+        
+        // TW2
+        const tw2Cell = document.createElement('td');
+        tw2Cell.style.cssText = 'border: 1px solid #000; padding: 6px; text-align: center; background: #fff;';
+        const tw2Input = document.createElement('input');
+        tw2Input.type = 'text';
+        tw2Input.name = config.inputNames.tw2;
+        tw2Input.value = formatNumberInput(config.tw2 || '0');
+        tw2Input.placeholder = '0';
+        tw2Input.style.cssText = 'width: 90%; border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 11px; border-radius: 3px;';
+        tw2Input.addEventListener('input', function() {
+            this.value = formatNumberInput(this.value);
+            validateTriwulanSum(config.indexes.pIdx, config.indexes.kIdx, config.indexes.sIdx);
+        });
+        tw2Cell.appendChild(tw2Input);
+        tr.appendChild(tw2Cell);
+        
+        // TW3
+        const tw3Cell = document.createElement('td');
+        tw3Cell.style.cssText = 'border: 1px solid #000; padding: 6px; text-align: center; background: #fff;';
+        const tw3Input = document.createElement('input');
+        tw3Input.type = 'text';
+        tw3Input.name = config.inputNames.tw3;
+        tw3Input.value = formatNumberInput(config.tw3 || '0');
+        tw3Input.placeholder = '0';
+        tw3Input.style.cssText = 'width: 90%; border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 11px; border-radius: 3px;';
+        tw3Input.addEventListener('input', function() {
+            this.value = formatNumberInput(this.value);
+            validateTriwulanSum(config.indexes.pIdx, config.indexes.kIdx, config.indexes.sIdx);
+        });
+        tw3Cell.appendChild(tw3Input);
+        tr.appendChild(tw3Cell);
+        
+        // TW4
+        const tw4Cell = document.createElement('td');
+        tw4Cell.style.cssText = 'border: 1px solid #000; padding: 6px; text-align: center; background: #fff;';
+        const tw4Input = document.createElement('input');
+        tw4Input.type = 'text';
+        tw4Input.name = config.inputNames.tw4;
+        tw4Input.value = formatNumberInput(config.tw4 || '0');
+        tw4Input.placeholder = '0';
+        tw4Input.style.cssText = 'width: 90%; border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 11px; border-radius: 3px;';
+        tw4Input.addEventListener('input', function() {
+            this.value = formatNumberInput(this.value);
+            validateTriwulanSum(config.indexes.pIdx, config.indexes.kIdx, config.indexes.sIdx);
+        });
+        tw4Cell.appendChild(tw4Input);
+        tr.appendChild(tw4Cell);
+    } else {
+        // For Program and Kegiatan: empty cell with colspan
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = 4;
+        emptyCell.style.cssText = `border: 1px solid #000; background: #f5f5f5; text-align: center; color: #999; font-size: 11px; padding: 4px;`;
+        emptyCell.textContent = '-';
+        tr.appendChild(emptyCell);
+    }
+    
+    // ACTION CELL
+    const actionCell = document.createElement('td');
+    actionCell.style.cssText = `border: 1px solid #000; padding: 8px; text-align: center; background: ${bgColor};`;
+    
+    // Delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'table-action-btn delete-btn';
+    deleteBtn.innerHTML = '🗑';
+    deleteBtn.title = 'Hapus';
+    deleteBtn.addEventListener('click', config.onDelete);
+    actionCell.appendChild(deleteBtn);
+    
+    // Add sub-item button
+    if (config.level === 'program' && config.onAddKegiatan) {
+        const addKegiatanBtn = document.createElement('button');
+        addKegiatanBtn.type = 'button';
+        addKegiatanBtn.className = 'table-action-btn add-btn';
+        addKegiatanBtn.innerHTML = '➕ Kegiatan';
+        addKegiatanBtn.title = 'Tambah Kegiatan';
+        addKegiatanBtn.style.cssText = 'font-size: 11px; padding: 2px 4px; margin-left: 5px;';
+        addKegiatanBtn.addEventListener('click', config.onAddKegiatan);
+        actionCell.appendChild(addKegiatanBtn);
+    } else if (config.level === 'kegiatan' && config.onAddSubKegiatan) {
+        const addSubBtn = document.createElement('button');
+        addSubBtn.type = 'button';
+        addSubBtn.className = 'table-action-btn add-btn';
+        addSubBtn.innerHTML = '➕ Sub';
+        addSubBtn.title = 'Tambah Sub-Kegiatan';
+        addSubBtn.style.cssText = 'font-size: 11px; padding: 2px 4px; margin-left: 5px;';
+        addSubBtn.addEventListener('click', config.onAddSubKegiatan);
+        actionCell.appendChild(addSubBtn);
+    } else if (config.level === 'subkegiatan') {
+        // Tombol Isi Otomatis untuk Sub Kegiatan
+        const autoFillBtn = document.createElement('button');
+        autoFillBtn.type = 'button';
+        autoFillBtn.className = 'table-action-btn';
+        autoFillBtn.innerHTML = '⚡';
+        autoFillBtn.title = 'Isi Otomatis Target Triwulan';
+        autoFillBtn.style.cssText = 'font-size: 14px; padding: 4px 8px; margin-left: 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;';
+        autoFillBtn.addEventListener('click', () => {
+            openAutoFillDialog(config.indexes.pIdx, config.indexes.kIdx, config.indexes.sIdx);
+        });
+        actionCell.appendChild(autoFillBtn);
+    }
+    
+    tr.appendChild(actionCell);
+    
+    return tr;
+}
+
+// Validate that TW1+TW2+TW3+TW4 <= Anggaran
+function validateTriwulanSum(pIdx, kIdx, sIdx) {
+    const amountInput = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_amount"]`);
+    const tw1Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw1"]`);
+    const tw2Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw2"]`);
+    const tw3Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw3"]`);
+    const tw4Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw4"]`);
+    
+    if (!amountInput || !tw1Input || !tw2Input || !tw3Input || !tw4Input) return;
+    
+    const anggaran = parseAmount(amountInput.value);
+    const tw1 = parseAmount(tw1Input.value);
+    const tw2 = parseAmount(tw2Input.value);
+    const tw3 = parseAmount(tw3Input.value);
+    const tw4 = parseAmount(tw4Input.value);
+    const sumTW = tw1 + tw2 + tw3 + tw4;
+    
+    // Visual feedback if sum exceeds anggaran
+    const isExceeded = sumTW > anggaran;
+    const borderStyle = isExceeded ? '2px solid #ff0000' : '1px solid #ddd';
+    const bgStyle = isExceeded ? '#ffe0e0' : '';
+    
+    tw1Input.style.border = borderStyle;
+    tw2Input.style.border = borderStyle;
+    tw3Input.style.border = borderStyle;
+    tw4Input.style.border = borderStyle;
+    
+    if (isExceeded) {
+        tw1Input.style.background = bgStyle;
+        tw2Input.style.background = bgStyle;
+        tw3Input.style.background = bgStyle;
+        tw4Input.style.background = bgStyle;
+    } else {
+        tw1Input.style.background = '';
+        tw2Input.style.background = '';
+        tw3Input.style.background = '';
+        tw4Input.style.background = '';
+    }
+}
+
+// =========================
+// FORMAT NUMBER INPUT (add separators while typing)
+// =========================
+function formatNumberInput(str) {
+    // Remove non-digits except the last character if it's a decimal point
+    const cleaned = str.replace(/\D/g, '');
+    if (!cleaned) return '';
+    return cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// =========================
+// PARSE AMOUNT STRING TO NUMBER (remove separators)
+// =========================
+function parseAmount(str) {
+    return parseInt(str.replace(/\D/g, '') || 0);
+}
+
+// =========================
+// HIERARCHICAL BUDGET ACTIONS
+// =========================
+function addProgram() {
+    const structure = getHierarchicalBudgetStructure();
+    structure.programs.push({
+        name: '',
+        amount: '0',
+        keterangan: '',
+        kegiatan: []
+    });
+    renderHierarchicalBudgetTable(structure);
+    updateHierarchicalTotals();
+}
+
+function addKegiatan(pIdx) {
+    const structure = getHierarchicalBudgetStructure();
+    if (structure.programs[pIdx]) {
+        structure.programs[pIdx].kegiatan.push({
+            name: '',
+            amount: '0',
+            keterangan: '',
+            subKegiatan: []
+        });
+        renderHierarchicalBudgetTable(structure);
+        updateHierarchicalTotals();
+    }
+}
+
+function addSubKegiatan(pIdx, kIdx) {
+    const structure = getHierarchicalBudgetStructure();
+    if (structure.programs[pIdx] && structure.programs[pIdx].kegiatan[kIdx]) {
+        structure.programs[pIdx].kegiatan[kIdx].subKegiatan.push({
+            name: '',
+            amount: '0',
+            tw1: '0',
+            tw2: '0',
+            tw3: '0',
+            tw4: '0'
+        });
+        renderHierarchicalBudgetTable(structure);
+        updateHierarchicalTotals();
+    }
+}
+
+function deleteProgram(pIdx) {
+    if (confirm('Hapus program ini?')) {
+        const structure = getHierarchicalBudgetStructure();
+        structure.programs.splice(pIdx, 1);
+        renderHierarchicalBudgetTable(structure);
+        updateHierarchicalTotals();
+    }
+}
+
+function deleteKegiatan(pIdx, kIdx) {
+    if (confirm('Hapus kegiatan ini?')) {
+        const structure = getHierarchicalBudgetStructure();
+        if (structure.programs[pIdx]) {
+            structure.programs[pIdx].kegiatan.splice(kIdx, 1);
+            renderHierarchicalBudgetTable(structure);
+            updateHierarchicalTotals();
+        }
+    }
+}
+
+function deleteSubKegiatan(pIdx, kIdx, sIdx) {
+    if (confirm('Hapus sub-kegiatan ini?')) {
+        const structure = getHierarchicalBudgetStructure();
+        if (structure.programs[pIdx] && structure.programs[pIdx].kegiatan[kIdx]) {
+            structure.programs[pIdx].kegiatan[kIdx].subKegiatan.splice(sIdx, 1);
+            renderHierarchicalBudgetTable(structure);
+            updateHierarchicalTotals();
+        }
+    }
+}
+
+// =========================
+// UPDATE HIERARCHICAL TOTALS
+// =========================
+function updateHierarchicalTotals() {
+    const tbody = document.getElementById('hierarchical-budget-tbody');
+    if (!tbody) return;
+
+    // Read current structure (amounts are digits-only strings)
+    const structure = getHierarchicalBudgetStructure();
+
+    // Helper to safely convert numeric string to BigInt
+    const toBigInt = (s) => {
+        try {
+            // ensure digits only
+            const digits = String(s || '0').replace(/\D/g, '') || '0';
+            return BigInt(digits);
+        } catch (e) {
+            // fallback to Number
+            return BigInt(Math.floor(Number(String(s).replace(/\D/g, '') || 0)));
+        }
+    };
+
+    let grandTotal = 0n;
+
+    structure.programs.forEach((program, pIdx) => {
+        let programTotal = 0n;
+
+        // If there are kegiatan, sum their sub-kegiatan or their own amount
+        if (Array.isArray(program.kegiatan) && program.kegiatan.length > 0) {
+            program.kegiatan.forEach((kegiatan, kIdx) => {
+                let kegiatanTotal = 0n;
+
+                if (Array.isArray(kegiatan.subKegiatan) && kegiatan.subKegiatan.length > 0) {
+                    kegiatan.subKegiatan.forEach(sk => {
+                        kegiatanTotal += toBigInt(sk.amount || '0');
+                    });
+                } else {
+                    // no sub-kegiatan: use kegiatan.amount (entered manually)
+                    kegiatanTotal += toBigInt(kegiatan.amount || '0');
+                }
+
+                // Update kegiatan input display
+                const kInput = document.querySelector(`input[name="hb_kegiatan_${pIdx}_${kIdx}_amount"]`);
+                if (kInput) {
+                    const formatted = formatNumberInput(kegiatanTotal.toString()) || '0';
+                    kInput.value = formatted;
+                }
+
+                programTotal += kegiatanTotal;
+            });
+        } else {
+            // no kegiatan: use program.amount (entered manually)
+            programTotal += toBigInt(program.amount || '0');
+        }
+
+        // Update program input display
+        const pInput = document.querySelector(`input[name="hb_program_${pIdx}_amount"]`);
+        if (pInput) {
+            const formatted = formatNumberInput(programTotal.toString()) || '0';
+            pInput.value = formatted;
+        }
+
+        grandTotal += programTotal;
+    });
+
+    // Update grand total display
+    const grandTotalInput = document.getElementById('totalBudget');
+    if (grandTotalInput) {
+        const formatted = formatNumberInput(grandTotal.toString()) || '0';
+        grandTotalInput.value = formatted;
+    }
+}
+
+// =========================
+// INITIALIZE HIERARCHICAL BUDGET
+// =========================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing hierarchical budget...');
+    
+    // Initialize with one empty program
+    const initialStructure = {
+        programs: [{
+            name: '',
+            amount: '0',
+            keterangan: '',
+            kegiatan: []
+        }]
+    };
+    
+    renderHierarchicalBudgetTable(initialStructure);
+    updateHierarchicalTotals();
+});
+
+// =========================
+// SAVE TO SUPABASE
+// =========================
+function saveToSupabase(e) {
+    e.preventDefault();
+    
+    const form = document.querySelector("form");
+    const formData = new FormData(form);
+    
+    // Serialize hierarchical budget structure and add to form
+    const hierarchicalStructure = getHierarchicalBudgetStructure();
+    // Debug: log payload structure (amounts are digits-only strings)
+    console.log('Hierarchical payload:', JSON.stringify(hierarchicalStructure, null, 2));
+    formData.append('hierarchical_budget_json', JSON.stringify(hierarchicalStructure));
+    
+    // Tampilkan loading
+    const btn = e.target;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = '⏳ Menyimpan...';
+    
+    fetch('{{ route("perjanjian.save") }}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+            'Accept': 'application/json'
+        }
+    })
+    .then(async response => {
+        // Try to parse JSON body if present
+        const contentType = response.headers.get('content-type') || '';
+        let data = {};
+        if (contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // If server returned HTML or plain text, read it for debugging
+            const text = await response.text();
+            throw new Error('Unexpected server response: ' + text);
+        }
+
+        // If response not OK, extract message or validation errors
+        if (!response.ok) {
+            let msg = data.message || 'Gagal menyimpan data.';
+            if (data.errors) {
+                // collect validation errors
+                const errs = [];
+                for (const k in data.errors) {
+                    errs.push(...data.errors[k]);
+                }
+                if (errs.length) msg = errs.join(' | ');
+            }
+            throw new Error(msg);
+        }
+
+        return data;
+    })
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = originalText;
+
+        if (data.success) {
+            showSuccessMessage(data.message || 'Berhasil disimpan.');
+            setTimeout(() => {
+                window.location.href = '{{ route("perjanjian.index") }}';
+            }, 1200);
+        } else {
+            showErrorMessage(data.message || 'Gagal menyimpan data.');
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        console.error('Save error:', error);
+        showErrorMessage(error.message || 'Error saat menyimpan');
+    });
+}
+
+// =========================
+// SHOW SUCCESS MESSAGE
+// =========================
+function showSuccessMessage(message) {
+    const div = document.createElement('div');
+    div.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        z-index: 9999;
+        font-size: 14px;
+    `;
+    div.innerText = '✓ ' + message;
+    document.body.appendChild(div);
+    
+    setTimeout(() => div.remove(), 3000);
+}
+
+// =========================
+// SHOW ERROR MESSAGE
+// =========================
+function showErrorMessage(message) {
+    const div = document.createElement('div');
+    div.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        z-index: 9999;
+        font-size: 14px;
+    `;
+    div.innerText = '✗ ' + message;
+    document.body.appendChild(div);
+    
+    setTimeout(() => div.remove(), 5000);
+}
+
+// =========================
+// VALIDASI TTD SAAT SUBMIT
+// =========================
+document.querySelector("form").addEventListener("submit", function(e) {
+    const ttdPihak1 = @json(auth()->user()->tanda_tangan);
+
+    if (!ttdPihak1) {
+        e.preventDefault();
+        document.getElementById("popupTTDKosong").style.display = "flex";
+    }
+});
+
+function closePopupTTD() {
+    document.getElementById("popupTTDKosong").style.display = "none";
+}
+
+// =========================
+// PRE-LOAD DATA EXISTING
+// =========================
+document.addEventListener('DOMContentLoaded', function() {
+    // Load data dari database
+    const tabelA = @json(json_decode($perjanjian->tabelA, true));
+    const tabelB = @json(json_decode($perjanjian->tabelB, true));
+    const tabelC = @json(json_decode($perjanjian->tabelC, true));
+    
+    // Pre-fill Tabel A
+    if (tabelA && tabelA.indikator) {
+        const tbody = document.querySelector('#tabel1 tbody');
+        tbody.innerHTML = '';
+        tabelA.indikator.forEach((item, index) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td><textarea name="a_indikator[]" rows="1" style="width:100%;">${item || ''}</textarea></td>
+                <td><input type="text" name="a_satuan[]" value="${tabelA.satuan[index] || ''}" style="text-align:center;"></td>
+                <td><input type="text" name="a_target[]" value="${tabelA.target[index] || ''}" style="text-align:center;"></td>
+                <td style="text-align:center;"><button type="button" class="table-action-btn" onclick="deleteRow(this)">🗑️</button></td>
+            `;
+        });
+    }
+    
+    // Pre-fill Tabel B (RENCANA AKSI)
+    if (tabelB && tabelB.sasaran) {
+        const tbody = document.querySelector('#tabel2 tbody');
+        tbody.innerHTML = '';
+        tabelB.sasaran.forEach((item, index) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td><textarea name="c_sasaran[]" rows="1" style="width:100%;">${item || ''}</textarea></td>
+                <td><textarea name="c_indikator[]" rows="1" style="width:100%;">${tabelB.indikator[index] || ''}</textarea></td>
+                <td><input type="text" name="c_target[]" value="${tabelB.target[index] || ''}" style="text-align:center;"></td>
+                <td><input type="text" name="c_tw1[]" value="${tabelB.tw1[index] || ''}" style="text-align:center;"></td>
+                <td><input type="text" name="c_tw2[]" value="${tabelB.tw2[index] || ''}" style="text-align:center;"></td>
+                <td><input type="text" name="c_tw3[]" value="${tabelB.tw3[index] || ''}" style="text-align:center;"></td>
+                <td><input type="text" name="c_tw4[]" value="${tabelB.tw4[index] || ''}" style="text-align:center;"></td>
+                <td style="text-align:center;"><button type="button" class="table-action-btn" onclick="deleteRow(this)">🗑️</button></td>
+            `;
+        });
+    }
+    
+    // Pre-fill Tabel C (ANGGARAN) - Check if hierarchical
+    if (tabelC && tabelC.programs) {
+        // Load hierarchical data
+        loadHierarchicalBudget(tabelC.programs);
+    } else if (tabelC && tabelC.program) {
+        // Load flat data
+        const tbody = document.querySelector('#tabel3 tbody');
+        tbody.innerHTML = '';
+        tabelC.program.forEach((item, index) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td><textarea name="d_program[]" rows="1" style="width:100%;">${item || ''}</textarea></td>
+                <td><input type="number" name="d_anggaran[]" value="${tabelC.anggaran[index] || 0}" class="budget-input" style="text-align:right;"></td>
+                <td><textarea name="d_keterangan[]" rows="1" style="width:100%;">${tabelC.keterangan[index] || ''}</textarea></td>
+                <td style="text-align:center;"><button type="button" class="table-action-btn" onclick="deleteRow(this)">🗑️</button></td>
+            `;
+        });
+        calculateTotal();
+    }
+});
+
+// =========================
+// AUTO-FILL NAMA DAN NIP BERDASARKAN JABATAN
+// =========================
+document.getElementById('pihak2_jabatan').addEventListener('change', function() {
+    const jabatan = this.value;
+    const nameInput = document.getElementById('pihak2_name');
+    const nipInput = document.getElementById('pihak2_nip');
+    
+    if (!jabatan || jabatan === 'Pilih Jabatan') {
+        return; // Keep existing values
+    }
+    
+    // Simpan nilai lama untuk fallback
+    const oldName = nameInput.value;
+    const oldNip = nipInput.value;
+    
+    // Fetch data user berdasarkan jabatan
+    fetch(`/api/user-by-jabatan/${encodeURIComponent(jabatan)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                nameInput.value = data.data.nama;
+                nipInput.value = data.data.nip;
+            } else {
+                // Tetap pertahankan nilai lama jika tidak ditemukan
+                console.warn('Data user tidak ditemukan, mempertahankan nilai lama');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Tetap pertahankan nilai lama jika error
+        });
+});
+
+// =========================
+// AUTO-FILL TARGET TRIWULAN
+// =========================
+function openAutoFillDialog(pIdx, kIdx, sIdx) {
+    const amountInput = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_amount"]`);
+    const anggaran = parseAmount(amountInput?.value || '0');
+    
+    if (anggaran === 0) {
+        alert('Anggaran Sub Kegiatan belum diisi!');
+        return;
+    }
+    
+    // Buat dialog
+    const dialog = document.createElement('div');
+    dialog.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;';
+    
+    const dialogBox = document.createElement('div');
+    dialogBox.style.cssText = 'background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); width: 400px;';
+    
+    dialogBox.innerHTML = `
+        <h3 style="margin: 0 0 15px 0; color: #009970;">⚡ Isi Otomatis Target Triwulan</h3>
+        <p style="font-size: 13px; color: #555; margin-bottom: 15px;">
+            Total Anggaran: <b style="color: #009970;">Rp ${formatNumberInput(anggaran.toString())}</b>
+        </p>
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Metode Pengisian:</label>
+            <select id="autoFillMethod" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                <option value="equal">Sama Rata (25% per triwulan)</option>
+                <option value="percentage">Berdasarkan Persentase</option>
+                <option value="rupiah">Berdasarkan Rupiah</option>
+            </select>
+        </div>
+        
+        <div id="inputFields" style="margin-bottom: 15px;">
+            <!-- Dynamic input fields will appear here -->
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="cancelAutoFill" style="padding: 8px 16px; background: #ddd; border: none; border-radius: 6px; cursor: pointer;">Batal</button>
+            <button type="button" id="applyAutoFill" style="padding: 8px 16px; background: #009970; color: white; border: none; border-radius: 6px; cursor: pointer;">Terapkan</button>
+        </div>
+    `;
+    
+    dialog.appendChild(dialogBox);
+    document.body.appendChild(dialog);
+    
+    const methodSelect = dialogBox.querySelector('#autoFillMethod');
+    const inputFieldsDiv = dialogBox.querySelector('#inputFields');
+    const applyBtn = dialogBox.querySelector('#applyAutoFill');
+    const cancelBtn = dialogBox.querySelector('#cancelAutoFill');
+    
+    // Event untuk tombol Batal
+    cancelBtn.addEventListener('click', function() {
+        dialog.remove();
+    });
+    
+    // Event untuk menutup modal saat klik di luar dialog box
+    dialog.addEventListener('click', function(e) {
+        if (e.target === dialog) {
+            dialog.remove();
+        }
+    });
+    
+    // Update input fields based on method
+    methodSelect.addEventListener('change', function() {
+        const method = this.value;
+        
+        if (method === 'equal') {
+            inputFieldsDiv.innerHTML = '<p style="font-size: 12px; color: #666; font-style: italic;">Setiap triwulan akan diisi 25% dari total anggaran</p>';
+        } else if (method === 'percentage') {
+            inputFieldsDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 12px;">TW I (%):</label>
+                        <input type="number" id="pct1" value="25" min="0" max="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px;">TW II (%):</label>
+                        <input type="number" id="pct2" value="25" min="0" max="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px;">TW III (%):</label>
+                        <input type="number" id="pct3" value="25" min="0" max="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px;">TW IV (%):</label>
+                        <input type="number" id="pct4" value="25" min="0" max="100" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                </div>
+                <p style="font-size: 11px; color: #f44336; margin-top: 5px; font-style: italic;">Total persentase harus = 100%</p>
+            `;
+        } else if (method === 'rupiah') {
+            inputFieldsDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 12px;">TW I (Rp):</label>
+                        <input type="text" id="rp1" value="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: right;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px;">TW II (Rp):</label>
+                        <input type="text" id="rp2" value="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: right;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px;">TW III (Rp):</label>
+                        <input type="text" id="rp3" value="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: right;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px;">TW IV (Rp):</label>
+                        <input type="text" id="rp4" value="0" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: right;">
+                    </div>
+                </div>
+                <p style="font-size: 11px; color: #f44336; margin-top: 5px; font-style: italic;">Total rupiah tidak boleh melebihi anggaran</p>
+            `;
+            
+            // Add number formatting to rupiah inputs
+            inputFieldsDiv.querySelectorAll('input[id^="rp"]').forEach(inp => {
+                inp.addEventListener('input', function() {
+                    this.value = formatNumberInput(this.value);
+                });
+            });
+        }
+    });
+    
+    // Trigger initial render
+    methodSelect.dispatchEvent(new Event('change'));
+    
+    // Apply button handler
+    applyBtn.addEventListener('click', function() {
+        const method = methodSelect.value;
+        let tw1, tw2, tw3, tw4;
+        
+        if (method === 'equal') {
+            const quarter = Math.floor(anggaran / 4);
+            tw1 = tw2 = tw3 = tw4 = quarter;
+        } else if (method === 'percentage') {
+            const pct1 = parseFloat(dialogBox.querySelector('#pct1').value) || 0;
+            const pct2 = parseFloat(dialogBox.querySelector('#pct2').value) || 0;
+            const pct3 = parseFloat(dialogBox.querySelector('#pct3').value) || 0;
+            const pct4 = parseFloat(dialogBox.querySelector('#pct4').value) || 0;
+            const totalPct = pct1 + pct2 + pct3 + pct4;
+            
+            if (totalPct !== 100) {
+                alert('Total persentase harus 100%! Saat ini: ' + totalPct + '%');
+                return;
+            }
+            
+            tw1 = Math.floor(anggaran * pct1 / 100);
+            tw2 = Math.floor(anggaran * pct2 / 100);
+            tw3 = Math.floor(anggaran * pct3 / 100);
+            tw4 = Math.floor(anggaran * pct4 / 100);
+        } else if (method === 'rupiah') {
+            tw1 = parseAmount(dialogBox.querySelector('#rp1').value);
+            tw2 = parseAmount(dialogBox.querySelector('#rp2').value);
+            tw3 = parseAmount(dialogBox.querySelector('#rp3').value);
+            tw4 = parseAmount(dialogBox.querySelector('#rp4').value);
+            
+            const totalRp = tw1 + tw2 + tw3 + tw4;
+            if (totalRp > anggaran) {
+                alert('Total rupiah (' + formatNumberInput(totalRp.toString()) + ') melebihi anggaran!');
+                return;
+            }
+        }
+        
+        // Apply values to inputs
+        const tw1Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw1"]`);
+        const tw2Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw2"]`);
+        const tw3Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw3"]`);
+        const tw4Input = document.querySelector(`input[name="hb_subkegiatan_${pIdx}_${kIdx}_${sIdx}_tw4"]`);
+        
+        if (tw1Input) tw1Input.value = formatNumberInput(tw1.toString());
+        if (tw2Input) tw2Input.value = formatNumberInput(tw2.toString());
+        if (tw3Input) tw3Input.value = formatNumberInput(tw3.toString());
+        if (tw4Input) tw4Input.value = formatNumberInput(tw4.toString());
+        
+        // Validate
+        validateTriwulanSum(pIdx, kIdx, sIdx);
+        
+        // Close dialog
+        dialog.remove();
+    });
+}
+
+// Function to load hierarchical budget (jika ada)
+function loadHierarchicalBudget(programs) {
+    // Implement if needed - for now focus on basic editing
+    console.log('Hierarchical budget detected, using advanced editor if available');
+}
+
+// =========================
+// POPUP SUCCESS
+// =========================
+@if(session('success'))
+<div style="position:fixed; top:20px; right:20px; background:#009970; 
+    color:white; padding:12px 20px; border-radius:8px; 
+    box-shadow:0 3px 10px rgba(0,0,0,0.2); z-index:9999;">
+    {{ session('success') }}
+</div>
+
+<script>
+    setTimeout(() => {
+        document.querySelector('[style*="position:fixed"]')?.remove();
+    }, 3000);
+</script>
+@endif
+</script>
+
+@endsection

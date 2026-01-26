@@ -19,7 +19,11 @@ return new class extends Migration
             $table->string('pihak2_name')->nullable()->after('pihak1_ttd');
             $table->string('pihak2_jabatan')->nullable()->after('pihak2_name');
 
-            
+            // Jabatan, Fungsi, Tugas
+            $table->string('jabatan_pelaksana')->nullable();
+            $table->text('tugas_pelaksana')->nullable();
+            $table->text('fungsi_pelaksana')->nullable();
+
             // Tabel A/B/C/D
             $table->json('tabelA')->nullable()->after('jabatan');
             $table->json('tabelB')->nullable();

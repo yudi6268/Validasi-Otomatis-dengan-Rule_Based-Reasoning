@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@yield('title', 'RSUD Bangil')</title>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
 
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -19,7 +20,7 @@
       color: #000;
     }
 
-    /* Header */
+    /* ================= HEADER ================= */
     header {
       background-color: #fff;
       display: flex;
@@ -31,9 +32,15 @@
 
     header h1 {
       font-size: 20px;
-      color: #222;
-      font-weight: 600;
+      color: #009970;
+      font-weight: 700;
       margin: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
     }
 
     .header-icon {
@@ -47,17 +54,59 @@
       color: #007b5e;
     }
 
-    /* Main Content */
+    /* ================= PROFILE ================= */
+    .profile-icon {
+      color: #009970;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .profile-menu {
+      position: absolute;
+      top: 55px;
+      right: 10px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      padding: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 160px;
+      z-index: 1000;
+    }
+
+    .profile-menu.show {
+      display: flex;
+    }
+
+    .profile-menu a {
+      text-decoration: none;
+      color: #333;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .profile-menu a:hover {
+      background: #f0f0f0;
+      color: #009970;
+    }
+
+    /* ================= MAIN ================= */
     main {
       flex: 1;
+      padding: 35px 0;
       display: flex;
       justify-content: center;
       align-items: flex-start;
-      padding: 35px 0;
-      position: relative;
     }
 
-    /* Footer */
+    /* ================= FOOTER ================= */
     footer {
       text-align: center;
       padding: 15px;
@@ -65,172 +114,70 @@
       border-top: 1px solid #ddd;
       font-weight: 600;
       font-size: 13px;
-      color: #000;
     }
-
-    /* Cards */
-    .card-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 25px;
-      justify-content: center;
-      width: 90%;
-      max-width: 700px;
-    }
-
-    .status-card {
-      background: white;
-      border-radius: 15px;
-      padding: 25px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      transition: transform 0.2s;
-    }
-
-    .status-card:hover {
-      transform: translateY(-3px);
-    }
-
-    .status-card h2 {
-      font-size: 42px; 
-      margin-bottom: 8px;
-      font-weight: 700; 
-      color: #000;
-    }
-
-    .status-card p {
-      margin: 0 0 15px;
-      font-weight: 700;     
-      font-size: 17px;      
-      color: #111;          
-    }
-
-    /* Buttons */
-    .btn-view {
-      border: none;
-      padding: 10px 24px; 
-      border-radius: 10px;
-      font-weight: 700; 
-      font-size: 15px; 
-      color: #fff;
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-
-    .btn-view:hover {
-      transform: scale(1.05);
-    }
-
-    .btn-green { background: #009970; }
-    .btn-yellow { background: #f2c200; color: #000; }
-    .btn-red { background: #d9534f; }
-    .btn-blue { background: #3f8cff; }
-
-    .btn-add {
-      background: #009970;
-      color: #fff;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 10px;
-      position: absolute;
-      right: 80px; /* tidak terlalu pojok */
-      bottom: 50px;
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    .btn-add:hover {
-      background: #007b5e;
-      transform: scale(1.05);
-    }
-
-    /* Logout Confirmation Popup */
-    .logout-confirm {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.4);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      display: none;
-    }
-
-    .logout-box {
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      text-align: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    .logout-box h3 {
-      margin-bottom: 20px;
-      color: #333;
-      font-weight: 600;
-    }
-
-    .logout-box button {
-      margin: 0 10px;
-      padding: 8px 20px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: 0.3s;
-    }
-
-    .btn-yes { background: #009970; color: #fff; }
-    .btn-no { background: #009970; color: #fff; }
-
-    .btn-yes:hover { background: #009970; }
-    .btn-no:hover { background: #009970; }
   </style>
 </head>
 
 <body>
-  <header>
-    @yield('back')
-    <h1>@yield('header_title')</h1>
-    <i class="fa-solid fa-right-from-bracket header-icon" id="logout-btn"></i>
+
+  {{-- ================= HEADER ================= --}}
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 15px 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: #fff;">
+    <div class="header-left" style="display: flex; align-items: center; gap: 15px; min-width: 60px;">
+      @yield('back')
+    </div>
+    <div class="header-center" style="flex:1; display: flex; justify-content: center; align-items: center; pointer-events: none;">
+      @if(!request()->routeIs('dashboard'))
+        <h1 style="font-size: 20px; color: #009970; font-weight: 700; margin: 0; pointer-events: auto;">@yield('header_title', 'Perjanjian Kinerja')</h1>
+      @endif
+    </div>
+    @if (empty($hideHeaderActions))
+    <div class="header-right" style="display: flex; align-items: center; gap: 15px; min-width: 60px; justify-content: flex-end;">
+      <i class="fa-solid fa-user profile-icon" id="profile-icon"></i>
+      <div class="profile-menu" id="profile-menu">
+        <a href="{{ route('profil') }}"><i class="fa-solid fa-user"></i> Profil Saya</a>
+        <a href="{{ route('settings') }}"><i class="fa-solid fa-cog"></i> Pengaturan</a>
+      </div>
+      <i class="fa-solid fa-right-from-bracket header-icon" id="logout-btn"></i>
+    </div>
+    @endif
   </header>
 
+  {{-- ================= CONTENT ================= --}}
   <main>
     @yield('content')
   </main>
 
+  {{-- ================= FOOTER ================= --}}
   <footer>
-    © 2025 RSUD Bangil – Sistem Laporan Kinerja
+    © 2025 RSUD Bangil | Sistem Perjanjian Kinerja
   </footer>
 
-  {{-- Logout Confirmation Popup --}}
-  <div class="logout-confirm" id="logout-popup">
-    <div class="logout-box">
-      <h3>Apa anda ingin keluar?</h3>
-      <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display:inline;">
-        @csrf
-        <button type="submit" class="btn-yes">Iya</button>
-      </form>
-      <button class="btn-no" onclick="closeLogout()">Tidak</button>
-    </div>
-  </div>
+  @include('components.logout-modal')
 
   <script>
-    const logoutBtn = document.getElementById('logout-btn');
-    const logoutPopup = document.getElementById('logout-popup');
-
-    logoutBtn.addEventListener('click', () => {
-      logoutPopup.style.display = 'flex';
+    document.addEventListener('DOMContentLoaded', function() {
+      // Toggle profile menu
+      var profileIcon = document.getElementById('profile-icon');
+      var profileMenu = document.getElementById('profile-menu');
+      if (profileIcon && profileMenu) {
+        profileIcon.onclick = function(e) {
+          e.stopPropagation();
+          profileMenu.classList.toggle('show');
+        };
+        // Hide menu on click outside
+        document.addEventListener('click', function(e) {
+          if (!profileMenu.contains(e.target) && e.target !== profileIcon) {
+            profileMenu.classList.remove('show');
+          }
+        });
+      }
+      // Logout modal
+      var logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.onclick = function() {
+          if (typeof showLogoutModal === 'function') showLogoutModal();
+          else if (document.getElementById('logoutModal')) document.getElementById('logoutModal').style.display = 'flex';
+        };
+      }
     });
-
-    function closeLogout() {
-      logoutPopup.style.display = 'none';
-    }
   </script>
-</body>
-</html>

@@ -24,8 +24,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 25px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 6px 20px;              
+      min-height: 48px;            
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
 
     .back-icon, .logout-icon {
@@ -42,7 +43,9 @@
     h1 {
       font-size: 20px;
       font-weight: 600;
-      color: #333;
+      margin: 0;
+      line-height: 1;
+      color: #000;
     }
 
     /* MAIN CONTENT */
@@ -118,12 +121,12 @@
     /* FOOTER */
     footer {
       background: #fff;
-      padding: 15px;
       text-align: center;
-      border-top: 1px solid #ddd;
       font-size: 13px;
-      font-weight: 500;
-      color: #000;
+      font-weight: 700;
+      padding: 15px 0;
+      border-top: 1px solid #ddd;
+      color: #1B2A41;
     }
 
     /* MODAL LOGOUT */
@@ -173,6 +176,31 @@
       from {opacity: 0; transform: translateY(-5px);}
       to {opacity: 1; transform: translateY(0);}
     }
+
+    .alert {
+      max-width: 800px;
+      margin: 0 auto 20px auto;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    .alert-success {
+      background: #E6F6F2;
+      color: #0B7A56;
+      border-left: 5px solid #0DA45C;
+    }
+
+    .alert-danger {
+      background: #FFEAEA;
+      color: #C62828;
+      border-left: 5px solid #E53935;
+    }
   </style>
 </head>
 
@@ -187,38 +215,93 @@
 
   <!-- MAIN -->
   <main>
+    @if(session('success'))
+      <div class="alert alert-success" role="alert">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>{{ session('success') }}</span>
+      </div>
+    @endif
+
+    @if($errors->any())
+      <div class="alert alert-danger" role="alert">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span>{{ $errors->first() }}</span>
+      </div>
+    @endif
+
     <div class="form-section">
 
       <!-- GANTI PASSWORD -->
-      <div class="form-group">
+      <form class="form-group" method="POST" action="{{ route('settings.password.update') }}">
+        @csrf
+
+        <!-- USER IDENTIFIER (HIDDEN - UNTUK ACCESSIBILITY) -->
+        <input
+          type="email" name="email" value="{{ auth()->user()->email }}" autocomplete="username" hidden>
+
         <h2><i class="fa-solid fa-key"></i> Ganti Password</h2>
-        <div class="input-row">
-          <input type="password" placeholder="Password Lama">
-          <input type="password" placeholder="Password Baru">
-        </div>
-        <div class="input-row">
-          <input type="password" placeholder="Konfirmasi Password Lama">
-          <input type="password" placeholder="Konfirmasi Password Baru">
-        </div>
-        <button>SIMPAN</button>
-      </div>
+
+        <input
+          type="password" name="current_password" placeholder="Password Lama" autocomplete="current-password" required style="margin-bottom:10px;">
+        <input
+          type="password" name="new_password" placeholder="Password Baru" autocomplete="new-password" required style="margin-bottom:10px;">
+        <input
+          type="password" name="new_password_confirmation" placeholder="Konfirmasi Password Baru" autocomplete="new-password" required style="margin-bottom:15px;">
+        <button type="submit">SIMPAN</button>
+      </form>
 
       <!-- GANTI EMAIL -->
-      <div class="form-group">
-        <h2><i class="fa-solid fa-envelope"></i> Ganti Email</h2>
-        <div class="input-row">
-          <input type="email" placeholder="Email Lama">
-          <input type="email" placeholder="Email Baru">
-        </div>
-        <button>SIMPAN</button>
-      </div>
+        <form id="emailForm" class="form-group" method="POST" action="{{ route('settings.email.update') }}">
+        @csrf
 
-    </div>
+        <h2><i class="fa-solid fa-envelope"></i> Ganti Email</h2>
+
+        <div class="input-row">
+          <input type="email" name="current_email" placeholder="Email Lama" value="{{ auth()->user()->email }}" readonly required>
+          <input type="email" name="new_email" placeholder="Email Baru" required>
+        </div>
+
+        <button type="submit">SIMPAN</button>
+      </form>
+
+      <script>
+const emailForm = document.getElementById('emailForm');
+if (emailForm) {
+    emailForm.onsubmit = async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const response = await fetch(this.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            },
+            body: formData
+        });
+
+        if (response.ok) {
+            const newEmail = formData.get('new_email');
+
+            // Update di header
+            const emailHeader = document.getElementById('emailHeader');
+            if (emailHeader) emailHeader.textContent = newEmail;
+
+            // Update di profil input
+            const emailInput = document.getElementById('emailInput');
+            if (emailInput) emailInput.value = newEmail;
+
+            alert('Email berhasil diperbarui!');
+        } else {
+            alert('Gagal update email.');
+        }
+    }
+}
+</script>
   </main>
 
   <!-- FOOTER -->
   <footer>
-    © 2025 RSUD Bangil — Sistem Laporan Kinerja
+    © 2025 RSUD Bangil – Sistem Perjanjian Kinerja
   </footer>
 
   <!-- MODAL LOGOUT -->
@@ -226,10 +309,7 @@
     <div class="logout-box">
       <h3>Apakah Anda ingin keluar?</h3>
       <div class="logout-buttons">
-        <form method="POST" action="{{ route('logout') }}">
-          @csrf
-          <button type="submit">YA</button>
-        </form>
+        <button type="button" id="yesBtn">YA</button>
         <button id="noBtn">TIDAK</button>
       </div>
     </div>
@@ -240,13 +320,76 @@
     const logoutIcon = document.getElementById('logoutIcon');
     const logoutModal = document.getElementById('logoutModal');
     const noBtn = document.getElementById('noBtn');
+    const yesBtn = document.getElementById('yesBtn');
 
+    // Open logout modal
     logoutIcon.addEventListener('click', () => {
       logoutModal.style.display = 'flex';
     });
 
+    // Close modal
     noBtn.addEventListener('click', () => {
       logoutModal.style.display = 'none';
+    });
+
+    // Handle logout with AJAX for faster response
+    yesBtn.addEventListener('click', async () => {
+      try {
+        // Disable button to prevent double-click
+        yesBtn.disabled = true;
+        yesBtn.textContent = 'YA';
+
+        const response = await fetch('{{ route('logout') }}', {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          // Broadcast logout to all tabs/windows
+          localStorage.setItem('logout-event', Date.now().toString());
+          
+          // Redirect to login
+          window.location.href = '{{ route('login') }}';
+        } else {
+          alert('Terjadi kesalahan saat logout. Silakan coba lagi.');
+          yesBtn.disabled = false;
+          yesBtn.textContent = 'YA';
+        }
+      } catch (error) {
+        console.error('Logout error:', error);
+        alert('Terjadi kesalahan saat logout. Silakan coba lagi.');
+        yesBtn.disabled = false;
+        yesBtn.textContent = 'YA';
+      }
+    });
+
+    // Listen for logout events from other tabs/windows
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'logout-event') {
+        // Another tab logged out, redirect this tab too
+        window.location.href = '{{ route('login') }}';
+      }
+    });
+
+    // Check if user is still authenticated on focus
+    window.addEventListener('focus', async () => {
+      try {
+        const response = await fetch('{{ route('home') }}', {
+          method: 'HEAD',
+          credentials: 'same-origin'
+        });
+        
+        // If redirected to login, user session expired
+        if (response.redirected && response.url.includes('login')) {
+          window.location.href = '{{ route('login') }}';
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      }
     });
   </script>
 

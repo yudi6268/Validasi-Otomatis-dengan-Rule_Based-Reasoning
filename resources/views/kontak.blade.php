@@ -249,7 +249,7 @@
   </main>
 
   <footer>
-    © 2025 RSUD Bangil — Sistem Laporan Kinerja
+    © 2025 RSUD Bangil | SDM dan Pengembangan RSUD Bangil
   </footer>
 
   <script>

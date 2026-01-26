@@ -1,18 +1,27 @@
+
 <?php
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
-use App\Http\Controllers\ProfileController; 
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\JabatanController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\ProgramController;
+use App\Http\Controllers\SettingsController;
 
-// Public routes
+// LOGIN (boleh diakses meskipun sudah login)
+Route::get('/login', function () {
+    return view('auth.login');
+})->name('login');
+
+Route::post('/login', [LoginController::class, 'login'])->name('login.post');
+
+// REGISTER tetap pakai guest
 Route::middleware('guest')->group(function () {
-    Route::get('/login', function () {
-        return view('auth.login');
-    })->name('login');
-    Route::post('/login', [LoginController::class, 'login'])->name('login.post');
-    
     Route::get('/register', [RegisterController::class, 'showForm'])->name('register.form');
     Route::post('/register', [RegisterController::class, 'store'])->name('register.post');
 });
@@ -20,39 +29,99 @@ Route::middleware('guest')->group(function () {
 // Protected routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/', function () {
+        // Admin langsung ke dashboard admin
+        if (auth()->user()->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+        
         return view('home');
     })->name('home');
     
-    Route::get('/dashboard/direktur', function () {
-        return view('dashboard.direktur');
-    })->name('dashboard.direktur');
+    // Dashboard controller untuk redirect otomatis
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Dashboard direktur - hanya untuk Direktur
+    Route::middleware(['check.jabatan:Direktur'])->group(function () {
+        Route::get('/dashboard/direktur', [App\Http\Controllers\DirekturDashboardController::class, 'index'])->name('dashboard.direktur');
+        Route::get('/dashboard/direktur/perjanjian-kinerja', [App\Http\Controllers\DirekturDashboardController::class, 'perjanjianKinerja'])->name('direktur.perjanjian');
+        Route::get('/dashboard/direktur/perjanjian-list', [App\Http\Controllers\DirekturDashboardController::class, 'perjanjianList'])->name('direktur.perjanjian.list');
+        Route::get('/dashboard/direktur/perjanjian/{id}', [App\Http\Controllers\DirekturDashboardController::class, 'showPerjanjian'])->name('direktur.perjanjian.show');
+        Route::get('/dashboard/direktur/perjanjian/{id}/print', [App\Http\Controllers\DirekturDashboardController::class, 'printPerjanjian'])->name('direktur.perjanjian.print');
+        Route::get('/dashboard/direktur/perjanjian/{id}/download', [App\Http\Controllers\DirekturDashboardController::class, 'downloadPerjanjian'])->name('direktur.perjanjian.download');
+        Route::get('/dashboard/direktur/laporan-kinerja', [App\Http\Controllers\DirekturDashboardController::class, 'laporanKinerja'])->name('direktur.laporan');
+        Route::post('/dashboard/direktur/perjanjian/{id}/approve', [App\Http\Controllers\DirekturDashboardController::class, 'approvePerjanjian'])->name('direktur.perjanjian.approve');
+        Route::post('/dashboard/direktur/perjanjian/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectPerjanjian'])->name('direktur.perjanjian.reject');
+    });
+    
+    // Dashboard Wadir (Umum dan Pelayanan digabung)
+    Route::middleware(['check.jabatan:Wakil Direktur Umum dan Keuangan,Wakil Direktur Pelayanan'])->group(function () {
+        Route::get('/dashboard/wadir', [DashboardController::class, 'wadir'])->name('dashboard.wadir');
+    });
+    
+    // Dashboard Kabag.Kabid (Kabag dan Kabid digabung)
+    Route::get('/dashboard/kabag.kabid', [DashboardController::class, 'kabagKabid'])->name('dashboard.kabag.kabid');
+    
+    // Dashboard Katimker/Staf (dahulu Kasi)
+    Route::get('/dashboard/katimker.staf', [DashboardController::class, 'katimkerStaf'])->name('dashboard.katimker.staf');
     
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-    // Perjanjian & Laporan
+    
+           // Perjanjian & Laporan
     Route::get('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'index'])->name('perjanjian.index');
     Route::get('/perjanjian/create', [App\Http\Controllers\PerjanjianController::class, 'create'])->name('perjanjian.create');
     Route::post('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'store'])->name('perjanjian.store');
     Route::post('/perjanjian/save', [App\Http\Controllers\PerjanjianController::class, 'savePerjanjian'])->name('perjanjian.save');
+    Route::get('/perjanjian/{id}/edit', [App\Http\Controllers\PerjanjianController::class, 'edit'])->name('perjanjian.edit');
+    Route::put('/perjanjian/{id}', [App\Http\Controllers\PerjanjianController::class, 'update'])->name('perjanjian.update');
+    Route::delete('/perjanjian/{id}', [App\Http\Controllers\PerjanjianController::class, 'destroy'])->name('perjanjian.destroy');
     Route::get('/perjanjian/{id}/print', [App\Http\Controllers\PerjanjianController::class, 'print'])->name('perjanjian.print');
     Route::get('/perjanjian/{id}/pdf', [App\Http\Controllers\PerjanjianController::class, 'exportPdf'])->name('perjanjian.pdf');
 
-    Route::get('/laporan', [App\Http\Controllers\LaporanController::class, 'index'])->name('laporan.index');
-    Route::get('/laporan/create/{id}', [App\Http\Controllers\LaporanController::class, 'createFromPerjanjian'])->name('laporan.create_from_perjanjian');
-    Route::post('/laporan', [App\Http\Controllers\LaporanController::class, 'store'])->name('laporan.store');
-    Route::get('/laporan/my', [App\Http\Controllers\LaporanController::class, 'myReports'])->name('laporan.my');
+    // Route untuk form penolakan perjanjian
+    Route::get('/perjanjian/{id}/tolak', [App\Http\Controllers\PerjanjianController::class, 'tolakForm'])->name('perjanjian.tolak.form');
+
+    // Route untuk submit penolakan perjanjian (POST)
+    Route::post('/perjanjian/{id}/tolak', [App\Http\Controllers\PerjanjianController::class, 'tolakSubmit'])->name('perjanjian.tolak.submit');
+    
+    // API untuk mendapatkan data user berdasarkan jabatan
+    Route::get('/api/user-by-jabatan/{jabatan}', [App\Http\Controllers\PerjanjianController::class, 'getUserByJabatan'])->name('api.user.jabatan');
+    
+    // API untuk mendapatkan kegiatan berdasarkan program ID
+    Route::get('/api/kegiatan-by-program/{programId}', [App\Http\Controllers\PerjanjianController::class, 'getKegiatanByProgram'])->name('api.kegiatan.program');
+    
+    // API untuk mendapatkan sub kegiatan berdasarkan kegiatan ID
+    Route::get('/api/subkegiatan-by-kegiatan/{kegiatanId}', [App\Http\Controllers\PerjanjianController::class, 'getSubKegiatanByKegiatan'])->name('api.subkegiatan.kegiatan');
+    
+    // === PANDUAN ===
+    Route::get('/panduan', function () {
+        return view('panduan');
+    })->name('panduan');
+    // === PROFIL ===
+    Route::get('/profil', [ProfileController::class, 'index'])->name('profil');
+    Route::post('/profil/update', [ProfileController::class, 'update'])->name('profil.update');
+    Route::post('/profil/upload-foto', [ProfileController::class, 'uploadFoto'])->name('profil.upload_foto');
+    Route::post('/profil/upload-ttd', [ProfileController::class, 'uploadTTD'])->name('profil.upload_ttd');
+    // === KONTAK ===
+    Route::get('/kontak', function () {
+        return view('kontak');
+    })->name('kontak');
+
+    // === TENTANG ===
+    Route::get('/tentang', function () {
+        return view('tentang');
+    })->name('tentang');
+
+    // === SETTING ===
+    Route::get('/settings', function () {
+        return view('settings');
+    })->name('settings');
+    Route::post('/settings/password', [SettingsController::class, 'updatePassword'])
+    ->name('settings.password.update');
+    Route::post('/settings/email', [SettingsController::class, 'updateEmail'])
+    ->name('settings.email.update');
 });
 
-// === LOGIN ===
-Route::get('/login', function () {
-    return view('auth.login');
-})->name('login');
-Route::post('/login', [LoginController::class, 'login'])->name('login.post');
-
-// === REGISTER ===
-Route::get('/register', [RegisterController::class, 'showForm'])->name('register.form');
-Route::post('/register', [RegisterController::class, 'store'])->name('register.post');
-
-// === FORGOT PASSWORD ===
+// === FORGOT PASSWORD - Public Routes ===
 Route::get('/forgot-password', [ForgotPasswordController::class, 'showForgotForm'])->name('forgot.form');
 Route::post('/forgot-password', [ForgotPasswordController::class, 'sendCode'])->name('forgot.post');
 
@@ -63,23 +132,74 @@ Route::post('/verify-code', [ForgotPasswordController::class, 'verifyCode'])->na
 Route::get('/reset-password', [ForgotPasswordController::class, 'showResetForm'])->name('reset.form');
 Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword'])->name('reset.post');
 
-// === PROFIL ===
-Route::middleware(['auth'])->group(function() {
-    Route::get('/profil', [ProfileController::class, 'index'])->name('profil');
-    Route::post('/profil/update', [ProfileController::class, 'update'])->name('profil.update');
+// ===================================
+// ADMIN PANEL ROUTES
+// ===================================
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/users', function () {
+        return redirect()->back();
+    })->name('users.index');
 });
 
-// === KONTAK ===
-Route::get('/kontak', function () {
-    return view('kontak');
-})->name('kontak');
+// ===================================
+// ADMIN PANEL ROUTES (single group)
+// ===================================
+Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
+    // Admin Dashboard
+    Route::get('/', [AdminController::class, 'index'])->name('dashboard');
 
-// === TENTANG ===
-Route::get('/tentang', function () {
-    return view('tentang');
-})->name('tentang');
+    /* ================= USERS ================= */
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
 
-// === SETTING ==
-Route::get('/settings', function () {
-    return view('settings');
-})->name('settings');
+    /* ================= JABATAN ================= */
+    Route::get('/jabatan', [JabatanController::class, 'index'])->name('jabatan.index');
+    Route::get('/jabatan/create', [JabatanController::class, 'create'])->name('jabatan.create');
+    Route::post('/jabatan', [JabatanController::class, 'store'])->name('jabatan.store');
+    Route::get('/jabatan/{jabatan}/edit', [JabatanController::class, 'edit'])->name('jabatan.edit');
+    Route::put('/jabatan/{jabatan}', [JabatanController::class, 'update'])->name('jabatan.update');
+    Route::delete('/jabatan/{jabatan}', [JabatanController::class, 'destroy'])->name('jabatan.destroy');
+
+    /* ================= PROGRAM, KEGIATAN, SUB KEGIATAN ================= */
+    // Program Management
+    Route::get('/program', [ProgramController::class, 'index'])->name('program.index');
+    Route::get('/program/search', [ProgramController::class, 'search'])->name('program.search');
+    Route::get('/program/create', [ProgramController::class, 'createProgram'])->name('program.create');
+    Route::post('/program', [ProgramController::class, 'storeProgram'])->name('program.store');
+    Route::get('/program/{id}/edit', [ProgramController::class, 'editProgram'])->name('program.edit');
+    Route::put('/program/{id}', [ProgramController::class, 'updateProgram'])->name('program.update');
+    Route::delete('/program/{id}', [ProgramController::class, 'destroyProgram'])->name('program.destroy');
+    
+    // Kegiatan Management
+    Route::get('/program/{programId}/kegiatan/create', [ProgramController::class, 'createKegiatan'])->name('kegiatan.create');
+    Route::post('/program/{programId}/kegiatan', [ProgramController::class, 'storeKegiatan'])->name('kegiatan.store');
+    Route::get('/kegiatan/{id}/edit', [ProgramController::class, 'editKegiatan'])->name('kegiatan.edit');
+    Route::put('/kegiatan/{id}', [ProgramController::class, 'updateKegiatan'])->name('kegiatan.update');
+    Route::delete('/kegiatan/{id}', [ProgramController::class, 'destroyKegiatan'])->name('kegiatan.destroy');
+    
+    // Sub Kegiatan Management
+    Route::get('/kegiatan/{kegiatanId}/sub-kegiatan/create', [ProgramController::class, 'createSubKegiatan'])->name('sub-kegiatan.create');
+    Route::post('/kegiatan/{kegiatanId}/sub-kegiatan', [ProgramController::class, 'storeSubKegiatan'])->name('sub-kegiatan.store');
+    Route::get('/sub-kegiatan/{id}/edit', [ProgramController::class, 'editSubKegiatan'])->name('sub-kegiatan.edit');
+    Route::put('/sub-kegiatan/{id}', [ProgramController::class, 'updateSubKegiatan'])->name('sub-kegiatan.update');
+    Route::delete('/sub-kegiatan/{id}', [ProgramController::class, 'destroySubKegiatan'])->name('sub-kegiatan.destroy');
+
+    // Quick toggle active/nonactive
+    Route::post('/program/{id}/toggle-active', [ProgramController::class, 'toggleProgramActive'])->name('program.toggle-active');
+    Route::post('/kegiatan/{id}/toggle-active', [ProgramController::class, 'toggleKegiatanActive'])->name('kegiatan.toggle-active');
+    Route::post('/sub-kegiatan/{id}/toggle-active', [ProgramController::class, 'toggleSubKegiatanActive'])->name('sub-kegiatan.toggle-active');
+    
+    // API endpoint for dynamic dropdown
+    Route::get('/api/program/{programId}/kegiatan', [ProgramController::class, 'getKegiatanByProgram'])->name('api.kegiatan.program');
+
+    // ...existing code...
+
+        /* ================= PROGRAM & KEGIATAN (disabled) ================= */
+        // Program, Kegiatan, Sub Kegiatan management has been removed from Admin UI
+        // and will be managed via Supabase only. All related admin routes are disabled.
+    });

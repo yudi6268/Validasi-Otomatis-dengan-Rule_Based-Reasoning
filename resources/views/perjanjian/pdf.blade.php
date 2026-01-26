@@ -2,411 +2,650 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Perjanjian Kinerja</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Perjanjian Kinerja - PDF</title>
+
     <style>
         * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        /* F4 = 216mm x 330mm; margin ketat untuk fit content */
+        @page {
+            size: 216mm 330mm;
+            margin: 8mm 8mm 10mm 8mm;
+        }
+
+        @page landscape {
+            size: 330mm 216mm;
+            margin: 8mm 10mm;
+        }
+
+        .page, 
+        .page-landscape {
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            padding: 0;
+        }
+
+        /* Batasi lebar konten agar tidak melebar melewati kertas F4 */
+        .page {
+            max-width: 216mm;
+            padding: 8mm 6mm;
+            width: 100%;
+        }
+
+        .page-landscape {
+            max-width: 330mm;
+            padding: 6mm 8mm;
+            width: 100%;
+        }
+
+        .page-content {
+            padding: 0;
+        }
+
+        .landscape-inner {
+            width: 100%;
+            max-width: 305mm;
+            margin: 0 auto;
+            padding: 0 2mm;
+        }
+                
+        /* Untuk tabel anggaran dengan repeating header */
+        @media print {
+            body { 
+                margin: 0;
+                padding: 0;
+            }
+        }
+
         body {
             font-family: 'Arial', sans-serif;
-            font-size: 12px;
+            font-size: 9.5px;
+            margin: 0;
             color: #333;
-            line-height: 1.4;
-        }
-        .page {
-            width: 100%;
-            padding: 40px 50px;
+            line-height: 1.25;
             background: white;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .header img {
-            height: 70px;
-            margin-bottom: 10px;
-        }
-        .header h2 {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .content-intro {
-            text-align: justify;
-            margin-bottom: 20px;
-            font-size: 11px;
-            line-height: 1.6;
-        }
-        .parties {
-            display: flex;
-            gap: 40px;
-            margin-bottom: 20px;
-        }
-        .party {
-            flex: 1;
-            font-size: 11px;
-            line-height: 1.8;
-        }
-        .party-label {
-            text-align: center;
+
+        /* Rejected Stamp */
+        .rejected-stamp {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #DC3545;
+            color: white;
+            padding: 8px 12px;
             font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            z-index: 100;
+        }
+
+        .rejection-notice {
+            background: #fff3cd;
+            padding: 10px;
+            margin: 10px 0;
+            page-break-inside: avoid;
+        }
+
+        .rejection-notice-title {
+            color: #856404;
+            font-size: 9px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .rejection-notice-content {
+            color: #856404;
+            font-size: 8px;
+            line-height: 1.4;
+            padding: 8px 0;
             margin-top: 5px;
         }
-        .section-title {
-            text-align: center;
-            font-size: 13px;
+
+        .rejection-notice-label {
             font-weight: bold;
-            margin-top: 25px;
-            margin-bottom: 15px;
-        }
-        .input-field {
-            margin-bottom: 15px;
-            font-size: 11px;
-        }
-        .input-field label {
-            font-weight: bold;
-            display: block;
             margin-bottom: 3px;
         }
-        .input-value {
-            padding: 5px;
-            border: 1px solid #ddd;
-            background: #f9f9f9;
-            border-radius: 3px;
+
+        /* HEADER */
+        .header {
+            text-align: center;
+            margin-bottom: 8mm;
+            padding: 0;
         }
+        .header-logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 6mm;
+        }
+        .header-logos img {
+            height: 60px;
+            width: auto;
+            display: block;
+        }
+        .header h2 {
+            font-size: 10px;
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.25;
+        }
+
+        /* CONTENT */
+        .content-intro {
+            text-align: justify;
+            margin-bottom: 6mm;
+            font-size: 9px;
+            line-height: 1.25;
+        }
+
+        .parties {
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .party {
+            display: table-cell;
+            width: 50%;
+            font-size: 9px;
+            padding: 0;
+            vertical-align: top;
+        }
+        .party-label {
+            margin-top: 4px;
+            text-align: center;
+            font-size: 9px;
+        }
+
+        /* TITLES */
+        .section-title {
+            text-align: center;
+            font-size: 10px;
+            font-weight: bold;
+            margin: 10px 0 8px 0;
+            page-break-inside: avoid;
+        }
+
+        /* TABLES */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 10px;
+            margin-bottom: 6px;
+            font-size: 8px;
+            page-break-inside: auto;
+            table-layout: fixed;
         }
-        table th, table td {
-            border: 1px solid #000;
-            padding: 8px;
-            text-align: left;
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+
+        table th,table td {
+            padding: 2px 2px;
+            border-bottom: 1px solid #ddd;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
             vertical-align: top;
+            word-break: break-word;
         }
+
         table th {
-            background: #f0f0f0;
+            background-color: transparent;
             font-weight: bold;
-            text-align: center;
+            border-bottom: 2px solid #333;
         }
+
         .no-col {
-            width: 30px;
+            width: 20px !important;
             text-align: center;
         }
-        .action-col {
-            width: 50px;
-            text-align: center;
-        }
-        .page-break {
-            page-break-after: always;
-        }
-        .signature-block {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 30px;
-        }
-        .signature {
-            text-align: center;
-            width: 45%;
-            font-size: 10px;
-        }
-        .signature-date {
-            text-align: right;
-            margin-top: 15px;
-            font-size: 10px;
-        }
+
         .total-row {
             background: #f0f0f0;
             font-weight: bold;
         }
+
+        /* SIGNATURE */
+        .signature-block {
+            display: block;
+            width: 100%;
+            page-break-inside: avoid;
+            page-break-before: auto;
+            margin-top: 6mm;
+            margin-bottom: 0;
+        }
+
+        .signature-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10mm;
+            flex-wrap: wrap;
+        }
+
+        .signature-col {
+            flex: 1 1 48%;
+            min-width: 45%;
+            text-align: center;
+            font-size: 9px;
+            page-break-inside: avoid;
+        }
+
+        /* Pastikan blok yang harus utuh tidak terbelah halaman */
+        .keep-together {
+            page-break-inside: avoid;
+            page-break-before: auto;
+        }
+
+        .sig-title {
+            margin-bottom: 6px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .sig-date {
+            margin-bottom: 5px;
+            font-size: 9px;
+        }
+
+        .sig-img {
+            height: 35px;
+            max-width: 120px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .sig-space {
+            height: 35px;
+        }
+
+        .sig-name {
+            font-size: 10px;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .sig-nip {
+            font-size: 9px;
+            line-height: 1.3;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
     </style>
 </head>
 <body>
-    <!-- PAGE 1: COVER -->
+    <!-- =====================
+         PAGE 1 — COVER
+         ===================== -->
     <div class="page">
+        <div class="page-content">
+
+        <!-- Rejected Stamp -->
+        @if(!empty($data->rejected) && $data->rejected == true)
+            <div class="rejected-stamp">
+                PERJANJIAN KINERJA DITOLAK
+            </div>
+        @endif
+
         <div class="header">
-            <img src="{{ public_path('images/logo_pemda.png') }}" alt="Logo">
-            <h2>PERJANJIAN KINERJA TAHUN 2025<br>WAKIL DIREKTUR PELAYANAN<br>UOBK RSUD BANGIL KABUPATEN PASURUAN</h2>
+            <div class="header-logos">
+                <img src="{{ public_path('images/logo_pemda.png') }}" alt="Logo Pemerintah Kabupaten Pasuruan">
+                <img src="{{ public_path('images/logo_rsud.png') }}" alt="Logo RSUD Bangil">
+            </div>
+            <h2>
+                PERJANJIAN KINERJA TAHUN 2025<br>
+                {{ strtoupper($data->pihak1_jabatan ?? 'WADIR PELAYANAN') }}<br>
+                UOBK RSUD BANGIL<br>
+                KABUPATEN PASURUAN
+            </h2>
+        </div>
+
+        <!-- Rejection Notice -->
+        @if(!empty($data->rejected) && $data->rejected == true && !empty($data->rejection_reason))
+            <div class="rejection-notice">
+                <div class="rejection-notice-title">
+                    ⚠ CATATAN PENOLAKAN PERJANJIAN KINERJA
+                </div>
+                <div class="rejection-notice-content">
+                    <div class="rejection-notice-label">Alasan Penolakan:</div>
+                    <div style="margin-top: 6px; font-style: italic;">
+                        "{{ $data->rejection_reason }}"
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="content-intro">
+            Dalam rangka mewujudkan manajemen pemerintahan yang efektif,
+            transparan dan akuntabel serta berorientasi pada hasil,
+            kami yang bertanda tangan dibawah ini :
+        </div>
+
+        <div style="margin: 15px 0; font-size: 10px; line-height: 1.8;">
+            <div style="margin-bottom: 3px;">
+                Nama&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {{ $data->pihak1_name ?? '-' }}
+            </div>
+            <div style="margin-bottom: 3px;">
+                Jabatan&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {{ $data->pihak1_jabatan ?? '-' }}
+            </div>
+            <div style="margin-bottom: 12px; font-size: 9px;">
+                Selanjutnya disebut pihak pertama.
+            </div>
+            
+            <div style="margin-bottom: 3px;">
+                Nama&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {{ $data->pihak2_name ?? '-' }}
+            </div>
+            <div style="margin-bottom: 3px;">
+                Jabatan&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {{ $data->pihak2_jabatan ?? '-' }}
+            </div>
+            <div style="margin-bottom: 8px; font-size: 9px;">
+                Selaku atasan pihak pertama, selanjutnya disebut pihak kedua.
+            </div>
         </div>
 
         <div class="content-intro">
-            Dalam rangka mewujudkan manajemen pemerintahan yang efektif, transparan dan akuntabel serta berorientasi pada hasil, kami yang bertanda tangan dibawah ini:
-        </div>
-
-        <div class="parties">
-            <div class="party">
-                <strong>PIHAK PERTAMA:</strong><br><br>
-                Nama: {{ $data->pihak1_name ?? '-' }}<br>
-                Jabatan: {{ $data->pihak1_jabatan ?? '-' }}<br>
-                <div class="party-label">Selanjutnya disebut PIHAK PERTAMA</div>
-            </div>
-            <div class="party">
-                <strong>PIHAK KEDUA:</strong><br><br>
-                Nama: {{ $data->pihak2_name ?? '-' }}<br>
-                Jabatan: {{ $data->pihak2_jabatan ?? '-' }}<br>
-                <div class="party-label">Selanjutnya disebut PIHAK KEDUA</div>
-            </div>
+            Pihak pertama berjanji akan mewujudkan target kinerja yang seharusnya sesuai lampiran perjanjian ini,
+            dalam rangka mencapai target kinerja jangka menengah seperti yang telah ditetapkan
+            dalam dokumen perencanaan. Keberhasilan dan kegagalan pencapaian target kinerja tersebut menjadi tanggung jawab kami.
         </div>
 
         <div class="content-intro">
-            Pihak pertama berjanji akan mewujudkan target kinerja yang seharusnya sesuai lampiran perjanjian ini, dalam rangka mencapai target kinerja jangka menengah seperti yang telah ditetapkan dalam dokumen perencanaan.
-        </div>
-        
-        <div class="content-intro">
-            Pihak kedua akan melakukan evaluasi terhadap capaian kinerja dari perjanjian ini dan mengambil tindakan yang diperlukan dalam rangka pemberian penghargaan dan sanksi.
+            Pihak kedua akan melakukan evaluasi terhadap capaian kinerja dari perjanjian ini dan mengambil tindakan
+            yang diperlukan dalam rangka pemberian penghargaan dan sanksi.
         </div>
 
-        <div class="input-field">
-            <label>Jabatan:</label>
-            <div class="input-value">{{ $data->jabatan ?? '-' }}</div>
-        </div>
+       <div class="signature-block">
+        <div class="signature-row">
+            <div class="signature-col">
+                <div class="sig-title">{{ $data->pihak2_jabatan ?? 'Direktur' }}</div>
 
-        <div class="signature-date">
-            Pasuruan, {{ now()->format('d F Y') }}
-        </div>
-
-        <div class="signature-block">
-            <div class="signature">
-                PIHAK KEDUA<br><br><br><br>
-                ...............................<br>
-                {{ $data->pihak2_name ?? '-' }}
-            </div>
-            <div class="signature">
-                PIHAK PERTAMA<br><br>
-                @if($data->pihak1_ttd)
-                    <img src="{{ $data->pihak1_ttd }}" alt="TTD" style="height: 60px;">
+                @if($data->pihak2_signature)
+                    <img src="{{ $data->pihak2_signature }}" class="sig-img" alt="TTD Pihak 2">
                 @else
-                    <br><br><br>
+                    <div class="sig-space"></div>
                 @endif
-                ...............................<br>
-                {{ $data->pihak1_name ?? '-' }}
+
+                <div class="sig-name"><u>{{ $data->pihak2_name ?? '-' }}</u></div>
+                <div class="sig-nip">Pembina Utama Muda<br>NIP. {{ $data->pihak2_nip ?? '-' }}</div>
+            </div>
+
+            <div class="signature-col">
+                <div class="sig-date">
+                    {{ $data->location ?? 'Pasuruan' }},
+                    {{ isset($data->agreement_date)
+                        ? \Carbon\Carbon::parse($data->agreement_date)->format('d F Y')
+                        : now()->format('d F Y') }}
+                </div>
+
+                <div class="sig-title">{{ $data->pihak1_jabatan ?? 'Wadir Pelayanan' }}</div>
+
+                @if($data->pihak1_ttd)
+                    <img src="{{ $data->pihak1_ttd }}" class="sig-img" alt="TTD Pihak 1">
+                @else
+                    <div class="sig-space"></div>
+                @endif
+
+                <div class="sig-name"><u>{{ $data->pihak1_name ?? '-' }}</u></div>
+                <div class="sig-nip">Pembina<br>NIP. {{ $data->pihak1_nip ?? '-' }}</div>
             </div>
         </div>
     </div>
+<div class="page-break"></div>
 
-    <!-- PAGE 2: TABEL A -->
-    <div class="page page-break">
-        <h3 class="section-title">INDIKATOR KINERJA INDIVIDU - TABEL A</h3>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th class="no-col">NO</th>
-                    <th>SASARAN</th>
-                    <th>INDIKATOR KINERJA</th>
-                    <th>SATUAN</th>
-                    <th>TARGET</th>
-                </tr>
-            </thead>
-            <tbody>
-                @php
-                    $tabelA = json_decode($data->tabelA, true);
-                    $maxRows = max(
-                        count($tabelA['sasaran'] ?? []),
-                        count($tabelA['indikator'] ?? []),
-                        count($tabelA['satuan'] ?? []),
-                        count($tabelA['target'] ?? [])
-                    );
-                @endphp
-                
-                @for($i = 0; $i < $maxRows; $i++)
+    <!-- =====================
+         PAGE 2 — TABEL ANGGARAN (tanpa target triwulan) - LANDSCAPE
+         ===================== -->
+    <div class="page-landscape">
+        <div class="landscape-inner">
+        <div class="page-content">
+        <h3 style="font-size: 11px; margin-bottom: 6mm; text-align: center;">RENCANA ANGGARAN</h3>
+
+        @php
+            $tabelC = is_array($data->tabelC) ? $data->tabelC : json_decode($data->tabelC, true);
+            $totalAnggaran = 0;
+            $isHierarchical = isset($tabelC['programs']);
+        @endphp
+
+        @if($isHierarchical && count($tabelC['programs']) > 0)
+            <table class="anggaran-table" style="font-size: 8px; width: 100%; border-collapse: collapse; table-layout: fixed;">
+                <thead>
                     <tr>
-                        <td class="no-col">{{ $i + 1 }}</td>
-                        <td>{{ $tabelA['sasaran'][$i] ?? '' }}</td>
-                        <td>{{ $tabelA['indikator'][$i] ?? '' }}</td>
-                        <td>{{ $tabelA['satuan'][$i] ?? '' }}</td>
-                        <td>{{ $tabelA['target'][$i] ?? '' }}</td>
+                        <th class="no-col" style="width: 8%; padding: 3px; border: 1px solid #000;">NO</th>
+                        <th style="width: 67%; padding: 3px; border: 1px solid #000;">PROGRAM / KEGIATAN / SUB KEGIATAN</th>
+                        <th style="width: 25%; padding: 3px; border: 1px solid #000;">ANGGARAN (Rp)</th>
                     </tr>
-                @endfor
-            </tbody>
-        </table>
-    </div>
-
-    <!-- PAGE 3: TABEL C (TRIWULAN) -->
-    <div class="page page-break">
-        <h3 class="section-title">INDIKATOR KINERJA INDIVIDU - TABEL C (TARGET TRIWULAN)</h3>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>SASARAN</th>
-                    <th>INDIKATOR KINERJA</th>
-                    <th>TARGET</th>
-                    <th colspan="4">Target Triwulan</th>
-                </tr>
-                <tr>
-                    <th colspan="3"></th>
-                    <th>I</th>
-                    <th>II</th>
-                    <th>III</th>
-                    <th>IV</th>
-                </tr>
-            </thead>
-            <tbody>
-                @php
-                    $tabelB = json_decode($data->tabelB, true);
-                    $maxRows = max(
-                        count($tabelB['sasaran'] ?? []),
-                        count($tabelB['indikator'] ?? []),
-                        count($tabelB['target'] ?? []),
-                        count($tabelB['tw1'] ?? []),
-                        count($tabelB['tw2'] ?? []),
-                        count($tabelB['tw3'] ?? []),
-                        count($tabelB['tw4'] ?? [])
-                    );
-                @endphp
-                
-                @for($i = 0; $i < $maxRows; $i++)
-                    <tr>
-                        <td>{{ $tabelB['sasaran'][$i] ?? '' }}</td>
-                        <td>{{ $tabelB['indikator'][$i] ?? '' }}</td>
-                        <td>{{ $tabelB['target'][$i] ?? '' }}</td>
-                        <td>{{ $tabelB['tw1'][$i] ?? '' }}</td>
-                        <td>{{ $tabelB['tw2'][$i] ?? '' }}</td>
-                        <td>{{ $tabelB['tw3'][$i] ?? '' }}</td>
-                        <td>{{ $tabelB['tw4'][$i] ?? '' }}</td>
-                    </tr>
-                @endfor
-            </tbody>
-        </table>
-    </div>
-
-    <!-- PAGE 4: TABEL D (ANGGARAN) - HIERARCHICAL or FLAT -->
-    <div class="page page-break">
-        <h3 class="section-title">ANGGARAN & PROGRAM</h3>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th class="no-col">NO</th>
-                    <th>PROGRAM / KEGIATAN / SUB KEGIATAN</th>
-                    <th style="width: 150px;">ANGGARAN (Rp)</th>
-                    <th style="width: 100px;">KETERANGAN</th>
-                </tr>
-            </thead>
-            <tbody>
-                @php
-                    $tabelC = json_decode($data->tabelC, true);
-                    $totalAnggaran = 0;
-                    
-                    // Check if hierarchical structure
-                    $isHierarchical = isset($tabelC['programs']) && is_array($tabelC['programs']);
-                @endphp
-                
-                @if($isHierarchical)
-                    {{-- HIERARCHICAL RENDERING --}}
+                </thead>
+                <tbody>
+                @foreach($tabelC['programs'] as $p)
                     @php
-                        $programs = $tabelC['programs'] ?? [];
-                        $rowNum = 1;
+                        $programNum = $loop->iteration;
+                        $programTotal = 0;
+
+                        foreach ($p['kegiatan'] ?? [] as $k) {
+                            foreach ($k['subKegiatan'] ?? [] as $s) {
+                                $programTotal += (int) ($s['amount'] ?? 0);
+                            }
+                        }
+
+                        $totalAnggaran += $programTotal;
                     @endphp
-                    
-                    @foreach($programs as $pIdx => $program)
+
+                    <!-- PROGRAM -->
+                    <tr style="background:white;font-weight:bold;color:#000; border: 1px solid #000;">
+                        <td class="no-col" style="padding: 3px; text-align: center; border: 1px solid #000;">{{ $programNum }}</td>
+                        <td style="font-size: 8px; padding: 3px; border: 1px solid #000;">{{ $p['name'] }}</td>
+                        <td style="text-align:right; font-size: 8px; padding: 3px; border: 1px solid #000;">{{ number_format($programTotal,0,',','.') }}</td>
+                    </tr>
+
+                    <!-- KEGIATAN -->
+                   @foreach(($p['kegiatan'] ?? []) as $kIndex => $k)
                         @php
-                            $programTotal = 0;
-                            $kegiatan = $program['kegiatan'] ?? [];
+                            $kTotal = 0;
+                            foreach ($k['subKegiatan'] ?? [] as $s) {
+                                $kTotal += (int)($s['amount'] ?? 0);
+                            }
+                            $kegiatanNum = $programNum . '.' . ($kIndex + 1);
                         @endphp
-                        
-                        <!-- PROGRAM ROW -->
-                        <tr style="font-weight: bold; background: #f9f9f9;">
-                            <td class="no-col">{{ $rowNum }}</td>
-                            <td><strong>{{ $program['name'] ?? '' }}</strong></td>
-                            <td style="text-align: right;">
-                                @php
-                                    // Calculate program total from kegiatan
-                                    foreach ($kegiatan as $keg) {
-                                        foreach ($keg['subKegiatan'] ?? [] as $subKeg) {
-                                            $amt = (int)($subKeg['amount'] ?? 0);
-                                            $programTotal += $amt;
-                                        }
-                                    }
-                                    $totalAnggaran += $programTotal;
-                                @endphp
-                                <strong>Rp {{ number_format($programTotal, 0, ',', '.') }}</strong>
-                            </td>
-                            <td>{{ $program['keterangan'] ?? '' }}</td>
+
+                        <tr style="color:#000; border: 1px solid #000;">
+                            <td class="no-col" style="padding: 3px; text-align: center; border: 1px solid #000;">{{ $kegiatanNum }}</td>
+                            <td style="padding-left:20px; font-size: 7.5px; padding: 3px; border: 1px solid #000;">{{ $k['name'] }}</td>
+                            <td style="text-align:right; font-size: 7.5px; padding: 3px; border: 1px solid #000;">{{ number_format($kTotal,0,',','.') }}</td>
                         </tr>
-                        
-                        @php $rowNum++; @endphp
-                        
-                        <!-- KEGIATAN ROWS -->
-                        @foreach($kegiatan as $kIdx => $keg)
+
+                        <!-- SUB KEGIATAN -->
+                        @foreach($k['subKegiatan'] as $sIndex => $s)
                             @php
-                                $kegiatanTotal = 0;
-                                $subKegiatan = $keg['subKegiatan'] ?? [];
+                                $subKegiatanNum = $kegiatanNum . '.' . ($sIndex + 1);
                             @endphp
-                            
-                            <tr style="background: #fafafa;">
-                                <td class="no-col">{{ $rowNum - 1 }}.{{ $kIdx + 1 }}</td>
-                                <td style="padding-left: 40px;">{{ $keg['name'] ?? '' }}</td>
-                                <td style="text-align: right;">
-                                    @php
-                                        foreach ($subKegiatan as $subKeg) {
-                                            $amt = (int)($subKeg['amount'] ?? 0);
-                                            $kegiatanTotal += $amt;
-                                        }
-                                    @endphp
-                                    <strong>Rp {{ number_format($kegiatanTotal, 0, ',', '.') }}</strong>
-                                </td>
-                                <td>{{ $keg['keterangan'] ?? '' }}</td>
+                            <tr style="color:#000; border: 1px solid #000;">
+                                <td class="no-col" style="font-size: 7px; padding: 2px; text-align: center; border: 1px solid #000;">{{ $subKegiatanNum }}</td>
+                                <td style="padding-left:35px; font-size: 7px; padding: 2px; border: 1px solid #000;">{{ $s['name'] }}</td>
+                                <td style="text-align:right; font-size: 7px; padding: 2px; border: 1px solid #000;">{{ number_format((int)$s['amount'],0,',','.') }}</td>
                             </tr>
-                            
-                            @php $rowNum++; @endphp
-                            
-                            <!-- SUB-KEGIATAN ROWS -->
-                            @foreach($subKegiatan as $sIdx => $subKeg)
-                                <tr>
-                                    <td class="no-col">{{ $rowNum - 2 }}.{{ $kIdx + 1 }}.{{ $sIdx + 1 }}</td>
-                                    <td style="padding-left: 60px;">{{ $subKeg['name'] ?? '' }}</td>
-                                    <td style="text-align: right;">
-                                        @php
-                                            $amt = (int)($subKeg['amount'] ?? 0);
-                                        @endphp
-                                        Rp {{ number_format($amt, 0, ',', '.') }}
-                                    </td>
-                                    <td>{{ $subKeg['keterangan'] ?? '' }}</td>
-                                </tr>
-                                @php $rowNum++; @endphp
-                            @endforeach
                         @endforeach
                     @endforeach
-                @else
-                    {{-- FLAT RENDERING (FALLBACK FOR OLD DATA) --}}
-                    @php
-                        $programs = $tabelC['program'] ?? [];
-                        $anggaran = $tabelC['anggaran'] ?? [];
-                        $keterangan = $tabelC['keterangan'] ?? [];
-                        
-                        $maxRows = max(
-                            count($programs),
-                            count($anggaran),
-                            count($keterangan)
-                        );
-                    @endphp
-                    
-                    @for($i = 0; $i < $maxRows; $i++)
-                        @php
-                            $angg = (int)($anggaran[$i] ?? 0);
-                            $totalAnggaran += $angg;
-                        @endphp
-                        <tr>
-                            <td class="no-col">{{ $i + 1 }}</td>
-                            <td>{{ $programs[$i] ?? '' }}</td>
-                            <td style="text-align: right;">Rp {{ number_format($angg, 0, ',', '.') }}</td>
-                            <td>{{ $keterangan[$i] ?? '' }}</td>
-                        </tr>
-                    @endfor
-                @endif
-                
-                <tr class="total-row">
-                    <td colspan="2" style="text-align: right;"><strong>TOTAL ANGGARAN:</strong></td>
-                    <td style="text-align: right;"><strong>Rp {{ number_format($totalAnggaran, 0, ',', '.') }}</strong></td>
-                    <td></td>
+
+                @endforeach
+
+                <tr class="total-row" style="border: 1px solid #000;">
+                    <td colspan="2" style="text-align:right; font-size: 9px; padding: 3px; border: 1px solid #000;"><strong>TOTAL ANGGARAN :</strong></td>
+                    <td style="text-align:right; font-size: 9px; padding: 3px; border: 1px solid #000;"><strong>{{ number_format($totalAnggaran, 0, ',', '.') }}</strong></td>
                 </tr>
-            </tbody>
-        </table>
-    </div>
+                </tbody>
+            </table>
+        @else
+            <div style="text-align: center; padding: 15px; font-size: 9px;">Tidak ada data Rencana Anggaran</div>
+        @endif
+    
+        <!-- SIGNATURES PAGE 2 -->
+        <div class="signature-block">
+            <div class="signature-row">
+                <div class="signature-col">
+                    <div class="sig-title">{{ $data->pihak2_jabatan ?? 'Direktur' }}</div>
+                    @if($data->pihak2_signature)
+                        <img src="{{ $data->pihak2_signature }}" class="sig-img" alt="TTD Pihak 2">
+                    @else
+                        <div class="sig-space"></div>
+                    @endif
+                    <div class="sig-name"><u>{{ $data->pihak2_name ?? '-' }}</u></div>
+                    <div class="sig-nip">Pembina Utama Muda<br>NIP. {{ $data->pihak2_nip ?? '-' }}</div>
+                </div>
+                <div class="signature-col">
+                    <div class="sig-date">
+                        {{ $data->location ?? 'Pasuruan' }}, {{ isset($data->agreement_date) ? \Carbon\Carbon::parse($data->agreement_date)->format('d F Y') : now()->format('d F Y') }}
+                    </div>
+                    <div class="sig-title">{{ $data->pihak1_jabatan ?? 'Wadir Pelayanan' }}</div>
+                    @if($data->pihak1_ttd)
+                        <img src="{{ $data->pihak1_ttd }}" class="sig-img" alt="TTD Pihak 1">
+                    @else
+                        <div class="sig-space"></div>
+                    @endif
+                    <div class="sig-name"><u>{{ $data->pihak1_name ?? '-' }}</u></div>
+                    <div class="sig-nip">Pembina<br>NIP. {{ $data->pihak1_nip ?? '-' }}</div>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+</div>
+ <div class="page-break"></div>
+
+    <!-- =====================
+         PAGE 3 — TABEL A (Indikator Kinerja) + TABEL B (Rencana Aksi dengan Target Triwulan) - LANDSCAPE
+         ===================== -->
+    <div class="page-landscape">
+        <div class="landscape-inner">
+            <div class="page-content">
+            <h3 style="font-size: 11px; margin-bottom: 6mm; text-align: center;">INDIKATOR KINERJA & RENCANA AKSI</h3>
+
+        <!-- TABEL A: INDIKATOR KINERJA INDIVIDU -->
+        @php
+            $tabelA = is_array($data->tabelA) ? $data->tabelA : json_decode($data->tabelA, true);
+        @endphp
+
+        @if(!empty($tabelA['indikator']) && count($tabelA['indikator']) > 0)
+            <table style="border-collapse: collapse; width: 100%; margin-bottom: 6mm; font-size: 8px;">
+                <thead>
+                    <tr>
+                        <th class="no-col" style="width: 25px; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 3px;">NO</th>
+                        <th style="width: 20%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 3px; font-size: 7.5px;">SASARAN</th>
+                        <th style="width: 35%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 3px; font-size: 7.5px;">INDIKATOR KINERJA</th>
+                        <th style="width: 14%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 3px;">SATUAN</th>
+                        <th style="width: 11%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 3px;">TARGET</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($tabelA['indikator'] as $idx => $indikator)
+                    <tr style="background: white; color: #000;">
+                        <td class="no-col" style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $idx + 1 }}</td>
+                        <td style="border: 1px solid #000; padding: 2px; font-size: 7.5px;">{{ $tabelA['sasaran'][$idx] ?? '-' }}</td>
+                        <td style="border: 1px solid #000; padding: 2px; font-size: 7.5px;">{{ $indikator ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelA['satuan'][$idx] ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelA['target'][$idx] ?? '-' }}</td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        @else
+            <div style="text-align: center; padding: 15px; font-size: 9px;">Tidak ada data Indikator Kinerja</div>
+        @endif
+
+        <!-- TABEL B: RENCANA AKSI (Target Triwulan) -->
+        @php
+            $tabelB = is_array($data->tabelB) ? $data->tabelB : json_decode($data->tabelB, true);
+        @endphp
+
+        @if(!empty($tabelB['sasaran']) && count($tabelB['sasaran']) > 0)
+           <table style="border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 8px;">
+                <thead>
+                    <tr>
+                        <th class="no-col" style="width: 25px; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px;">NO</th>
+                        <th style="width: 18%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px; font-size: 7.5px;">SASARAN</th>
+                        <th style="width: 28%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px; font-size: 7.5px;">INDIKATOR KINERJA</th>
+                        <th style="width: 8%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px;">TARGET</th>
+                        <th style="width: 7%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px;">TW I</th>
+                        <th style="width: 7%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px;">TW II</th>
+                        <th style="width: 7%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px;">TW III</th>
+                        <th style="width: 7%; background: #e0e0e0; color: #000; border: 1px solid #000; padding: 2px;">TW IV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($tabelB['sasaran'] as $idx => $sasaran)
+                    <tr style="background: white; color: #000;">
+                        <td class="no-col" style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $idx + 1 }}</td>
+                        <td style="border: 1px solid #000; padding: 2px; font-size: 7.5px;">{{ $sasaran ?? '-' }}</td>
+                        <td style="border: 1px solid #000; padding: 2px; font-size: 7.5px;">{{ $tabelB['indikator'][$idx] ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelB['target'][$idx] ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelB['tw1'][$idx] ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelB['tw2'][$idx] ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelB['tw3'][$idx] ?? '-' }}</td>
+                        <td style="text-align: center; border: 1px solid #000; padding: 2px;">{{ $tabelB['tw4'][$idx] ?? '-' }}</td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        @else
+            <div style="text-align: center; padding: 15px; font-size: 9px;">Tidak ada data Rencana Aksi</div>
+        @endif
+
+        <!-- SIGNATURES PAGE 3 -->
+        <div class="signature-block">
+            <div class="signature-row">
+                <div class="signature-col">
+                    <div style="margin-bottom: 8px; font-size: 10px;">{{ $data->pihak2_jabatan ?? 'Direktur' }}</div>
+                    @if($data->pihak2_signature)
+                        <img src="{{ $data->pihak2_signature }}" style="height: 35px; max-width: 120px; margin: 0 auto;">
+                    @else
+                        <div style="height: 35px;"></div>
+                    @endif
+                    <br><u style="font-size: 10px;">{{ $data->pihak2_name ?? '-' }}</u><br>
+                    <span style="font-size: 9px;">Pembina Utama Muda<br>NIP. {{ $data->pihak2_nip ?? '-' }}</span>
+                </div>
+                <div class="signature-col">
+                    <div style="margin-bottom: 5px; font-size: 9px;">
+                        {{ $data->location ?? 'Pasuruan' }}, {{ isset($data->agreement_date) ? \Carbon\Carbon::parse($data->agreement_date)->format('d F Y') : now()->format('d F Y') }}
+                    </div>
+                    <div style="margin-bottom: 8px; font-size: 10px;">{{ $data->pihak1_jabatan ?? 'Wadir Pelayanan' }}</div>
+                    @if($data->pihak1_ttd)
+                        <img src="{{ $data->pihak1_ttd }}" style="height: 35px; max-width: 120px; margin: 0 auto;">
+                    @else
+                        <div style="height: 35px;"></div>
+                    @endif
+                    <br><u style="font-size: 10px;">{{ $data->pihak1_name ?? '-' }}</u><br>
+                    <span style="font-size: 9px;">Pembina<br>NIP. {{ $data->pihak1_nip ?? '-' }}</span>
+                </div>
+            </div>
+        </div>
+</div>
+</div>
 </body>
 </html>

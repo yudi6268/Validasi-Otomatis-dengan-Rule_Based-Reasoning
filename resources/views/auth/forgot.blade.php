@@ -88,6 +88,26 @@
         .back a:hover {
             text-decoration: underline;
         }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background-color: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background-color: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
     </style>
 </head>
 <body>
@@ -101,6 +121,19 @@
         <!-- JUDUL -->
         <h3>Lupa Password</h3>
         <p>Masukkan ID atau email untuk menerima kode verifikasi.</p>
+
+        <!-- ALERTS -->
+        @if(session('error'))
+        <div class="alert alert-error">
+            {{ session('error') }}
+        </div>
+        @endif
+
+        @if(session('success'))
+        <div class="alert alert-success">
+            {{ session('success') }}
+        </div>
+        @endif
 
         <!-- FORM -->
         <form method="POST" action="{{ route('forgot.post') }}">

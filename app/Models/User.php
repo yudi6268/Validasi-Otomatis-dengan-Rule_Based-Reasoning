@@ -16,11 +16,16 @@ class User extends Authenticatable
         'email',
         'nip',
         'jabatan',
+        'fungsi',
+        'tugas',
+        'membawahi',
         'pangkat',
         'divisi',
+        'role',
         'password',
         'foto_profil',
         'tanda_tangan',
+        'status',
     ];
 
     protected $hidden = [
@@ -32,4 +37,20 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Get perjanjian created by this user
+     */
+    public function perjanjians()
+    {
+        return $this->hasMany(Perjanjian::class);
+    }
 }

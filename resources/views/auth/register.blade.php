@@ -141,16 +141,10 @@
                 <select name="jabatan" class="form-control" required>
                     <option value="" disabled selected>Pilih Jabatan</option>
                     <option>Direktur</option>
-                    <option>Wadir Umum dan Keuangan</option>
-                    <option>Wadir Pelayanan</option>
-                    <option>Kabid Pelayanan</option>
-                    <option>Kabid Pelayanan Keperawatan</option>
-                    <option>Kabid Pelayanan Penunjang</option>
-                    <option>Kabag SDM dan Pengembangan</option>
-                    <option>Kabag Umum</option>
-                    <option>Kabag Keuangan</option>
-                    <option>Ketua Tim Kerja</option>
-                    <option>Admin/Staff</option>
+                    <option>Wakil Direktur Umum, Pendidikan dan Penelitian</option>
+                    <option>Wakil Direktur Pelayanan</option>
+                    <option>Wakil Direktur Perencanaan dan Keuangan</option>
+                    
                 </select>
             </div>
             <div class="mb-3">

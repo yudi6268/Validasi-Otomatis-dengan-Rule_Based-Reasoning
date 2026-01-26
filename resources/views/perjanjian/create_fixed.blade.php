@@ -202,8 +202,6 @@ table td:first-child {
     <p style="text-align:justify; margin-top:18px;"> Pihak pertama berjanji akan mewujudkan target kinerja yang seharusnya sesuai lampiran perjanjian ini, dalam rangka mencapai target kinerja jangka menengah seperti yang telah ditetapkan dalam dokumen perencanaan. </p> 
     <p style="text-align:justify;"> Pihak kedua akan melakukan evaluasi terhadap capaian kinerja dari perjanjian ini dan mengambil tindakan yang diperlukan dalam rangka pemberian penghargaan dan sanksi. </p> 
     
-    <h3 style="text-align:center; margin-top:30px; font-size:15px;">INDIKATOR KINERJA INDIVIDU</h3>
-
     {{-- TABEL A --}}
 <table id="tabelA">
     <thead>
@@ -266,7 +264,6 @@ table td:first-child {
 </table>
 
 {{-- TABEL D: HIERARCHICAL BUDGET (PROGRAM -> KEGIATAN -> SUB KEGIATAN) --}}
-<h3 style="text-align:center; margin-top:30px; font-size:15px;">RENCANA ANGGARAN</h3>
 
 <table id="tabel3" style="table-layout: fixed; width: 100%; border-collapse: collapse;">
     <thead>
@@ -300,7 +297,7 @@ table td:first-child {
             ➕ TAMBAH PROGRAM
         </button>
         <button class="save-btn" type="submit" onclick="saveToSupabase(event)" style="background:#009970;">
-            💾 SIMPAN KE SUPABASE
+            💾 SIMPAN
         </button>
     </div>
     </form>
