@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('perjanjian', function (Blueprint $table) {
-            $table->string('pdf_url')->nullable();
-            $table->string('pdf_path')->nullable();
+        Schema::table('perjanjians', function (Blueprint $table) {
+            if (!Schema::hasColumn('perjanjians', 'pdf_url')) {
+                $table->string('pdf_url')->nullable();
+            }
+            if (!Schema::hasColumn('perjanjians', 'pdf_path')) {
+                $table->string('pdf_path')->nullable();
+            }
         });
     }
 
@@ -22,7 +26,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('perjanjian', function (Blueprint $table) {
+        Schema::table('perjanjians', function (Blueprint $table) {
             $table->dropColumn(['pdf_url', 'pdf_path']);
         });
     }

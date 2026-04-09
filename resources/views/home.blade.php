@@ -311,9 +311,19 @@
       <!-- CARD 1 -->
       <div class="card">
         <i class="fa-solid fa-file-signature"></i>
-        <h3>Perjanjian</h3>
+        <h3>Perjanjian Kinerja</h3>
         <p>Kelola dan lihat dokumen perjanjian kinerja</p>
         <a href="{{ route('perjanjian.index') }}">
+          <button>Buka</button>
+        </a>
+      </div>
+
+      <!-- CARD 2 -->
+      <div class="card">
+        <i class="fa-solid fa-chart-line"></i>
+        <h3>Laporan Kinerja</h3>
+        <p>Kelola Laporan Kinerja</p>
+        <a href="{{ route('laporan.kinerja') }}">
           <button>Buka</button>
         </a>
       </div>

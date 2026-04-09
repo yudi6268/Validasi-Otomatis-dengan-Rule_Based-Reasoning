@@ -219,6 +219,33 @@
         font-size: 14px;
         letter-spacing: 1px;
     }
+
+    /* Style untuk dropdown select */
+    select.program-nama-dropdown,
+    select.kegiatan-nama-dropdown,
+    select.subkegiatan-nama-dropdown {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: white;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    select.program-nama-dropdown {
+        font-weight: 600 !important;
+    }
+
+    select.kegiatan-nama-dropdown {
+        font-style: italic !important;
+    }
+
+    select.program-nama-dropdown:focus,
+    select.kegiatan-nama-dropdown:focus,
+    select.subkegiatan-nama-dropdown:focus {
+        outline: none;
+        border-color: #00B5A0;
+        box-shadow: 0 0 0 2px rgba(0, 181, 160, 0.1);
+    }
 </style>
 
 @php
@@ -292,7 +319,204 @@ window.programsData = @json($programs);
 window.kegiatansData = @json($kegiatans);
 window.subKegiatansData = @json($subKegiatans);
 
+console.log('=== DATA LOADED ===');
+console.log('existingTabelC:', window.existingTabelC);
+console.log('programsData:', window.programsData);
 console.log('Data loaded:', window.existingTabelC);
+console.log('Programs with relations:', window.programsData);
+
+// Fungsi untuk store program ID yang dipilih di row
+window.handleProgramChange = function(selectElement) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const programId = selectedOption.getAttribute('data-program-id');
+    
+    // Store program ID di row untuk filtering nanti
+    const programRow = selectElement.closest('tr.program-row');
+    if (programRow) {
+        programRow.dataset.programId = programId || '';
+    }
+    
+    console.log('Program changed, ID stored:', programId);
+    if (window.syncProgramToTabelD) window.syncProgramToTabelD();
+}
+
+// Fungsi untuk filter kegiatan dropdown berdasarkan program
+window.filterKegiatanByProgram = function(selectElement) {
+    const row = selectElement.closest('tr');
+    const programNo = row.dataset.parent; // nomor parent (program)
+    
+    if (!programNo) return;
+    
+    // Cari row program parent
+    const tbody = row.closest('tbody');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const programRow = allRows.find(r => 
+        r.classList.contains('program-row') && 
+        r.querySelector('.no-col')?.textContent?.trim() === programNo
+    );
+    
+    if (!programRow || !programRow.dataset.programId) {
+        console.log('Program not selected yet');
+        return;
+    }
+    
+    const programId = programRow.dataset.programId;
+    
+    // Filter kegiatan berdasarkan program_id
+    const filteredKegiatans = window.kegiatansData.filter(k => k.program_id == programId);
+    
+    // Rebuild dropdown options
+    selectElement.innerHTML = '<option value="">-- Pilih Kegiatan --</option>';
+    filteredKegiatans.forEach(keg => {
+        const option = document.createElement('option');
+        option.value = keg.nama_kegiatan;
+        option.setAttribute('data-kode', keg.kode_kegiatan);
+        option.setAttribute('data-kegiatan-id', keg.id);
+        option.textContent = keg.nama_kegiatan;
+        selectElement.appendChild(option);
+    });
+}
+
+// Fungsi untuk store kegiatan ID dan filter sub kegiatan
+window.handleKegiatanChange = function(selectElement) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const kegiatanId = selectedOption.getAttribute('data-kegiatan-id');
+    
+    // Store kegiatan ID di row
+    const row = selectElement.closest('tr');
+    if (row) {
+        row.dataset.kegiatanId = kegiatanId || '';
+    }
+    
+    console.log('Kegiatan changed, ID stored:', kegiatanId);
+    if (window.calculateHierarchicalTotal) window.calculateHierarchicalTotal();
+    if (window.syncProgramToTabelD) window.syncProgramToTabelD();
+}
+
+// Fungsi untuk filter sub kegiatan dropdown berdasarkan kegiatan
+window.filterSubKegiatanByKegiatan = function(selectElement) {
+    const row = selectElement.closest('tr');
+    const kegiatanNo = row.dataset.parent; // nomor parent (kegiatan)
+    
+    if (!kegiatanNo) return;
+    
+    // Cari row kegiatan parent
+    const tbody = row.closest('tbody');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const kegiatanRow = allRows.find(r => 
+        r.dataset.level === 'kegiatan' && 
+        r.querySelector('.no-col')?.textContent?.trim() === kegiatanNo
+    );
+    
+    if (!kegiatanRow || !kegiatanRow.dataset.kegiatanId) {
+        console.log('Kegiatan not selected yet');
+        return;
+    }
+    
+    const kegiatanId = kegiatanRow.dataset.kegiatanId;
+    
+    // Filter sub kegiatan berdasarkan kegiatan_id
+    const filteredSubKegiatans = window.subKegiatansData.filter(s => s.kegiatan_id == kegiatanId);
+    
+    // Rebuild dropdown options
+    selectElement.innerHTML = '<option value="">-- Pilih Sub Kegiatan --</option>';
+    filteredSubKegiatans.forEach(sub => {
+        const option = document.createElement('option');
+        option.value = sub.nama_sub_kegiatan;
+        option.setAttribute('data-kode', sub.kode_sub_kegiatan);
+        option.textContent = sub.nama_sub_kegiatan;
+        selectElement.appendChild(option);
+    });
+}
+
+// Fungsi helper untuk menambah kegiatan otomatis
+window.addAutoKegiatan = function(parentNo, kegiatanNo, kegiatanData) {
+    const tbody = document.querySelector('#tabelProgramBody');
+    if (!tbody) return;
+    
+    const tr = document.createElement('tr');
+    tr.classList.add('subprogram-row');
+    tr.dataset.parent = parentNo;
+    tr.dataset.level = 'kegiatan';
+    
+    tr.innerHTML = `
+        <td class="no-col">${kegiatanNo}</td>
+        <td>
+            <select name="kegiatan_nama[]" class="kegiatan-nama-dropdown" style="width:95%; padding:8px; font-style:italic;" required>
+                <option value="${kegiatanData.nama_kegiatan}" selected>${kegiatanData.nama_kegiatan}</option>
+            </select>
+        </td>
+        <td><input type="text" name="kegiatan_anggaran[]" value="0" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan"></td>
+        <td><textarea name="kegiatan_ket[]" onkeyup="if(window.autoExpand) window.autoExpand(this)"></textarea></td>
+        <td>
+            <button type="button" class="table-action-btn add-btn" onclick="if(window.addSubRow) window.addSubRow('${kegiatanNo}')" title="Tambah Sub Kegiatan">➕</button>
+            <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+        </td>
+    `;
+    
+    // Insert setelah parent row atau setelah sibling terakhir
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const parentRow = allRows.find(r => r.querySelector('.no-col')?.textContent?.trim() === parentNo);
+    
+    if (parentRow) {
+        let insertAfter = parentRow;
+        
+        // Cari sibling terakhir dengan parent yang sama
+        for (let i = allRows.indexOf(parentRow) + 1; i < allRows.length; i++) {
+            if (allRows[i].dataset.parent === parentNo) {
+                insertAfter = allRows[i];
+            } else {
+                break;
+            }
+        }
+        
+        insertAfter.after(tr);
+    }
+}
+
+// Fungsi helper untuk menambah sub kegiatan otomatis
+window.addAutoSubKegiatan = function(parentNo, subNo, subKegiatanData) {
+    const tbody = document.querySelector('#tabelProgramBody');
+    if (!tbody) return;
+    
+    const tr = document.createElement('tr');
+    tr.classList.add('subprogram-row');
+    tr.dataset.parent = parentNo;
+    tr.dataset.level = 'subkegiatan';
+    
+    tr.innerHTML = `
+        <td class="no-col">${subNo}</td>
+        <td>
+            <select name="subkegiatan_nama[]" class="subkegiatan-nama-dropdown" style="width:95%; padding:8px;" required>
+                <option value="${subKegiatanData.nama_sub_kegiatan}" selected>${subKegiatanData.nama_sub_kegiatan}</option>
+            </select>
+        </td>
+        <td><input type="text" name="subkegiatan_anggaran[]" value="0" style="text-align:right" oninput="if(window.formatRupiah) window.formatRupiah(this); if(window.calculateHierarchicalTotal) window.calculateHierarchicalTotal(); if(window.syncProgramToTabelD) window.syncProgramToTabelD();"></td>
+        <td><textarea name="subkegiatan_ket[]" onkeyup="if(window.autoExpand) window.autoExpand(this)"></textarea></td>
+        <td>
+            <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+        </td>
+    `;
+    
+    // Insert setelah parent row atau setelah sibling terakhir
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const parentRow = allRows.find(r => r.querySelector('.no-col')?.textContent?.trim() === parentNo);
+    
+    if (parentRow) {
+        let insertAfter = parentRow;
+        
+        // Cari sibling terakhir dengan parent yang sama
+        for (let i = allRows.indexOf(parentRow) + 1; i < allRows.length; i++) {
+            if (allRows[i].dataset.parent === parentNo) {
+                insertAfter = allRows[i];
+            } else {
+                break;
+            }
+        }
+        
+        insertAfter.after(tr);
+    }
+}
 
 // Fungsi-fungsi handler sudah tidak diperlukan karena menggunakan textarea manual
 // Placeholder dihapus: sebelumnya ada potongan kode referensi `select/textarea`
@@ -319,16 +543,24 @@ window.addProgram = function() {
     tr.dataset.program = newProgramNo;
     tr.dataset.level = 'program';
 
+    // Generate dropdown options dari data program
+    let programOptions = '<option value="">-- Pilih Program --</option>';
+    window.programsData.forEach(prog => {
+        programOptions += `<option value="${prog.nama_program}" data-kode="${prog.kode_program}" data-program-id="${prog.id}">${prog.nama_program}</option>`;
+    });
+
     tr.innerHTML = `
         <td class="no-col">${newProgramNo}</td>
         <td>
-            <textarea name="program_nama[]" class="program-nama-manual" style="width:95%; font-weight:600;" onkeyup="if(window.autoExpand) autoExpand(this); if(window.syncProgramToTabelD) syncProgramToTabelD();"></textarea>
+            <select name="program_nama[]" class="program-nama-dropdown" style="width:95%; font-weight:600; padding:8px;" onchange="window.handleProgramChange(this)" required>
+                ${programOptions}
+            </select>
         </td>
-        <td><input type="text" name="program_anggaran[]" value="0" style="text-align:right" oninput="if(window.formatRupiah) formatRupiah(this); if(window.calculateTotal) calculateTotal(); if(window.syncProgramToTabelD) syncProgramToTabelD();" /></td>
-        <td><textarea name="program_ket[]" onkeyup="if(window.autoExpand) autoExpand(this);"></textarea></td>
+        <td><input type="text" name="program_anggaran[]" value="0" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari kegiatan" /></td>
+        <td><textarea name="program_ket[]" onkeyup="window.autoExpand(this);"></textarea></td>
         <td>
-            <button type="button" class="table-action-btn add-btn" onclick="if(window.addSubRow) addSubRow('${newProgramNo}')" title="Tambah Kegiatan">➕</button>
-            <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+            <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${newProgramNo}', 'kegiatan')" title="Tambah Kegiatan">➕</button>
+            <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
         </td>
     `;
 
@@ -339,19 +571,25 @@ window.addProgram = function() {
         window.bindAnggaranListeners();
         console.log('Listeners bound after addProgram');
     }
-    if (window.calculateTotal) {
-        window.calculateTotal();
-        console.log('calculateTotal called after addProgram');
+    if (window.syncProgramToTabelD) {
+        window.syncProgramToTabelD();
     }
     
     return tr;
 }
+console.log('✓ window.addProgram defined');
     
 // Add Sub Row (Kegiatan/Sub-Kegiatan)
-window.addSubRow = function(parentNo) {
-    console.log('addSubRow called for parent:', parentNo, typeof parentNo);
+window.addSubRow = function(parentNo, dataLevel) {
+    console.log('addSubRow called for parent:', parentNo, 'level:', dataLevel);
     const parentNoStr = parentNo.toString();
     const parentLevel = parentNoStr.split('.').length;
+    
+    // Auto-detect level jika tidak diberikan
+    if (!dataLevel) {
+        dataLevel = parentLevel === 1 ? 'kegiatan' : 'subkegiatan';
+    }
+    
     if (parentLevel >= 3) {
         alert('Maksimal 3 level (Program > Kegiatan > Sub-Kegiatan)');
         return;
@@ -383,27 +621,56 @@ window.addSubRow = function(parentNo) {
     const children = Array.from(tbody.querySelectorAll(`tr[data-parent="${parentNoStr}"]`));
     const newIndex = children.length + 1;
     const newNo = `${parentNoStr}.${newIndex}`;
-    const dataLevel = parentLevel === 1 ? 'kegiatan' : 'subkegiatan';
 
     const tr = document.createElement('tr');
     tr.classList.add('subprogram-row');
     tr.dataset.parent = parentNoStr;
     tr.dataset.level = dataLevel;
 
-    // Menggunakan textarea manual input untuk semua level
-    const inputStyle = parentLevel === 1 ? 'font-style:italic;' : '';
-    const paddingLeft = parentLevel === 1 ? '15px' : '30px';
+    // Generate dropdown options berdasarkan level (akan di-filter saat onfocus)
+    let dropdownOptions = '';
+    let onchangeHandler = '';
+    let onfocusHandler = '';
+    
+    if (dataLevel === 'kegiatan') {
+        // Ini level kegiatan
+        dropdownOptions = '<option value="">-- Pilih Kegiatan --</option>';
+        if (window.kegiatansData && Array.isArray(window.kegiatansData)) {
+            window.kegiatansData.forEach(keg => {
+                dropdownOptions += `<option value="${keg.nama_kegiatan}" data-kode="${keg.kode_kegiatan}">${keg.nama_kegiatan}</option>`;
+            });
+        }
+        onchangeHandler = 'window.handleKegiatanChange(this)';
+        onfocusHandler = 'window.filterKegiatanByProgram(this)';
+    } else {
+        // Ini level sub-kegiatan
+        dropdownOptions = '<option value="">-- Pilih Sub Kegiatan --</option>';
+        if (window.subKegiatansData && Array.isArray(window.subKegiatansData)) {
+            window.subKegiatansData.forEach(subKeg => {
+                dropdownOptions += `<option value="${subKeg.nama_sub_kegiatan}" data-kode="${subKeg.kode_sub_kegiatan}">${subKeg.nama_sub_kegiatan}</option>`;
+            });
+        }
+        onfocusHandler = 'window.filterSubKegiatanByKegiatan(this)';
+    }
+
+    const inputStyle = dataLevel === 'kegiatan' ? 'font-style:italic;' : '';
+    const paddingLeft = '5px';
 
     tr.innerHTML = `
         <td class="no-col">${newNo}</td>
         <td>
-            <textarea name="${dataLevel}_nama[]" class="${dataLevel}-nama-manual" style="width:95%; padding-left:${paddingLeft}; ${inputStyle}" onkeyup="if(window.autoExpand) autoExpand(this)"></textarea>
+            <select name="${dataLevel}_nama[]" class="${dataLevel}-nama-dropdown" style="width:95%; padding:8px ${paddingLeft}; ${inputStyle}" 
+                    ${onchangeHandler ? `onchange="${onchangeHandler}"` : ''}
+                    ${onfocusHandler ? `onfocus="${onfocusHandler}"` : ''}
+                    required>
+                ${dropdownOptions}
+            </select>
         </td>
-        <td><input type="text" name="${dataLevel}_anggaran[]" value="0" style="text-align:right" oninput="if(window.formatRupiah) formatRupiah(this); if(window.calculateTotal) calculateTotal();"></td>
-        <td><textarea name="${dataLevel}_ket[]" onkeyup="if(window.autoExpand) autoExpand(this)"></textarea></td>
+        <td><input type="text" name="${dataLevel}_anggaran[]" value="0" ${dataLevel === 'kegiatan' ? 'readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan"' : 'style="text-align:right" oninput="window.formatRupiah(this); window.calculateHierarchicalTotal(); window.syncProgramToTabelD();"'}></td>
+        <td><textarea name="${dataLevel}_ket[]" onkeyup="window.autoExpand(this)"></textarea></td>
         <td>
-            ${parentLevel < 2 ? `<button type="button" class="table-action-btn add-btn" onclick="if(window.addSubRow) addSubRow('${newNo}')" title="Tambah Sub Kegiatan">➕</button>` : ''}
-            <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+            ${dataLevel === 'kegiatan' ? `<button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${newNo}', 'subkegiatan')" title="Tambah Sub Kegiatan">➕</button>` : ''}
+            <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
         </td>
     `;
 
@@ -501,79 +768,155 @@ window.deleteRow = function(btn, tableId = null) {
     // Update nomor urut
     if ((tbody.closest('#tabelProgram')) || (tableId && tableId === 'tabelProgram')) {
         if (window.renumberAllRows) {
-            renumberAllRows();
+            window.renumberAllRows();
         }
     }
     
-    if (window.calculateTotal) calculateTotal();
-    if (window.syncProgramToTabelD) syncProgramToTabelD();
+    if (window.calculateTotal) window.calculateTotal();
+    if (window.syncProgramToTabelD) window.syncProgramToTabelD();
     
     console.log('Delete completed');
 }
+console.log('✓ window.deleteRow defined');
+
+// Add Row (untuk Tabel A dan Tabel lainnya)
+window.addRow = function(tableId) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector("tbody");
+    const lastRow = tbody.rows[tbody.rows.length - 1];
+    
+    // Simpan nilai dropdown sebelum clone (untuk tabel3/anggaran)
+    let savedDropdownValue = null;
+    if (tableId === 'tabel3') {
+        const lastDropdown = lastRow.querySelector('select');
+        if (lastDropdown) {
+            savedDropdownValue = lastDropdown.value;
+        }
+    }
+    
+    const newRow = lastRow.cloneNode(true);
+    
+    // Reset values untuk input dan textarea, tapi pertahankan dropdown
+    newRow.querySelectorAll("input, textarea").forEach(el => {
+        el.value = "";
+    });
+    
+    // Kembalikan nilai dropdown ke pilihan yang sama - dengan force set selected
+    if (tableId === 'tabel3' && savedDropdownValue) {
+        const newDropdown = newRow.querySelector('select');
+        if (newDropdown) {
+            newDropdown.value = savedDropdownValue;
+            // Force set selected attribute
+            const selectedOption = newDropdown.querySelector(`option[value="${savedDropdownValue}"]`);
+            if (selectedOption) {
+                selectedOption.selected = true;
+            }
+        }
+    }
+    
+    // Update nomor urut (hanya kolom pertama)
+    if (newRow.cells[0]) {
+        newRow.cells[0].innerText = tbody.rows.length + 1;
+    }
+    
+    tbody.appendChild(newRow);
+    
+    // Auto-expand textareas in new row
+    if (typeof window.autoExpand === 'function') {
+        newRow.querySelectorAll('textarea').forEach(ta => window.autoExpand(ta));
+    }
+    
+    // Sync data if needed
+    if (tableId === 'tabelA') {
+        if (typeof window.syncTabelAAll === 'function') {
+            window.syncTabelAAll();
+        } else if (typeof window.syncTabelAToC === 'function') {
+            window.syncTabelAToC();
+        }
+    }
+}
+console.log('✓ window.addRow defined');
+
+// Delete Row Tabel A
+window.deleteRowTabelA = function(btn) {
+    const row = btn.closest('tr');
+    const tbody = row.closest('tbody');
+
+    if (tbody.rows.length <= 1) {
+        alert('Minimal 1 baris');
+        return;
+    }
+
+    row.remove();
+
+    // Update NO
+    tbody.querySelectorAll('tr').forEach((tr, i) => {
+        tr.cells[0].innerText = i + 1;
+    });
+
+    if (typeof window.syncTabelAAll === 'function') {
+        window.syncTabelAAll();
+    } else if (typeof window.syncTabelAToC === 'function') {
+        window.syncTabelAToC();
+    }
+}
+console.log('✓ window.deleteRowTabelA defined');
+
+// Auto Expand Textarea
+window.autoExpand = function(textarea) {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+}
+console.log('✓ window.autoExpand defined');
 
 // Fungsi untuk renumber semua rows
+// Fungsi untuk renumber semua rows dengan benar
 window.renumberAllRows = function() {
     const tbody = document.querySelector('#tabelProgramBody');
     if (!tbody) return;
+    
+    console.log('=== RENUMBER START (EDIT) ===');
     
     // Renumber programs
     const programRows = Array.from(tbody.querySelectorAll('tr.program-row'));
     programRows.forEach((programRow, programIndex) => {
         const newProgramNo = programIndex + 1;
-        const oldProgramNo = programRow.dataset.program;
+        const oldProgramNo = programRow.querySelector('.no-col')?.textContent?.trim();
+        
+        console.log(`Program ${programIndex}: old="${oldProgramNo}", new="${newProgramNo}"`);
         
         programRow.dataset.program = newProgramNo;
         programRow.querySelector('.no-col').textContent = newProgramNo;
         
-        // Update all children of this program
-        const allRows = Array.from(tbody.querySelectorAll('tr'));
-        allRows.forEach(row => {
-            const no = row.querySelector('.no-col')?.textContent;
-            if (no && no.startsWith(oldProgramNo + '.')) {
-                // Update nomor
-                const parts = no.split('.');
-                parts[0] = newProgramNo;
-                const newNo = parts.join('.');
-                row.querySelector('.no-col').textContent = newNo;
-                
-                // Update data-parent
-                if (parts.length === 2) {
-                    // Kegiatan
-                    row.dataset.parent = newProgramNo;
-                } else if (parts.length === 3) {
-                    // Sub kegiatan
-                    row.dataset.parent = parts[0] + '.' + parts[1];
-                }
-            }
-        });
+        // Renumber kegiatan dalam program ini (HANYA yang data-parent === oldProgramNo)
+        const kegiatanRows = Array.from(tbody.querySelectorAll(`tr.subprogram-row[data-parent="${oldProgramNo}"]`));
+        console.log(`  Found ${kegiatanRows.length} kegiatan rows with parent="${oldProgramNo}"`);
         
-        // Renumber kegiatan dalam program ini
-        const kegiatanRows = Array.from(tbody.querySelectorAll(`tr[data-parent="${newProgramNo}"]`));
         kegiatanRows.forEach((kegRow, kegIndex) => {
+            const oldKegNo = kegRow.querySelector('.no-col')?.textContent?.trim();
             const newKegNo = `${newProgramNo}.${kegIndex + 1}`;
-            const oldKegNo = kegRow.querySelector('.no-col')?.textContent;
+            
+            console.log(`    Kegiatan ${kegIndex}: old="${oldKegNo}", new="${newKegNo}"`);
+            
+            kegRow.dataset.parent = newProgramNo;
             kegRow.querySelector('.no-col').textContent = newKegNo;
             
-            // Update sub kegiatan
-            if (oldKegNo) {
-                const subKegRows = Array.from(tbody.querySelectorAll(`tr[data-parent="${oldKegNo}"]`));
-                subKegRows.forEach(subRow => {
-                    subRow.dataset.parent = newKegNo;
-                });
+            // Renumber sub kegiatan dalam kegiatan ini (HANYA yang data-parent === oldKegNo)
+            const subKegRows = Array.from(tbody.querySelectorAll(`tr.subprogram-row[data-parent="${oldKegNo}"]`));
+            console.log(`      Found ${subKegRows.length} sub kegiatan rows with parent="${oldKegNo}"`);
+            
+            subKegRows.forEach((subRow, subIndex) => {
+                const newSubNo = `${newKegNo}.${subIndex + 1}`;
+                console.log(`        Sub ${subIndex}: new="${newSubNo}"`);
                 
-                tbody.querySelectorAll('tr').forEach(row => {
-                    const no = row.querySelector('.no-col')?.textContent;
-                    if (no && no.startsWith(oldKegNo + '.')) {
-                        const parts = no.split('.');
-                        const subIndex = parts[2];
-                        const newSubNo = `${newKegNo}.${subIndex}`;
-                        row.querySelector('.no-col').textContent = newSubNo;
-                        row.dataset.parent = newKegNo;
-                    }
-                });
-            }
+                subRow.dataset.parent = newKegNo;
+                subRow.querySelector('.no-col').textContent = newSubNo;
+            });
         });
     });
+    
+    console.log('=== RENUMBER END (EDIT) ===');
 }
 
 // Update Program Numbers
@@ -607,6 +950,111 @@ window.validateNumericInput = function(input) {
     input.value = input.value.replace(/[^0-9]/g, '');
 }
 
+// Sync Tabel A ke Tabel C (Target Triwulan)
+window.syncTabelAToC = function() {
+    const tabelA = document.getElementById('tabelA');
+    const tabel2 = document.getElementById('tabel2');
+    
+    if (!tabelA || !tabel2) {
+        console.warn('syncTabelAToC: tabelA or tabel2 not found');
+        return;
+    }
+    
+    const tbodyA = tabelA.querySelector('tbody');
+    const tbody2 = tabel2.querySelector('tbody');
+    
+    if (!tbodyA || !tbody2) {
+        console.warn('syncTabelAToC: tbody not found');
+        return;
+    }
+    
+    console.log('=== syncTabelAToC START ===');
+    
+    // Simpan data Target Triwulan yang sudah ada
+    const existingData = [];
+    const existingRows = tbody2.querySelectorAll('tr');
+    
+    existingRows.forEach(row => {
+        const tw1Input = row.querySelector('textarea[name="c_tw1[]"]');
+        const tw2Input = row.querySelector('textarea[name="c_tw2[]"]');
+        const tw3Input = row.querySelector('textarea[name="c_tw3[]"]');
+        const tw4Input = row.querySelector('textarea[name="c_tw4[]"]');
+        
+        existingData.push({
+            tw1: tw1Input ? tw1Input.value : '',
+            tw2: tw2Input ? tw2Input.value : '',
+            tw3: tw3Input ? tw3Input.value : '',
+            tw4: tw4Input ? tw4Input.value : ''
+        });
+    });
+    
+    console.log('Existing TW data saved:', existingData.length, 'rows');
+    
+    // Copy semua baris dari tabel A ke tabel 2 (tabel C)
+    const rowsA = tbodyA.querySelectorAll('tr');
+    
+    // Jika tabel A kosong, jangan lakukan apa-apa
+    if (rowsA.length === 0) {
+        console.log('Tabel A empty, skipping sync');
+        return;
+    }
+    
+    // Clear tabel2 tbody
+    tbody2.innerHTML = '';
+    console.log('Cleared tabel2, syncing', rowsA.length, 'rows from tabelA');
+    
+    rowsA.forEach((rowA, index) => {
+        const sasaranInput = rowA.querySelector('textarea[name="a_sasaran[]"]');
+        const indikatorInput = rowA.querySelector('textarea[name="a_indikator[]"]');
+        const targetInput = rowA.querySelector('textarea[name="a_target[]"]');
+        
+        const sasaran = sasaranInput ? sasaranInput.value : '';
+        const indikator = indikatorInput ? indikatorInput.value : '';
+        const target = targetInput ? targetInput.value : '';
+        
+        // Ambil data Target Triwulan yang sudah ada (jika ada)
+        const tw1 = existingData[index]?.tw1 || '';
+        const tw2 = existingData[index]?.tw2 || '';
+        const tw3 = existingData[index]?.tw3 || '';
+        const tw4 = existingData[index]?.tw4 || '';
+        
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${sasaran}</textarea></td>
+            <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${indikator}</textarea></td>
+            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${target}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw1}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw2}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw3}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw4[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw4}</textarea></td>
+            <td style="width: 60px;">
+                <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow)window.deleteRow(this, 'tabel2')" title="Hapus" style="visibility: hidden;">🗑</button>
+                <button type="button" class="table-action-btn add-btn" onclick="if(window.addRow)window.addRow('tabel2')" title="Tambah" style="visibility: hidden;">➕</button>
+            </td>
+        `;
+        tbody2.appendChild(newRow);
+        
+        // Auto expand all textareas
+        newRow.querySelectorAll('textarea').forEach(ta => {
+            if (ta && window.autoExpand) window.autoExpand(ta);
+        });
+    });
+    
+    console.log('=== syncTabelAToC END - synced', rowsA.length, 'rows ===');
+}
+
+// Sync Tabel A All (memanggil semua sync)
+window.syncTabelAAll = function() {
+    console.log('=== syncTabelAAll called ===');
+    try {
+        window.syncTabelAToC();
+    } catch (e) {
+        console.error('Sync tabel A -> tabel C gagal:', e);
+    }
+}
+console.log('✓ window.syncTabelAToC defined');
+console.log('✓ window.syncTabelAAll defined');
+
 console.log('=== GLOBAL FUNCTIONS LOADED ===');
 console.log('window.addProgram:', typeof window.addProgram);
 console.log('window.testAddRow:', typeof window.testAddRow);
@@ -639,11 +1087,42 @@ console.log('window.testAddRow:', typeof window.testAddRow);
     <div style="text-align: center; margin-bottom: 20px;">
         <img src="{{ asset('images/logo_pemda.png') }}" style="width: 70px;">
         <h2 style="font-size:16px; font-weight:600; margin-top:10px;">
-            PERJANJIAN KINERJA TAHUN 2025 <br>
+            PERJANJIAN KINERJA TAHUN <span id="headerTahun">{{ $perjanjian->tahun ?? '2025' }}</span> <br>
             WAKIL DIREKTUR PELAYANAN <br>
             UOBK RSUD BANGIL KABUPATEN PASURUAN
         </h2>
     </div>
+
+    {{-- PILIH TAHUN --}}
+    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px solid #00B5A0;">
+        <label for="tahun" style="font-weight: 600; color: #333; margin-bottom: 8px; display: block;">
+            <i class="fas fa-calendar-alt" style="color: #00B5A0;"></i> Pilih Tahun Perjanjian <span style="color: red;">*</span>
+        </label>
+        <select name="tahun" id="tahun" class="input-box" required style="background: white; border: 2px solid #00B5A0;">
+            <option value="">-- Pilih Tahun --</option>
+            @foreach($availableYears as $year)
+                <option value="{{ $year }}" {{ old('tahun', $perjanjian->tahun) == $year ? 'selected' : '' }}>
+                    {{ $year }}
+                </option>
+            @endforeach
+        </select>
+        <small style="color: #666; display: block; margin-top: 5px;">
+            <i class="fas fa-info-circle"></i> Tahun yang dipilih akan digunakan pada header perjanjian kinerja
+        </small>
+    </div>
+    
+    <script>
+    // Update header tahun ketika dropdown tahun berubah
+    document.getElementById('tahun').addEventListener('change', function() {
+        const selectedYear = this.value;
+        const headerTahun = document.getElementById('headerTahun');
+        if (selectedYear) {
+            headerTahun.textContent = selectedYear;
+        } else {
+            headerTahun.textContent = '{{ $perjanjian->tahun ?? "2025" }}'; // default dari database
+        }
+    });
+    </script>
 
     <p style="text-align:justify;">
         Dalam rangka mewujudkan manajemen pemerintahan yang efektif, transparan dan akuntabel serta berorientasi pada hasil,
@@ -800,26 +1279,26 @@ console.log('window.testAddRow:', typeof window.testAddRow);
             @foreach($tabelA['sasaran'] as $index => $sasaran)
                 <tr>
                     <td>{{ $index + 1 }}</td>
-                    <td><textarea name="a_sasaran[]" onkeyup="autoExpand(this); syncTabelAToC();">{{ old('a_sasaran.' . $index, $sasaran) }}</textarea></td>
-                    <td><textarea name="a_indikator[]" onkeyup="autoExpand(this); syncTabelAToC();">{{ old('a_indikator.' . $index, $tabelA['indikator'][$index] ?? '') }}</textarea></td>
-                    <td><textarea name="a_satuan[]" onkeyup="autoExpand(this)">{{ old('a_satuan.' . $index, $tabelA['satuan'][$index] ?? '') }}</textarea></td>
-                    <td><textarea name="a_target[]" onkeyup="autoExpand(this); syncTabelAToC();">{{ old('a_target.' . $index, $tabelA['target'][$index] ?? '') }}</textarea></td>
+                    <td><textarea name="a_sasaran[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();">{{ old('a_sasaran.' . $index, $sasaran) }}</textarea></td>
+                    <td><textarea name="a_indikator[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();">{{ old('a_indikator.' . $index, $tabelA['indikator'][$index] ?? '') }}</textarea></td>
+                    <td><textarea name="a_satuan[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('a_satuan.' . $index, $tabelA['satuan'][$index] ?? '') }}</textarea></td>
+                    <td><textarea name="a_target[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();">{{ old('a_target.' . $index, $tabelA['target'][$index] ?? '') }}</textarea></td>
                     <td>
-                        <button type="button" class= "table-action-btn delete-btn" onclick="deleteRowTabelA(this)" title="hapus">🗑</button>
-                        <button type="button" class="table-action-btn add-btn" onclick="addRow('tabelA')" title="Tambah">➕</button>
+                        <button type="button" class= "table-action-btn delete-btn" onclick="window.deleteRowTabelA(this)" title="hapus">🗑</button>
+                        <button type="button" class="table-action-btn add-btn" onclick="window.addRow('tabelA')" title="Tambah">➕</button>
                     </td>
                 </tr>
             @endforeach
         @else
             <tr>
                 <td>1</td>
-                <td><textarea name="a_sasaran[]" onkeyup="autoExpand(this); syncTabelAToC();"></textarea></td>
-                <td><textarea name="a_indikator[]" onkeyup="autoExpand(this); syncTabelAToC();"></textarea></td>
-                <td><textarea name="a_satuan[]" onkeyup="autoExpand(this)"></textarea></td>
-                <td><textarea name="a_target[]" onkeyup="autoExpand(this); syncTabelAToC();"></textarea></td>
+                <td><textarea name="a_sasaran[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();"></textarea></td>
+                <td><textarea name="a_indikator[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();"></textarea></td>
+                <td><textarea name="a_satuan[]" onkeyup="if(window.autoExpand)window.autoExpand(this)"></textarea></td>
+                <td><textarea name="a_target[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();"></textarea></td>
                 <td>
-                    <button type="button" class= "table-action-btn delete-btn" onclick="deleteRowTabelA(this)" title="hapus">🗑</button>
-                    <button type="button" class="table-action-btn add-btn" onclick="addRow('tabelA')" title="Tambah">➕</button>
+                    <button type="button" class= "table-action-btn delete-btn" onclick="window.deleteRowTabelA(this)" title="hapus">🗑</button>
+                    <button type="button" class="table-action-btn add-btn" onclick="window.addRow('tabelA')" title="Tambah">➕</button>
                 </td>
             </tr>
         @endif
@@ -875,7 +1354,17 @@ console.log('window.testAddRow:', typeof window.testAddRow);
 // Cleanup: hapus fungsi placeholder yang tidak digunakan
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== EDIT PAGE LOADED ===');
     console.log('DOMContentLoaded - existingTabelC:', window.existingTabelC);
+    console.log('TabelA data:', @json($tabelA));
+    console.log('TabelB data:', @json($tabelB));
+    console.log('Functions available:', {
+        addRow: typeof window.addRow,
+        deleteRow: typeof window.deleteRow,
+        deleteRowTabelA: typeof window.deleteRowTabelA,
+        addProgram: typeof window.addProgram,
+        syncProgramToTabelD: typeof window.syncProgramToTabelD
+    });
 
         // Normalize existingTabelC if it comes as a JSON string
         if (typeof window.existingTabelC === 'string') {
@@ -887,18 +1376,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     
-    // Add click handler to button as backup
-    const btnAddProgram = document.getElementById('btnAddProgram');
-    if (btnAddProgram) {
-        console.log('Attaching click handler to button');
-        btnAddProgram.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Button clicked via event listener');
-            window.addProgram();
-        });
-    } else {
-        console.error('btnAddProgram not found!');
-    }
+    // Tombol sudah menggunakan onclick inline, tidak perlu addEventListener lagi
+    // const btnAddProgram = document.getElementById('btnAddProgram');
+    // if (btnAddProgram) {
+    //     console.log('Attaching click handler to button');
+    //     btnAddProgram.addEventListener('click', function(e) {
+    //         e.preventDefault();
+    //         console.log('Button clicked via event listener');
+    //         window.addProgram();
+    //     });
+    // } else {
+    //     console.error('btnAddProgram not found!');
+    // }
     
     // Make sure tbody exists
     const tbody = document.querySelector('#tabelProgramBody');
@@ -935,21 +1424,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial sync - dengan error handling
     try {
-        if (typeof syncTabelAToC === 'function') {
-            syncTabelAToC();
+        if (typeof window.syncTabelAAll === 'function') {
+            window.syncTabelAAll();
+        } else if (typeof window.syncTabelAToC === 'function') {
+            // Fallback lama
+            window.syncTabelAToC();
         } else {
-            console.warn('syncTabelAToC not defined yet');
+            console.warn('syncTabelAAll/syncTabelAToC not defined yet');
         }
     } catch(e) {
-        console.error('Error in syncTabelAToC:', e);
+        console.error('Error in syncTabelAAll:', e);
     }
+    
+    // Auto-expand semua textarea yang sudah ada di halaman
+    setTimeout(() => {
+        if (typeof window.autoExpand === 'function') {
+            document.querySelectorAll('table textarea').forEach(ta => {
+                if (ta && ta.value) {
+                    window.autoExpand(ta);
+                }
+            });
+            console.log('Auto-expanded all existing textareas');
+        }
+    }, 50);
     
     // Calculate total setelah render selesai
     setTimeout(() => {
         try {
-            if (typeof bindAnggaranListeners === 'function') bindAnggaranListeners();
+            if (typeof window.bindAnggaranListeners === 'function') window.bindAnggaranListeners();
             if (window.calculateTotal) {
                 window.calculateTotal();
+            }
+            // Sync ulang untuk memastikan
+            if (typeof window.syncTabelAAll === 'function') {
+                window.syncTabelAAll();
             }
         } catch(e) {
             console.error('Error in calculateTotal:', e);
@@ -958,8 +1466,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Panggil lagi dengan delay lebih lama untuk memastikan
     setTimeout(() => {
-        if (typeof bindAnggaranListeners === 'function') bindAnggaranListeners();
+        if (typeof window.bindAnggaranListeners === 'function') window.bindAnggaranListeners();
         if (window.calculateTotal) window.calculateTotal();
+        
+        // Final sync untuk memastikan semua tabel sinkron
+        if (typeof window.syncTabelAAll === 'function') {
+            window.syncTabelAAll();
+            console.log('Final syncTabelAAll executed');
+        }
     }, 500);
 
     // Fallback: jika tabel program masih kosong padahal ada data, render ulang
@@ -974,17 +1488,23 @@ document.addEventListener('DOMContentLoaded', function() {
         ) {
             console.warn('Program table empty while data exists, re-rendering...');
             renderExistingBudgetData(window.existingTabelC);
-            if (typeof syncProgramToTabelD === 'function') {
-                syncProgramToTabelD();
+            if (typeof window.syncProgramToTabelD === 'function') {
+                window.syncProgramToTabelD();
             }
+        }
+        
+        // Sync ulang Tabel A -> C jika fungsi sudah tersedia
+        if (typeof window.syncTabelAAll === 'function') {
+            console.log('Late sync: syncTabelAAll available, executing...');
+            window.syncTabelAAll();
         }
     }, 800);
     
     // Sync tabel D setelah tabel program ter-render
     setTimeout(() => {
-        if (typeof syncProgramToTabelD === 'function') {
+        if (typeof window.syncProgramToTabelD === 'function') {
             console.log('Final sync of Tabel D after program table rendered');
-            syncProgramToTabelD();
+            window.syncProgramToTabelD();
         }
         if (window.calculateTotal) {
             // Recalculate program total to ensure TOTAL ANGGARAN terisi
@@ -1092,7 +1612,7 @@ function renderExistingBudgetData(tabelC) {
     
     if (!tabelC.programs || tabelC.programs.length === 0) {
         console.log('No programs in tabelC, adding empty row');
-        addProgram();
+        if (window.addProgram) window.addProgram();
         return;
     }
     
@@ -1103,9 +1623,14 @@ function renderExistingBudgetData(tabelC) {
     tabelC.programs.forEach((program, pIdx) => {
         console.log(`Processing program ${pIdx}:`, program);
         
+        // Support berbagai format key nama: name, nama, program
+        const programName = program.name || program.nama || program.program || '';
+        const programAmount = parseInt((program.amount || '0').toString().replace(/[^\d]/g,'')) || 0;
+        const programSource = program.source || program.keterangan || program.ket || '';
+        
         // Skip completely empty programs
-        const hasName = program.name && program.name.trim() !== '';
-        const hasAmount = program.amount && parseInt(program.amount) > 0;
+        const hasName = programName && programName.trim() !== '';
+        const hasAmount = programAmount > 0;
         if (!hasName && !hasAmount) {
             console.log(`Skipping empty program at index ${pIdx}`);
             return; // Skip this iteration
@@ -1117,43 +1642,32 @@ function renderExistingBudgetData(tabelC) {
         programRow.dataset.program = programCounter;
         programRow.dataset.level = 'program';
         
-        const programAmount = parseInt(program.amount || 0);
-        const programName = program.name || '';
-        const programSource = program.source || ''; // Load existing keterangan
-        
-        // Sanitize anggaran - hapus karakter non-angka dari data lama
-        const sanitizedAmount = parseInt((program.amount || '0').toString().replace(/[^\d]/g,'')) || 0;
-        
-        // Build program dropdown options
+        // Build program dropdown options with selected value
         let programOptions = '<option value="">-- Pilih Program --</option>';
-        let foundMatch = false;
-        window.programsData.forEach(prog => {
-            const selected = prog.nama_program === programName ? 'selected' : '';
-            if (selected) foundMatch = true;
-            programOptions += `<option value="${prog.id}" data-nama="${prog.nama_program}" ${selected}>${prog.nama_program}</option>`;
-        });
-        const customSelected = (programName && !foundMatch) ? 'selected' : '';
-        programOptions += `<option value="custom" style="border-top:2px solid #009970; color:#009970; font-weight:600;" ${customSelected}>✏️ Input Manual</option>`;
-        
-        const isProgramCustom = (programName && !foundMatch);
+        if (window.programsData && Array.isArray(window.programsData)) {
+            window.programsData.forEach(prog => {
+                const selected = prog.nama_program === programName ? 'selected' : '';
+                programOptions += `<option value="${prog.nama_program}" data-kode="${prog.kode_program}" data-program-id="${prog.id}" ${selected}>${prog.nama_program}</option>`;
+            });
+        }
         
         programRow.innerHTML = `
             <td class="no-col">${programCounter}</td>
             <td>
-                <select class="program-select" name="program_id[]" onchange="if(window.handleProgramChange) handleProgramChange(this, ${programCounter})" style="width:95%; padding:4px; border:1px solid #ddd; border-radius:3px; font-weight:600; display:${isProgramCustom ? 'none' : 'block'};">
+                <select name="program_nama[]" class="program-nama-dropdown" style="width:95%; font-weight:600; padding:8px;" onchange="window.handleProgramChange(this)" required>
                     ${programOptions}
                 </select>
-                <textarea name="program_nama[]" class="program-nama-manual" style="display:${isProgramCustom ? 'block' : 'none'}; width:95%;" onkeyup="if(window.autoExpand) autoExpand(this); if(window.syncProgramToTabelD) syncProgramToTabelD();">${programName}</textarea>
             </td>
-            <td><input type="text" name="program_anggaran[]" value="${sanitizedAmount.toLocaleString('id-ID')}" style="text-align:right" onkeypress="return /[0-9]/.test(event.key)" oninput="if(window.forceNumericAnggaran) forceNumericAnggaran(this);" /></td>
-            <td><textarea name="program_ket[]" onkeyup="if(window.autoExpand) autoExpand(this)">${programSource}</textarea></td>
+            <td><input type="text" name="program_anggaran[]" value="${programAmount.toLocaleString('id-ID')}" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari kegiatan" /></td>
+            <td><textarea name="program_ket[]" onkeyup="window.autoExpand(this)">${programSource}</textarea></td>
             <td>
-                <button type="button" class="table-action-btn add-btn" onclick="if(window.addSubRow) window.addSubRow('${programCounter}')" title="Tambah Kegiatan">➕</button>
-                <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+                <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${programCounter}', 'kegiatan')" title="Tambah Kegiatan">➕</button>
+                <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
             </td>
         `;
         
         tbody.appendChild(programRow);
+        rowsAdded++;
         
         // Add kegiatan and sub kegiatan
         if (program.kegiatan && program.kegiatan.length > 0) {
@@ -1164,43 +1678,38 @@ function renderExistingBudgetData(tabelC) {
                 kegiatanRow.dataset.level = 'kegiatan';
                 
                 const kegiatanNo = `${programCounter}.${kIdx + 1}`;
+                const kegiatanName = kegiatan.name || kegiatan.nama || kegiatan.kegiatan || '';
                 const kegiatanAmount = parseInt((kegiatan.amount || '0').toString().replace(/[^\d]/g,'')) || 0;
-                const kegiatanName = kegiatan.name || '';
-                const kegiatanSource = kegiatan.source || ''; // Load existing keterangan
+                const kegiatanSource = kegiatan.source || kegiatan.keterangan || kegiatan.ket || '';
                 
-                // Build kegiatan dropdown options
+                // Build kegiatan dropdown options with selected value
                 let kegiatanOptions = '<option value="">-- Pilih Kegiatan --</option>';
-                let kegiatanFoundMatch = false;
-                window.kegiatansData.forEach(keg => {
-                    const selected = keg.nama_kegiatan === kegiatanName ? 'selected' : '';
-                    if (selected) kegiatanFoundMatch = true;
-                    kegiatanOptions += `<option value="${keg.id}" data-nama="${keg.nama_kegiatan}" ${selected}>${keg.nama_kegiatan}</option>`;
-                });
-                const kegiatanCustomSelected = (kegiatanName && !kegiatanFoundMatch) ? 'selected' : '';
-                kegiatanOptions += `<option value="custom" style="border-top:2px solid #009970; color:#009970; font-weight:600;" ${kegiatanCustomSelected}>✏️ Input Manual</option>`;
-                
-                const isKegiatanCustom = (kegiatanName && !kegiatanFoundMatch);
+                if (window.kegiatansData && Array.isArray(window.kegiatansData)) {
+                    window.kegiatansData.forEach(keg => {
+                        const selected = keg.nama_kegiatan === kegiatanName ? 'selected' : '';
+                        kegiatanOptions += `<option value="${keg.nama_kegiatan}" data-kode="${keg.kode_kegiatan}" ${selected}>${keg.nama_kegiatan}</option>`;
+                    });
+                }
                 
                 kegiatanRow.innerHTML = `
                     <td class="no-col">${kegiatanNo}</td>
                     <td>
-                        <select class="kegiatan-select" name="kegiatan_id[]" onchange="if(window.handleKegiatanChange) handleKegiatanChange(this, '${kegiatanNo}')" style="width:95%; padding:4px; border:1px solid #ddd; border-radius:3px; font-style:italic; display:${isKegiatanCustom ? 'none' : 'block'};">
+                        <select name="kegiatan_nama[]" class="kegiatan-nama-dropdown" style="width:95%; padding:8px; font-style:italic;" required>
                             ${kegiatanOptions}
                         </select>
-                        <textarea name="kegiatan_nama[]" class="kegiatan-nama-manual" style="display:${isKegiatanCustom ? 'block' : 'none'}; width:95%; padding-left:15px; font-style:italic;" onkeyup="if(window.autoExpand) autoExpand(this); if(window.syncProgramToTabelD) syncProgramToTabelD();">${kegiatanName}</textarea>
                     </td>
                     <td>
-                        <input type="text" name="kegiatan_anggaran[]" value="${kegiatanAmount.toLocaleString('id-ID')}" style="text-align:right" onkeypress="return /[0-9]/.test(event.key)"
-                            oninput="if(window.forceNumericAnggaran) forceNumericAnggaran(this);">
+                        <input type="text" name="kegiatan_anggaran[]" value="${kegiatanAmount.toLocaleString('id-ID')}" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan">
                     </td>
-                    <td><textarea name="kegiatan_ket[]" onkeyup="if(window.autoExpand) autoExpand(this)">${kegiatanSource}</textarea></td>
+                    <td><textarea name="kegiatan_ket[]" onkeyup="window.autoExpand(this)">${kegiatanSource}</textarea></td>
                     <td>
-                        <button type="button" class="table-action-btn add-btn" onclick="if(window.addSubRow) window.addSubRow('${kegiatanNo}')" title="Tambah Sub Kegiatan">➕</button>
-                        <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+                        <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${kegiatanNo}', 'subkegiatan')" title="Tambah Sub Kegiatan">➕</button>
+                        <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
                     </td>
                 `;
                 
                 tbody.appendChild(kegiatanRow);
+                rowsAdded++;
                 
                 // Add sub kegiatan
                 if (kegiatan.subKegiatan && kegiatan.subKegiatan.length > 0) {
@@ -1211,57 +1720,52 @@ function renderExistingBudgetData(tabelC) {
                         subKegiatanRow.dataset.level = 'subkegiatan';
                         
                         const subKegiatanNo = `${kegiatanNo}.${sIdx + 1}`;
+                        const subKegiatanName = subKegiatan.name || subKegiatan.nama || subKegiatan.subkegiatan || '';
                         const subKegiatanAmount = parseInt((subKegiatan.amount || '0').toString().replace(/[^\d]/g,'')) || 0;
-                        const subKegiatanName = subKegiatan.name || '';
-                        const subKegiatanSource = subKegiatan.source || ''; // Load existing keterangan
+                        const subKegiatanSource = subKegiatan.source || subKegiatan.keterangan || subKegiatan.ket || '';
                         
-                        // Build sub kegiatan dropdown options
+                        // Build sub kegiatan dropdown options with selected value
                         let subKegiatanOptions = '<option value="">-- Pilih Sub Kegiatan --</option>';
-                        let subKegiatanFoundMatch = false;
-                        window.subKegiatansData.forEach(subKeg => {
-                            const selected = subKeg.nama_sub_kegiatan === subKegiatanName ? 'selected' : '';
-                            if (selected) subKegiatanFoundMatch = true;
-                            subKegiatanOptions += `<option value="${subKeg.id}" data-nama="${subKeg.nama_sub_kegiatan}" ${selected}>${subKeg.nama_sub_kegiatan}</option>`;
-                        });
-                        const subKegiatanCustomSelected = (subKegiatanName && !subKegiatanFoundMatch) ? 'selected' : '';
-                        subKegiatanOptions += `<option value="custom" style="border-top:2px solid #009970; color:#009970; font-weight:600;" ${subKegiatanCustomSelected}>✏️ Input Manual</option>`;
-                        
-                        const isSubKegiatanCustom = (subKegiatanName && !subKegiatanFoundMatch);
+                        if (window.subKegiatansData && Array.isArray(window.subKegiatansData)) {
+                            window.subKegiatansData.forEach(subKeg => {
+                                const selected = subKeg.nama_sub_kegiatan === subKegiatanName ? 'selected' : '';
+                                subKegiatanOptions += `<option value="${subKeg.nama_sub_kegiatan}" data-kode="${subKeg.kode_sub_kegiatan}" ${selected}>${subKeg.nama_sub_kegiatan}</option>`;
+                            });
+                        }
                         
                         subKegiatanRow.innerHTML = `
                             <td class="no-col">${subKegiatanNo}</td>
                             <td>
-                                <select class="subkegiatan-select" name="subkegiatan_id[]" onchange="if(window.handleSubKegiatanChange) handleSubKegiatanChange(this, '${subKegiatanNo}')" style="width:95%; padding:4px; border:1px solid #ddd; border-radius:3px; display:${isSubKegiatanCustom ? 'none' : 'block'};">
+                                <select name="subkegiatan_nama[]" class="subkegiatan-nama-dropdown" style="width:95%; padding:8px;" required>
                                     ${subKegiatanOptions}
                                 </select>
-                                <textarea name="subkegiatan_nama[]" class="subkegiatan-nama-manual" style="display:${isSubKegiatanCustom ? 'block' : 'none'}; width:95%; padding-left:30px;" onkeyup="if(window.autoExpand) autoExpand(this); if(window.syncProgramToTabelD) syncProgramToTabelD();">${subKegiatanName}</textarea>
                             </td>
                             <td>
                                 <input type="text" name="subkegiatan_anggaran[]" value="${subKegiatanAmount.toLocaleString('id-ID')}" style="text-align:right" onkeypress="return /[0-9]/.test(event.key)"
-                                    oninput="if(window.forceNumericAnggaran) forceNumericAnggaran(this);">
+                                    oninput="window.forceNumericAnggaran(this);">
                             </td>
-                            <td><textarea name="subkegiatan_ket[]" onkeyup="if(window.autoExpand) autoExpand(this)">${subKegiatanSource}</textarea></td>
+                            <td><textarea name="subkegiatan_ket[]" onkeyup="window.autoExpand(this)">${subKegiatanSource}</textarea></td>
                             <td>
-                                <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
+                                <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
                             </td>
                         `;
                         
                         tbody.appendChild(subKegiatanRow);
+                        rowsAdded++;
                     });
                 }
             });
         }
         
-        rowsAdded++;
         programCounter++;
     });
     
-    console.log(`Finished rendering: ${rowsAdded} programs added to table`);
+    console.log(`Finished rendering: ${rowsAdded} total rows added to table (programs, kegiatan, subkegiatan)`);
     
     // If no rows were added (all programs were empty), add one empty row
     if (rowsAdded === 0) {
         console.log('No valid programs rendered, adding empty program row');
-        addProgram();
+        window.addProgram();
         return;
     }
     
@@ -1292,90 +1796,88 @@ function renderExistingBudgetData(tabelC) {
     }, 200);
 }
 
-   window.addSubRow = function (parentNo) {
+   // Fungsi addSubRow sudah didefinisikan di atas (window.addSubRow di baris ~647)
+   // Tidak perlu definisi ulang yang akan menimpa fungsi yang sudah ada
 
-    const parentLevel = parentNo.toString().split('.').length;
-    if (parentLevel >= 3) return; 
-
-    const tbody = document.querySelector('#tabelProgramBody');
-
-    const children = Array.from(
-        tbody.querySelectorAll(`tr[data-parent="${parentNo}"]`)
-    );
-
-    const newIndex = children.length + 1;
-    const newNo = `${parentNo}.${newIndex}`;
-
-    const tr = document.createElement('tr');
-    tr.classList.add('subprogram-row');
-    tr.dataset.parent = parentNo;
-
-    tr.innerHTML = `
-        <td class="no-col">${newNo}</td>
-        <td><textarea name="${parentLevel === 1 ? 'kegiatan_nama[]' : 'subkegiatan_nama[]'}" onkeyup="autoExpand(this); syncProgramToTabelD()"></textarea></td>
-        <td>
-            <input type="text" name="${parentLevel === 1 ? 'kegiatan_anggaran[]' : 'subkegiatan_anggaran[]'}" value="0" style="text-align:right"
-                oninput="if(window.forceNumericAnggaran) forceNumericAnggaran(this);">
-        </td>
-        <td><textarea onkeyup="autoExpand(this)"></textarea></td>
-        <td>
-            ${
-                parentLevel < 2
-                ? `<button type="button"
-                        class="table-action-btn add-btn"
-                        onclick="addSubRow('${newNo}')">➕</button>`
-                : ''
-            }
-            <button type="button"
-                class="table-action-btn delete-btn"
-                onclick="deleteRow(this)">🗑</button>
-        </td>
-    `;
-
-    let insertAfter = null;
-    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
-        if (row.querySelector('.no-col')?.textContent.startsWith(parentNo)) {
-            insertAfter = row;
-        }
-    });
-
-    insertAfter.after(tr);
-    if (typeof bindAnggaranListeners === 'function') bindAnggaranListeners();
-};
-
-    window.deleteRow = function(btn) {
-        const row = btn.closest('tr');
-        if (!row) return;
-        const tbody = row.closest('tbody');
-        if (!tbody) return;
-
-        if (row.classList.contains('program-row')) {
-            const programNo = row.dataset.program;
-            tbody.querySelectorAll(`tr.subprogram-row[data-parent="${programNo}"]`).forEach(sub => sub.remove());
-        }
-        row.remove();
-        updateProgramNumbers();
-        calculateTotal();
-        syncProgramToTabelD();
-    }
+    // Fungsi deleteRow sudah didefinisikan di atas (window.deleteRow di baris ~754)
+    // Tidak perlu definisi ulang di sini
 
     // Fungsi hitung total hanya dari program utama
-    window.calculateTotal = function() {
-    const tbody = document.querySelector('#tabelProgramBody');
-    if (!tbody) return;
-    let total = 0;
-    tbody.querySelectorAll('tr.program-row').forEach(tr => {
-        const input = tr.querySelector('input[name="program_anggaran[]"]');
-        if (input) {
-            const cleaned = (input.value || '').toString().replace(/[^\d]/g,'');
-            total += parseInt(cleaned, 10) || 0;
+    // Fungsi hierarchical auto-calculate
+    window.calculateHierarchicalTotal = function() {
+        const tbody = document.querySelector('#tabelProgramBody');
+        if (!tbody) return;
+        
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // Step 1: Calculate semua SUB KEGIATAN -> KEGIATAN (bottom-up)
+        allRows.forEach(row => {
+            if (row.dataset.level === 'kegiatan') {
+                const kegiatanNo = row.querySelector('.no-col')?.textContent?.trim();
+                if (!kegiatanNo) return;
+                
+                // Cari semua sub kegiatan di bawah kegiatan ini
+                const subKegiatans = allRows.filter(r => 
+                    r.dataset.parent === kegiatanNo && r.dataset.level === 'subkegiatan'
+                );
+                
+                let kegiatanTotal = 0;
+                subKegiatans.forEach(sub => {
+                    const input = sub.querySelector('input[name="subkegiatan_anggaran[]"]');
+                    if (input) {
+                        const val = (input.value || '').toString().replace(/[^\d]/g, '');
+                        kegiatanTotal += parseInt(val) || 0;
+                    }
+                });
+                
+                // Update kegiatan anggaran (readonly field)
+                const kegiatanInput = row.querySelector('input[name="kegiatan_anggaran[]"]');
+                if (kegiatanInput) {
+                    kegiatanInput.value = kegiatanTotal.toLocaleString('id-ID');
+                }
+            }
+        });
+        
+        // Step 2: Calculate semua KEGIATAN -> PROGRAM
+        let grandTotal = 0;
+        allRows.forEach(row => {
+            if (row.classList.contains('program-row')) {
+                const programNo = row.querySelector('.no-col')?.textContent?.trim();
+                if (!programNo) return;
+                
+                // Cari semua kegiatan di bawah program ini
+                const kegiatans = allRows.filter(r => 
+                    r.dataset.parent === programNo && r.dataset.level === 'kegiatan'
+                );
+                
+                let programTotal = 0;
+                kegiatans.forEach(keg => {
+                    const input = keg.querySelector('input[name="kegiatan_anggaran[]"]');
+                    if (input) {
+                        const val = (input.value || '').toString().replace(/[^\d]/g, '');
+                        programTotal += parseInt(val) || 0;
+                    }
+                });
+                
+                // Update program anggaran (readonly field)
+                const programInput = row.querySelector('input[name="program_anggaran[]"]');
+                if (programInput) {
+                    programInput.value = programTotal.toLocaleString('id-ID');
+                }
+                
+                grandTotal += programTotal;
+            }
+        });
+        
+        // Step 3: Update grand total
+        const totalElement = document.getElementById('totalAnggaran');
+        if (totalElement) {
+            totalElement.textContent = grandTotal.toLocaleString('id-ID');
         }
-    });
-    const totalElement = document.getElementById('totalAnggaran');
-    if (totalElement) {
-        totalElement.textContent = total.toLocaleString('id-ID');
-    }
-}; 
+    };
+    
+    // Backward compatibility
+    window.calculateTotal = window.calculateHierarchicalTotal; 
 
     window.formatRupiah = function(input) {
         let value = input.value.replace(/\D/g, ''); // hapus semua selain angka
@@ -1392,8 +1894,8 @@ function renderExistingBudgetData(tabelC) {
         if (!input) return;
         const digits = (input.value || '').toString().replace(/[^\d]/g,'');
         input.value = digits ? parseInt(digits, 10).toLocaleString('id-ID') : '';
-        // Hanya panggil calculateTotal, syncProgramToTabelD dipanggil dari tempat lain
-        if (window.calculateTotal) window.calculateTotal();
+        // Hanya panggil calculateHierarchicalTotal, syncProgramToTabelD dipanggil dari tempat lain
+        if (window.calculateHierarchicalTotal) window.calculateHierarchicalTotal();
     }
 
     // Attach listener ke semua input anggaran (program, kegiatan, subkegiatan)
@@ -1483,16 +1985,16 @@ function renderExistingBudgetData(tabelC) {
         @if(!empty($tabelB['sasaran']) && count($tabelB['sasaran']) > 0)
             @foreach($tabelB['sasaran'] as $index => $sasaran)
                 <tr>
-                    <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">{{ old('c_sasaran.' . $index, $sasaran) }}</textarea></td>
-                    <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">{{ old('c_indikator.' . $index, $tabelB['indikator'][$index] ?? '') }}</textarea></td>
-                    <td style="width: 10ch; max-width:10ch;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">{{ old('c_target.' . $index, $tabelB['target'][$index] ?? '') }}</textarea></td>
-                    <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="autoExpand(this)">{{ old('c_tw1.' . $index, $tabelB['tw1'][$index] ?? '') }}</textarea></td>
-                    <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="autoExpand(this)">{{ old('c_tw2.' . $index, $tabelB['tw2'][$index] ?? '') }}</textarea></td>
-                    <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="autoExpand(this)">{{ old('c_tw3.' . $index, $tabelB['tw3'][$index] ?? '') }}</textarea></td>
-                    <td style="width: 10%;"><textarea name="c_tw4[]" onkeyup="autoExpand(this)">{{ old('c_tw4.' . $index, $tabelB['tw4'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_sasaran.' . $index, $sasaran) }}</textarea></td>
+                    <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_indikator.' . $index, $tabelB['indikator'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 10ch; max-width:10ch;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_target.' . $index, $tabelB['target'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw1.' . $index, $tabelB['tw1'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw2.' . $index, $tabelB['tw2'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw3.' . $index, $tabelB['tw3'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 10%;"><textarea name="c_tw4[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw4.' . $index, $tabelB['tw4'][$index] ?? '') }}</textarea></td>
                     <td style="width: 60px;">
                         <button type="button" class="table-action-btn delete-btn" onclick="deleteRow(this, 'tabel2')" title="Hapus" style="visibility: hidden;">🗑</button>
-                        <button type="button" class="table-action-btn add-btn" onclick="addRow('tabel2')" title="Tambah" style="visibility: hidden;">➕</button>
+                        <button type="button" class="table-action-btn add-btn" onclick="window.addRow('tabel2')" title="Tambah" style="visibility: hidden;">➕</button>
                     </td>
                 </tr>
             @endforeach
@@ -1504,9 +2006,22 @@ function renderExistingBudgetData(tabelC) {
 <h3 style="margin-top: 30px; margin-bottom: 10px; color: #009970; font-weight: 600; border-bottom: 2px solid #009970; padding-bottom: 8px;">
     💰 RENCANA ANGGARAN DAN TARGET PER TRIWULAN
 </h3>
-<p style="color: #666; margin-bottom: 15px; padding: 10px; background: #d1ecf1; border-left: 4px solid #0dcaf0; border-radius: 4px;">
-    ⚠️ <strong>Catatan:</strong> Nama program dan anggaran otomatis tersinkronisasi dari tabel di atas. <strong style="color:#009970;">Edit target triwulan (TW I-IV) dengan mengetik angka pada kotak input.</strong>
-</p>
+
+{{-- Info Box --}}
+<div style="background:linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding:15px 20px; border-radius:8px; margin:20px 0; border-left:4px solid #00B5A0; box-shadow:0 2px 8px rgba(0,181,160,0.1);">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <i class="fas fa-info-circle" style="font-size:24px; color:#00B5A0;"></i>
+        <div style="flex:1;">
+            <strong style="color:#00B5A0; font-size:14px;">Panduan Pengisian Target Triwulan:</strong>
+            <ul style="margin:8px 0 0 20px; font-size:12px; color:#555; line-height:1.6;">
+                <li>Kolom <strong>Target Triwulan</strong> tidak dapat diisi manual</li>
+                <li>Untuk <strong>Sub-Kegiatan</strong>: Klik tombol <span style="background:#00B5A0; color:white; padding:2px 6px; border-radius:3px; font-size:11px;">🎯 Atur</span> untuk mengisi target per bulan</li>
+                <li>Target <strong>Kegiatan</strong> dan <strong>Program</strong> akan otomatis menjumlah dari sub-kegiatan di bawahnya</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
 <div style="overflow-x: auto;">
     <table id="tabel3" style="width:100%; table-layout:fixed; border-collapse:collapse;">
         <thead>
@@ -1643,16 +2158,16 @@ window.syncProgramToTabelD = function() {
         const no = row.querySelector('.no-col')?.textContent || '';
         console.log(`Row ${idx}: no="${no}", isProgram=${isProgram}, isSub=${isSub}`);
         
-        // Get nama dari textarea manual input
+        // Get nama dari select dropdown (ambil text option yang dipilih, bukan value/ID)
         let nama = '';
         if (isProgram) {
-            const textarea = row.querySelector('.program-nama-manual');
-            nama = textarea ? textarea.value : '';
+            const select = row.querySelector('.program-nama-dropdown');
+            nama = select && select.selectedIndex >= 0 ? select.options[select.selectedIndex].text : '';
         } else {
             // Sub-program (kegiatan or sub kegiatan)
             const dataLevel = row.dataset.level;
-            const textarea = row.querySelector(`.${dataLevel}-nama-manual`);
-            nama = textarea ? textarea.value : '';
+            const select = row.querySelector(`.${dataLevel}-nama-dropdown`);
+            nama = select && select.selectedIndex >= 0 ? select.options[select.selectedIndex].text : '';
         }
 
         const anggaranInput = row.querySelector('input[type="text"]');
@@ -1670,33 +2185,46 @@ window.syncProgramToTabelD = function() {
 
         const tr = document.createElement('tr');
         tr.dataset.key = key;
+        tr.dataset.no = no;  // TAMBAHKAN INI - Set dataset.no untuk parsing saat save
 
         tr.innerHTML = `
             <td style="border:1px solid #000; text-align:center;">${no}</td>
-            <td style="border:1px solid #000; padding-left:${isSub ? '25px' : '5px'};">
+            <td style="border:1px solid #000; padding-left:${isSub ? '25px' : '5px'};" class="anggaran-cell">
                 ${nama}
             </td>
-            <td style="border:1px solid #000; text-align:right;">
+            <td style="border:1px solid #000; text-align:right;" class="anggaran-cell">
                 ${anggaran.toLocaleString('id-ID')}
             </td>
 
             <td style="border:1px solid #000;">
                 <input class="tw1" type="text" value="${tw.tw1 || ''}"
-                    oninput="validateNumericInput(this); hitungTotalTW()">
+                    readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
+                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000;">
                 <input class="tw2" type="text" value="${tw.tw2 || ''}"
-                    oninput="validateNumericInput(this); hitungTotalTW()">
+                    readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
+                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000;">
                 <input class="tw3" type="text" value="${tw.tw3 || ''}"
-                    oninput="validateNumericInput(this); hitungTotalTW()">
+                    readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
+                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000;">
                 <input class="tw4" type="text" value="${tw.tw4 || ''}"
-                    oninput="validateNumericInput(this); hitungTotalTW()">
+                    readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
+                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
-            <td style="border:1px solid #000; text-align:center;">-</td>
+            <td style="border:1px solid #000; text-align:center;">
+                ${row.dataset.level === 'subkegiatan' ? 
+                    `<button type="button" onclick="openTargetModal('${no}', '${nama}', ${anggaran}, '${key}')" 
+                            style="background:#00B5A0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;"
+                            title="Atur Target per Bulan">
+                        <i class="fas fa-calendar-alt"></i> Atur
+                    </button>` 
+                    : '-'}
+            </td>
         `;
 
         tbodyD.appendChild(tr);
@@ -1705,29 +2233,214 @@ window.syncProgramToTabelD = function() {
     document.getElementById('totalAnggaranD').textContent =
         totalAnggaran.toLocaleString('id-ID');
 
-    hitungTotalTW();
+    hitungHierarchicalTW();
+    
+    // ===== UPDATE HIDDEN INPUT DENGAN DATA HIERARCHICAL =====
+    // Kumpulkan semua data dari Tabel D ke struktur hierarchical
+    const hierarchicalStructure = {
+        programs: []
+    };
+    
+    const tbodyDRows = tbodyD.querySelectorAll('tr');
+    let currentProgram = null;
+    let currentKegiatan = null;
+    
+    tbodyDRows.forEach(tr => {
+        const key = tr.dataset.key;
+        const no = tr.dataset.no;  // Sudah di-set di atas
+        
+        // Get name from column 2
+        const nameCell = tr.querySelector('td:nth-child(2)');
+        const name = nameCell?.textContent?.trim() || '';
+        
+        // Get amount from column 3 (with anggaran-cell class)
+        const amountCells = tr.querySelectorAll('.anggaran-cell');
+        const amountCell = amountCells[1]; // Index 1 karena [0] adalah nama, [1] adalah anggaran
+        const amountText = amountCell?.textContent?.trim() || '0';
+        const amount = parseInt(amountText.replace(/\D/g, '')) || 0;
+        
+        // Parse TW values - remove dots (thousands separator) then parse
+        const tw1Val = tr.querySelector('.tw1')?.value?.trim() || '0';
+        const tw2Val = tr.querySelector('.tw2')?.value?.trim() || '0';
+        const tw3Val = tr.querySelector('.tw3')?.value?.trim() || '0';
+        const tw4Val = tr.querySelector('.tw4')?.value?.trim() || '0';
+        
+        const tw1 = parseInt(tw1Val.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+        const tw2 = parseInt(tw2Val.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+        const tw3 = parseInt(tw3Val.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+        const tw4 = parseInt(tw4Val.replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+        
+        // Debug log for TW values
+        if (key && (tw1 > 0 || tw2 > 0 || tw3 > 0 || tw4 > 0)) {
+            console.log(`TW Data for ${key} (${no}):`, { tw1, tw2, tw3, tw4 });
+        }
+        
+        if (key && key.startsWith('program-')) {
+            // Ini adalah Program
+            currentProgram = {
+                no: parseInt(no) || hierarchicalStructure.programs.length + 1,
+                name: name,
+                amount: amount,
+                tw1: tw1,
+                tw2: tw2,
+                tw3: tw3,
+                tw4: tw4,
+                kegiatan: []
+            };
+            hierarchicalStructure.programs.push(currentProgram);
+            currentKegiatan = null;
+        } else if (key && key.startsWith('sub-')) {
+            const parts = no ? no.split('.') : [];
+            if (parts.length === 2) {
+                // Ini adalah Kegiatan
+                currentKegiatan = {
+                    no: no,
+                    name: name,
+                    amount: amount,
+                    tw1: tw1,
+                    tw2: tw2,
+                    tw3: tw3,
+                    tw4: tw4,
+                    subKegiatan: []
+                };
+                if (currentProgram) {
+                    currentProgram.kegiatan.push(currentKegiatan);
+                }
+            } else if (parts.length === 3) {
+                // Ini adalah Sub Kegiatan
+                const subKegiatan = {
+                    no: no,
+                    name: name,
+                    amount: amount,
+                    tw1: tw1,
+                    tw2: tw2,
+                    tw3: tw3,
+                    tw4: tw4
+                };
+                if (currentKegiatan) {
+                    currentKegiatan.subKegiatan.push(subKegiatan);
+                }
+            }
+        }
+    });
+    
+    // Update hidden input dengan JSON
+    const hiddenInput = document.getElementById('hierarchical-budget-json');
+    if (hiddenInput) {
+        hiddenInput.value = JSON.stringify(hierarchicalStructure);
+        console.log('✅ Updated hierarchical-budget-json with', hierarchicalStructure.programs.length, 'programs');
+        console.log('Full structure:', hierarchicalStructure);
+    }
 }
 
-// 🔹 HITUNG TOTAL TRIWULAN
-function hitungTotalTW() {
-    let t1 = 0, t2 = 0, t3 = 0, t4 = 0;
-
-    document.querySelectorAll('#hierarchical-budget-tbody tr').forEach(tr => {
-
-        if (!tr.dataset.key || !tr.dataset.key.startsWith('program-')) {
-            return;
+// 🔹 HITUNG HIERARCHICAL TOTAL TRIWULAN (Sub-Kegiatan -> Kegiatan -> Program)
+function hitungHierarchicalTW() {
+    console.log('=== hitungHierarchicalTW called ===');
+    const tbody = document.getElementById('hierarchical-budget-tbody');
+    if (!tbody) return;
+    
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Step 1: Sum sub-kegiatan -> kegiatan
+    allRows.forEach(row => {
+        const key = row.dataset.key;
+        if (!key || !key.startsWith('sub-')) return;
+        
+        const no = key.replace('sub-', '');
+        const parts = no.split('.');
+        
+        // Cari parent kegiatan (level 2, misal: 1.1)
+        if (parts.length === 3) {
+            const kegiatanNo = parts[0] + '.' + parts[1];
+            const kegiatanKey = 'sub-' + kegiatanNo;
+            
+            // Cari semua sub-kegiatan dengan parent yang sama
+            const siblings = allRows.filter(r => {
+                const siblingNo = r.dataset.key?.replace('sub-', '');
+                return siblingNo && siblingNo.startsWith(kegiatanNo + '.');
+            });
+            
+            // Update kegiatan dengan sum dari semua sub-kegiatan
+            const kegiatanRow = allRows.find(r => r.dataset.key === kegiatanKey);
+            if (kegiatanRow && siblings.length > 0) {
+                let tw1Sum = 0, tw2Sum = 0, tw3Sum = 0, tw4Sum = 0;
+                
+                siblings.forEach(sub => {
+                    tw1Sum += parseInt(sub.querySelector('.tw1')?.value.replace(/[^\d]/g, '') || 0);
+                    tw2Sum += parseInt(sub.querySelector('.tw2')?.value.replace(/[^\d]/g, '') || 0);
+                    tw3Sum += parseInt(sub.querySelector('.tw3')?.value.replace(/[^\d]/g, '') || 0);
+                    tw4Sum += parseInt(sub.querySelector('.tw4')?.value.replace(/[^\d]/g, '') || 0);
+                });
+                
+                kegiatanRow.querySelector('.tw1').value = tw1Sum.toLocaleString('id-ID');
+                kegiatanRow.querySelector('.tw2').value = tw2Sum.toLocaleString('id-ID');
+                kegiatanRow.querySelector('.tw3').value = tw3Sum.toLocaleString('id-ID');
+                kegiatanRow.querySelector('.tw4').value = tw4Sum.toLocaleString('id-ID');
+            }
         }
-
+    });
+    
+    // Step 2: Sum kegiatan -> program
+    allRows.forEach(row => {
+        const key = row.dataset.key;
+        if (!key || !key.startsWith('sub-')) return;
+        
+        const no = key.replace('sub-', '');
+        const parts = no.split('.');
+        
+        // Level kegiatan (misal: 1.1)
+        if (parts.length === 2) {
+            const programNo = parts[0];
+            const programKey = 'program-' + programNo;
+            
+            // Cari semua kegiatan dengan parent program yang sama
+            const kegiatans = allRows.filter(r => {
+                const kegNo = r.dataset.key?.replace('sub-', '');
+                return kegNo && kegNo.split('.').length === 2 && kegNo.startsWith(programNo + '.');
+            });
+            
+            // Update program dengan sum dari semua kegiatan
+            const programRow = allRows.find(r => r.dataset.key === programKey);
+            if (programRow && kegiatans.length > 0) {
+                let tw1Sum = 0, tw2Sum = 0, tw3Sum = 0, tw4Sum = 0;
+                
+                kegiatans.forEach(keg => {
+                    tw1Sum += parseInt(keg.querySelector('.tw1')?.value.replace(/[^\d]/g, '') || 0);
+                    tw2Sum += parseInt(keg.querySelector('.tw2')?.value.replace(/[^\d]/g, '') || 0);
+                    tw3Sum += parseInt(keg.querySelector('.tw3')?.value.replace(/[^\d]/g, '') || 0);
+                    tw4Sum += parseInt(keg.querySelector('.tw4')?.value.replace(/[^\d]/g, '') || 0);
+                });
+                
+                programRow.querySelector('.tw1').value = tw1Sum.toLocaleString('id-ID');
+                programRow.querySelector('.tw2').value = tw2Sum.toLocaleString('id-ID');
+                programRow.querySelector('.tw3').value = tw3Sum.toLocaleString('id-ID');
+                programRow.querySelector('.tw4').value = tw4Sum.toLocaleString('id-ID');
+            }
+        }
+    });
+    
+    // Step 3: Sum all programs for grand total
+    let t1 = 0, t2 = 0, t3 = 0, t4 = 0;
+    allRows.forEach(tr => {
+        if (!tr.dataset.key || !tr.dataset.key.startsWith('program-')) return;
+        
         t1 += parseInt(tr.querySelector('.tw1')?.value.replace(/[^\d]/g,'') || 0);
         t2 += parseInt(tr.querySelector('.tw2')?.value.replace(/[^\d]/g,'') || 0);
         t3 += parseInt(tr.querySelector('.tw3')?.value.replace(/[^\d]/g,'') || 0);
         t4 += parseInt(tr.querySelector('.tw4')?.value.replace(/[^\d]/g,'') || 0);
     });
-
+    
     document.getElementById('totalTW1').textContent = t1.toLocaleString('id-ID');
     document.getElementById('totalTW2').textContent = t2.toLocaleString('id-ID');
     document.getElementById('totalTW3').textContent = t3.toLocaleString('id-ID');
     document.getElementById('totalTW4').textContent = t4.toLocaleString('id-ID');
+    
+    console.log('Total TW:', { t1, t2, t3, t4 });
+}
+
+// Backward compatibility - keep old function name
+function hitungTotalTW() {
+    hitungHierarchicalTW();
 }
 </script>
 
@@ -1741,6 +2454,331 @@ function hitungTotalTW() {
     </button>
 </div>
 </form>
+
+@include('perjanjian._modal_target_triwulan')
+
+<script>
+let currentModalData = {
+    no: '',
+    nama: '',
+    pagu: 0,
+    key: '',
+    inputMode: 'nominal' // 'nominal' or 'prosentase'
+};
+
+function openTargetModal(no, nama, pagu, key) {
+    currentModalData = { no, nama, pagu, key, inputMode: 'nominal' };
+    
+    document.getElementById('modalNo').textContent = no;
+    document.getElementById('modalNama').textContent = nama;
+    document.getElementById('modalPagu').textContent = 'Rp ' + pagu.toLocaleString('id-ID');
+    
+    // Load existing data if any (parse dari format rupiah)
+    const row = document.querySelector(`tr[data-key="${key}"]`);
+    if (row) {
+        // Hapus format rupiah (titik pemisah ribuan) sebelum parsing
+        const tw1 = parseInt(row.querySelector('.tw1')?.value.replace(/\./g, '').replace(/[^\d]/g, '') || 0);
+        const tw2 = parseInt(row.querySelector('.tw2')?.value.replace(/\./g, '').replace(/[^\d]/g, '') || 0);
+        const tw3 = parseInt(row.querySelector('.tw3')?.value.replace(/\./g, '').replace(/[^\d]/g, '') || 0);
+        const tw4 = parseInt(row.querySelector('.tw4')?.value.replace(/\./g, '').replace(/[^\d]/g, '') || 0);
+        
+        // Distribute equally to months (simplified) and format
+        if (tw1 > 0) {
+            const val1 = Math.round(tw1/3);
+            document.getElementById('bln1').value = val1.toLocaleString('id-ID');
+            document.getElementById('bln2').value = val1.toLocaleString('id-ID');
+            document.getElementById('bln3').value = val1.toLocaleString('id-ID');
+        }
+        if (tw2 > 0) {
+            const val2 = Math.round(tw2/3);
+            document.getElementById('bln4').value = val2.toLocaleString('id-ID');
+            document.getElementById('bln5').value = val2.toLocaleString('id-ID');
+            document.getElementById('bln6').value = val2.toLocaleString('id-ID');
+        }
+        if (tw3 > 0) {
+            const val3 = Math.round(tw3/3);
+            document.getElementById('bln7').value = val3.toLocaleString('id-ID');
+            document.getElementById('bln8').value = val3.toLocaleString('id-ID');
+            document.getElementById('bln9').value = val3.toLocaleString('id-ID');
+        }
+        if (tw4 > 0) {
+            const val4 = Math.round(tw4/3);
+            document.getElementById('bln10').value = val4.toLocaleString('id-ID');
+            document.getElementById('bln11').value = val4.toLocaleString('id-ID');
+            document.getElementById('bln12').value = val4.toLocaleString('id-ID');
+        }
+    }
+    
+    // Open modal first
+    document.getElementById('targetModal').style.display = 'block';
+    
+    // Initialize mode and calculate with a small delay to ensure DOM is ready
+    setTimeout(() => {
+        switchInputMode('nominal');
+        calculateModalTotal();
+    }, 100);
+}
+
+function closeTargetModal() {
+    document.getElementById('targetModal').style.display = 'none';
+    // Reset all inputs
+    for (let i = 1; i <= 12; i++) {
+        document.getElementById('bln' + i).value = '';
+    }
+}
+
+function switchInputMode(mode) {
+    currentModalData.inputMode = mode;
+    
+    const btnNominal = document.getElementById('btnNominal');
+    const btnProsentase = document.getElementById('btnProsentase');
+    
+    if (mode === 'nominal') {
+        btnNominal.style.background = '#00B5A0';
+        btnNominal.style.color = 'white';
+        btnProsentase.style.background = 'white';
+        btnProsentase.style.color = '#00B5A0';
+    } else {
+        btnNominal.style.background = 'white';
+        btnNominal.style.color = '#00B5A0';
+        btnProsentase.style.background = '#00B5A0';
+        btnProsentase.style.color = 'white';
+    }
+    
+    // Update all inputs format when switching mode
+    for (let i = 1; i <= 12; i++) {
+        const input = document.getElementById('bln' + i);
+        if (!input) continue;
+        
+        const rawValue = input.value.replace(/[^\d]/g, '');
+        
+        if (mode === 'nominal') {
+            input.placeholder = '0';
+            // Reformat as rupiah
+            if (rawValue) {
+                input.value = parseInt(rawValue).toLocaleString('id-ID');
+            }
+        } else {
+            input.placeholder = '0%';
+            // Show as plain number for percentage
+            input.value = rawValue;
+        }
+    }
+    
+    // Recalculate with new mode
+    calculateModalTotal();
+}
+
+function formatModalInput(input) {
+    const mode = currentModalData.inputMode;
+    let value = input.value.replace(/[^\d]/g, '');
+    
+    if (mode === 'nominal') {
+        // Format as rupiah for nominal mode
+        input.value = value ? parseInt(value).toLocaleString('id-ID') : '';
+    } else {
+        // For percentage, just keep the number
+        input.value = value || '';
+    }
+    
+    // Immediately calculate after formatting
+    calculateModalTotal();
+}
+
+function calculateModalTotal() {
+    const pagu = currentModalData.pagu;
+    const mode = currentModalData.inputMode;
+    
+    console.log('calculateModalTotal called - Pagu:', pagu, 'Mode:', mode);
+    
+    if (!pagu || pagu <= 0) {
+        console.error('Invalid pagu:', pagu);
+        return;
+    }
+    
+    let totalNominal = 0;
+    let tw1 = 0, tw2 = 0, tw3 = 0, tw4 = 0;
+    
+    // Loop through all 12 months
+    for (let i = 1; i <= 12; i++) {
+        const input = document.getElementById('bln' + i);
+        if (!input) continue;
+        
+        // Extract numeric value from formatted string
+        const cleanValue = input.value.replace(/\./g, '').replace(/[^\d]/g, '');
+        let value = parseInt(cleanValue) || 0;
+        
+        // Convert to nominal if in percentage mode
+        if (mode === 'prosentase') {
+            value = (value / 100) * pagu;
+        }
+        
+        totalNominal += value;
+        
+        // Group by triwulan
+        if (i >= 1 && i <= 3) tw1 += value;
+        else if (i >= 4 && i <= 6) tw2 += value;
+        else if (i >= 7 && i <= 9) tw3 += value;
+        else if (i >= 10 && i <= 12) tw4 += value;
+    }
+    
+    // Calculate percentage and remaining budget
+    const sisaPagu = pagu - totalNominal;
+    const prosentase = pagu > 0 ? (totalNominal / pagu) * 100 : 0;
+    
+    // Update total per triwulan
+    const tw1Element = document.getElementById('totalTW1Modal');
+    const tw2Element = document.getElementById('totalTW2Modal');
+    const tw3Element = document.getElementById('totalTW3Modal');
+    const tw4Element = document.getElementById('totalTW4Modal');
+    
+    if (tw1Element && tw2Element && tw3Element && tw4Element) {
+        if (mode === 'prosentase') {
+            tw1Element.textContent = ((tw1/pagu)*100).toFixed(1) + '%';
+            tw2Element.textContent = ((tw2/pagu)*100).toFixed(1) + '%';
+            tw3Element.textContent = ((tw3/pagu)*100).toFixed(1) + '%';
+            tw4Element.textContent = ((tw4/pagu)*100).toFixed(1) + '%';
+        } else {
+            tw1Element.textContent = 'Rp ' + Math.round(tw1).toLocaleString('id-ID');
+            tw2Element.textContent = 'Rp ' + Math.round(tw2).toLocaleString('id-ID');
+            tw3Element.textContent = 'Rp ' + Math.round(tw3).toLocaleString('id-ID');
+            tw4Element.textContent = 'Rp ' + Math.round(tw4).toLocaleString('id-ID');
+        }
+    }
+    
+    // Update sisa pagu
+    const sisaPaguElement = document.getElementById('sisaPagu');
+    if (sisaPaguElement) {
+        sisaPaguElement.textContent = 'Rp ' + Math.round(Math.max(0, sisaPagu)).toLocaleString('id-ID');
+        
+        if (sisaPagu < 0) {
+            sisaPaguElement.style.color = '#dc3545';
+        } else if (sisaPagu === 0) {
+            sisaPaguElement.style.color = '#28a745';
+        } else {
+            sisaPaguElement.style.color = '#856404';
+        }
+    }
+    
+    // Update total distribution percentage
+    const totalDistribusiElement = document.getElementById('totalDistribusi');
+    if (totalDistribusiElement) {
+        totalDistribusiElement.textContent = prosentase.toFixed(1) + '%';
+    }
+    
+    // Update progress bar
+    const progressBarElement = document.getElementById('progressBar');
+    if (progressBarElement) {
+        progressBarElement.style.width = Math.min(prosentase, 100) + '%';
+        
+        if (prosentase > 100) {
+            progressBarElement.style.background = 'linear-gradient(90deg, #dc3545 0%, #ff6b7a 100%)';
+        } else if (prosentase === 100) {
+            progressBarElement.style.background = 'linear-gradient(90deg, #28a745 0%, #48d597 100%)';
+        } else {
+            progressBarElement.style.background = 'linear-gradient(90deg, #00B5A0 0%, #00d4aa 100%)';
+        }
+    }
+    
+    // Show warnings
+    const warningMessage = document.getElementById('warningMessage');
+    const warningText = document.getElementById('warningText');
+    const btnSimpan = document.getElementById('btnSimpanTarget');
+    
+    if (prosentase > 100) {
+        warningMessage.style.display = 'block';
+        warningMessage.style.background = '#f8d7da';
+        warningMessage.style.color = '#721c24';
+        warningMessage.style.borderLeftColor = '#f5c6cb';
+        warningText.textContent = 'Total distribusi melebihi pagu anggaran! Harap kurangi nilai input.';
+        btnSimpan.disabled = true;
+        btnSimpan.style.opacity = '0.5';
+        btnSimpan.style.cursor = 'not-allowed';
+    } else if (prosentase < 100 && prosentase > 0) {
+        warningMessage.style.display = 'block';
+        warningMessage.style.background = '#fff3cd';
+        warningMessage.style.color = '#856404';
+        warningMessage.style.borderLeftColor = '#ffc107';
+        warningText.textContent = 'Total distribusi belum mencapai 100%. Sisa: ' + (100 - prosentase).toFixed(1) + '%';
+        btnSimpan.disabled = false;
+        btnSimpan.style.opacity = '1';
+        btnSimpan.style.cursor = 'pointer';
+    } else if (prosentase === 100) {
+        warningMessage.style.display = 'block';
+        warningMessage.style.background = '#d4edda';
+        warningMessage.style.color = '#155724';
+        warningMessage.style.borderLeftColor = '#28a745';
+        warningText.textContent = '✓ Distribusi anggaran sudah 100%. Sempurna!';
+        btnSimpan.disabled = false;
+        btnSimpan.style.opacity = '1';
+        btnSimpan.style.cursor = 'pointer';
+    } else {
+        warningMessage.style.display = 'none';
+        btnSimpan.disabled = false;
+        btnSimpan.style.opacity = '1';
+        btnSimpan.style.cursor = 'pointer';
+    }
+}
+
+function saveTargetModal() {
+    const pagu = currentModalData.pagu;
+    const mode = currentModalData.inputMode;
+    const key = currentModalData.key;
+    
+    let tw1 = 0, tw2 = 0, tw3 = 0, tw4 = 0;
+    
+    for (let i = 1; i <= 12; i++) {
+        const input = document.getElementById('bln' + i);
+        if (!input) continue;
+        
+        // Remove dots first, then remove other non-digit characters
+        const cleanValue = input.value.replace(/\./g, '').replace(/[^\d]/g, '');
+        let value = parseInt(cleanValue) || 0;
+        
+        // Convert to nominal if in percentage mode
+        if (mode === 'prosentase') {
+            value = (value / 100) * pagu;
+        }
+        
+        // Group by triwulan
+        if (i >= 1 && i <= 3) tw1 += value;
+        else if (i >= 4 && i <= 6) tw2 += value;
+        else if (i >= 7 && i <= 9) tw3 += value;
+        else if (i >= 10 && i <= 12) tw4 += value;
+    }
+    
+    console.log('Saving target:', { tw1, tw2, tw3, tw4, total: tw1+tw2+tw3+tw4, pagu });
+    
+    // Update tabel TARGET TRIWULAN - save dengan format rupiah
+    const row = document.querySelector(`tr[data-key="${key}"]`);
+    if (row) {
+        const tw1Input = row.querySelector('.tw1');
+        const tw2Input = row.querySelector('.tw2');
+        const tw3Input = row.querySelector('.tw3');
+        const tw4Input = row.querySelector('.tw4');
+        
+        // Simpan dengan format rupiah
+        if (tw1Input) tw1Input.value = Math.round(tw1).toLocaleString('id-ID');
+        if (tw2Input) tw2Input.value = Math.round(tw2).toLocaleString('id-ID');
+        if (tw3Input) tw3Input.value = Math.round(tw3).toLocaleString('id-ID');
+        if (tw4Input) tw4Input.value = Math.round(tw4).toLocaleString('id-ID');
+        
+        // Hitung hierarchical total (sub -> kegiatan -> program)
+        hitungHierarchicalTW();
+    }
+    
+    closeTargetModal();
+    
+    // Show success message
+    const successMsg = document.createElement('div');
+    successMsg.style.cssText = 'position:fixed; top:20px; right:20px; background:#28a745; color:white; padding:15px 25px; border-radius:8px; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:10000; font-weight:600;';
+    successMsg.innerHTML = '<i class="fas fa-check-circle"></i> Target triwulan berhasil disimpan!';
+    document.body.appendChild(successMsg);
+    
+    setTimeout(() => successMsg.remove(), 3000);
+}
+</script>
+
     <script>
         // Pass existing data to JavaScript
         window.existingTabelC = @json($tabelC);
@@ -1787,7 +2825,7 @@ function hitungTotalTW() {
 {{-- AUTO ADD & VALIDASI TTD --}}
 <script>
 
-
+    /* MOVED TO TOP - window.autoExpand now defined before HTML render
     // =========================
     // AUTO EXPAND TEXTAREA
     // =========================
@@ -1795,13 +2833,14 @@ function hitungTotalTW() {
         textarea.style.height = 'auto';
         textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
     }
+    */
 
-    // Initialize auto-expand for all textareas
+    // Initialize auto-expand for all textareas (tetap diperlukan untuk event listener)
     document.querySelectorAll('table textarea').forEach(ta => {
         ta.addEventListener('input', function() {
-            autoExpand(this);
+            if (window.autoExpand) window.autoExpand(this);
         });
-        autoExpand(ta);
+        if (window.autoExpand) window.autoExpand(ta);
     });
 
     // Initialize budget calculation on page load
@@ -1821,12 +2860,16 @@ function hitungTotalTW() {
     if (tabelA) {
         tabelA.addEventListener('input', function(e) {
             if (e.target.tagName === 'TEXTAREA') {
-                syncTabelAToC();
+                if (typeof syncTabelAAll === 'function') {
+                    syncTabelAAll();
+                }
             }
         });
         
         // Trigger sync saat page load
-        syncTabelAToC();
+        if (typeof syncTabelAAll === 'function') {
+            syncTabelAAll();
+        }
     }
     
     // Trigger sync tabel program ke tabel D (tabel keempat) saat page load
@@ -1835,6 +2878,7 @@ function hitungTotalTW() {
     }
 });
 
+/* MOVED TO TOP - syncTabelAToC now defined before HTML render
 // =========================
 // SYNC TABEL A KE TABEL C
 // =========================
@@ -1911,26 +2955,27 @@ function syncTabelAToC() {
         
         const newRow = document.createElement('tr');
         newRow.innerHTML = `
-            <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${sasaran}</textarea></td>
-            <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${indikator}</textarea></td>
-            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${target}</textarea></td>
-            <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="autoExpand(this)">${tw1}</textarea></td>
-            <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="autoExpand(this)">${tw2}</textarea></td>
-            <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="autoExpand(this)">${tw3}</textarea></td>
-            <td style="width: 10%;"><textarea name="c_tw4[]" onkeyup="autoExpand(this)">${tw4}</textarea></td>
+            <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${sasaran}</textarea></td>
+            <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${indikator}</textarea></td>
+            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${target}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw1}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw2}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw3}</textarea></td>
+            <td style="width: 10%;"><textarea name="c_tw4[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw4}</textarea></td>
             <td style="width: 60px;">
-                <button type="button" class="table-action-btn delete-btn" onclick="deleteRow(this, 'tabel2')" title="Hapus" style="visibility: hidden;">🗑</button>
-                <button type="button" class="table-action-btn add-btn" onclick="addRow('tabel2')" title="Tambah" style="visibility: hidden;">➕</button>
+                <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow)window.deleteRow(this, 'tabel2')" title="Hapus" style="visibility: hidden;">🗑</button>
+                <button type="button" class="table-action-btn add-btn" onclick="if(window.addRow)window.addRow('tabel2')" title="Tambah" style="visibility: hidden;">➕</button>
             </td>
         `;
         tbody2.appendChild(newRow);
         
         // Auto expand all textareas
         newRow.querySelectorAll('textarea').forEach(ta => {
-            if (ta) autoExpand(ta);
+            if (ta && window.autoExpand) window.autoExpand(ta);
         });
     });
 }
+*/
 
 // =========================
 // TAMBAH BARIS OTOMATIS
@@ -1953,7 +2998,8 @@ function calculateTotalBudget() {
 // Alias untuk kompatibilitas script lama
 window.calculateTotal = calculateTotalBudget;
 
-function addRow(tableId) {
+/* MOVED TO TOP - window.addRow now defined before HTML render
+window.addRow = function(tableId) {
     const table = document.getElementById(tableId);
     const tbody = table.querySelector("tbody");
     const lastRow = tbody.rows[tbody.rows.length - 1];
@@ -2024,16 +3070,22 @@ function addRow(tableId) {
         calculateTotalBudget();
     }
     
-    // Sync tabel A ke C jika menambah baris di tabelA
+    // Sync tabel A ke semua turunan jika menambah baris di tabelA
     if (tableId === 'tabelA') {
-        syncTabelAToC();
+        if (typeof syncTabelAAll === 'function') {
+            syncTabelAAll();
+        } else if (typeof syncTabelAToC === 'function') {
+            syncTabelAToC();
+        }
     }
 }
+*/
 
+/* MOVED TO TOP - window.deleteRowTabelA now defined before HTML render
 /* =========================
    HAPUS BARIS TABEL A
 ========================= */
-function deleteRowTabelA(btn) {
+window.deleteRowTabelA = function(btn) {
     const row = btn.closest('tr');
     const tbody = row.closest('tbody');
 
@@ -2049,8 +3101,13 @@ function deleteRowTabelA(btn) {
         tr.cells[0].innerText = i + 1;
     });
 
-    syncTabelAToC();
+    if (typeof syncTabelAAll === 'function') {
+        syncTabelAAll();
+    } else if (typeof syncTabelAToC === 'function') {
+        syncTabelAToC();
+    }
 }
+*/
 
 // =========================
 // SYNC TABEL A KE TABEL 3 (HIERARCHICAL BUDGET)
@@ -2064,6 +3121,12 @@ function syncTabelAToTabel3() {
     
     // Ambil struktur yang ada
     let structure = getHierarchicalBudgetStructure();
+
+    // Jika struktur belum siap, jangan lanjutkan agar tidak error
+    if (!structure.programs || structure.programs.length === 0 || !structure.programs[0].kegiatan || structure.programs[0].kegiatan.length === 0) {
+        console.warn('Struktur tabel anggaran belum siap, lewati sync ke tabel 3');
+        return;
+    }
     
     // Clear sub kegiatan yang ada
     structure.programs[0].kegiatan[0].subKegiatan = [];
@@ -2101,30 +3164,31 @@ function syncTabelAToTabel3() {
     updateHierarchicalTotals();
 }
 
-window.syncTabelAToC = syncTabelAToTabel3;
+/* MOVED TO TOP - syncTabelAAll now defined before HTML render
+function syncTabelAAll() {
+    try {
+        syncTabelAToC();
+    } catch (e) {
+        console.error('Sync tabel A -> tabel C gagal:', e);
+    }
+
+    try {
+        syncTabelAToTabel3();
+    } catch (e) {
+        console.error('Sync tabel A -> tabel 3 gagal:', e);
+    }
+}
+
+window.syncTabelAToC = syncTabelAToC;
+window.syncTabelAToTabel3 = syncTabelAToTabel3;
+window.syncTabelAAll = syncTabelAAll;
+*/
 
 // =========================
 // HAPUS BARIS
 // =========================
-function deleteRow(button, tableId) {
-    const table = document.getElementById(tableId);
-    const tbody = table.querySelector("tbody");
-    
-    // Jangan hapus jika hanya ada 1 baris
-    if (tbody.rows.length <= 1) {
-        alert("Harus ada minimal 1 baris!");
-        return;
-    }
-    
-    const row = button.closest("tr");
-    row.remove();
-    
-    // Update nomor otomatis
-    updateRowNumbers(tableId);
-    
-    // Sync tabel A ke C jika menghapus baris di tabelA
-    if (tableId === 'tabelA') {
-        syncTabelAToC();
+// HAPUS FUNGSI DELETEROW DUPLIKAT - GUNAKAN YANG DI WINDOW SCOPE SAJA
+// function deleteRow sudah didefinisikan sebagai window.deleteRow di atas
     }
 }
 
@@ -2180,17 +3244,26 @@ function getHierarchicalBudgetStructure() {
         const parts = no.split('.');
         const level = parts.length;
         
-        // Ambil nilai dari textarea
-        const nameTextarea = row.querySelector('textarea[name*="_nama"]');
-        const name = nameTextarea?.value || '';
+        // Ambil nama dari select dropdown (text option yang dipilih)
+        let name = '';
+        const isProgram = row.classList.contains('program-row');
+        const isSub = row.classList.contains('subprogram-row');
         
-        // Ambil anggaran dari input pertama (program/kegiatan)
-        const anggaranInput = row.querySelector('input[name*="_anggaran"]');
+        if (isProgram) {
+            const select = row.querySelector('.program-nama-dropdown');
+            name = select && select.selectedIndex >= 0 ? select.options[select.selectedIndex].text : '';
+        } else if (isSub) {
+            const dataLevel = row.dataset.level;
+            const select = row.querySelector(`.${dataLevel}-nama-dropdown`);
+            name = select && select.selectedIndex >= 0 ? select.options[select.selectedIndex].text : '';
+        }
+        
+        // Ambil anggaran dari input
+        const anggaranInput = row.querySelector('input[type="text"]');
         const amount = (anggaranInput?.value || '0').replace(/[^\d]/g, '');
         
-        // Ambil keterangan dari textarea
-        const ketTextarea = row.querySelector('textarea[name*="_ket"]');
-        const ket = ketTextarea?.value || '';
+        // Keterangan (source) - jika ada
+        const ket = '';
         
         // Ambil TW data dari tabel keempat
         const twData = twDataMap[no] || { tw1: '', tw2: '', tw3: '', tw4: '' };

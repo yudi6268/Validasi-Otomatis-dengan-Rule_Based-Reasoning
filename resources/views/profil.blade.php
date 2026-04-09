@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Profil Saya - RSUD Bangil</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/croppie/2.6.5/croppie.min.css">
   <style>
+    @keyframes slideDown {
+      from { top: -50px; opacity: 0; }
+      to { top: 70px; opacity: 1; }
+    }
+    
     body { 
       margin: 0; 
       font-family: 'Poppins', sans-serif; 
@@ -53,6 +59,7 @@
       flex:1; 
       display:flex; 
       align-items:center; 
+      justify-content:center;
       padding: 40px 20px 80px;
     }
 
@@ -193,6 +200,22 @@
     <a href="javascript:history.back()" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
     <span class="title">Profil Saya</span>
   </header>
+  
+  <!-- Alert Messages -->
+  @if(session('success'))
+  <div style="position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;background:#28a745;color:#fff;padding:15px 30px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:slideDown 0.3s ease;">
+    <strong>✓</strong> {{ session('success') }}
+  </div>
+  <script>setTimeout(() => document.querySelector('[style*="slideDown"]')?.remove(), 3000);</script>
+  @endif
+  
+  @if($errors->any())
+  <div style="position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;background:#dc3545;color:#fff;padding:15px 30px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:slideDown 0.3s ease;">
+    <strong>✗</strong> {{ $errors->first() }}
+  </div>
+  <script>setTimeout(() => document.querySelector('[style*="slideDown"]')?.remove(), 3000);</script>
+  @endif
+  
   <main>
     <div class="profile-card">
       <form method="POST" action="{{ route('profil.update') }}" enctype="multipart/form-data" class="profile-form" id="profileForm">
@@ -216,9 +239,9 @@
       <div class="profile-side">
         <div class="photo" id="photoPreview" style="margin-bottom:16px;">
           @if($user->foto_profil && str_starts_with($user->foto_profil, 'http'))
-              <img src="{{ $user->foto_profil }}">
+              <img src="{{ $user->foto_profil }}?v={{ time() }}" alt="Foto Profil">
           @elseif($user->foto_profil)
-              <img src="{{ asset('storage/'.$user->foto_profil) }}">
+              <img src="{{ asset('storage/'.$user->foto_profil) }}?v={{ time() }}" alt="Foto Profil">
           @else
               FOTO PROFIL
           @endif
@@ -245,9 +268,9 @@
 
         <div class="signature-box" id="signatureBox" style="cursor:pointer;margin-bottom:12px;">
           @if($user->tanda_tangan && str_starts_with($user->tanda_tangan, 'http'))
-            <img src="{{ $user->tanda_tangan }}">
+            <img src="{{ $user->tanda_tangan }}?v={{ time() }}" alt="Tanda Tangan">
           @elseif($user->tanda_tangan)
-            <img src="{{ asset('storage/'.$user->tanda_tangan) }}">
+            <img src="{{ asset('storage/'.$user->tanda_tangan) }}?v={{ time() }}" alt="Tanda Tangan">
           @else
             Klik untuk tanda tangan
           @endif

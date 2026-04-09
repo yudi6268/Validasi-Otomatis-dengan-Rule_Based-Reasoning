@@ -292,16 +292,16 @@ document.addEventListener('mousedown', function(event) {
   <!-- CARD STATUS -->
   <div class="stats">
     <div class="stat green active" data-filter="all" tabindex="0">
-      Total Perjanjian Kinerja<span>{{ $counts['all'] ?? $perjanjians->total() }}</span>
+      Total Perjanjian Kinerja<span>{{ $counts['all'] ?? 0 }}</span>
     </div>
     <div class="stat yellow" data-filter="setuju" tabindex="0">
-      Disetujui<span>{{ $counts['approved'] ?? $perjanjians->where('approved', true)->count() }}</span>
+      Disetujui<span>{{ $counts['approved'] ?? 0 }}</span>
     </div>
     <div class="stat red" data-filter="tolak" tabindex="0">
-      Ditolak<span>{{ $counts['rejected'] ?? $perjanjians->where('rejected', true)->count() }}</span>
+      Ditolak<span>{{ $counts['rejected'] ?? 0 }}</span>
     </div>
     <div class="stat blue" data-filter="menunggu" tabindex="0">
-      Perjanjian Menunggu<span>{{ $counts['waiting'] ?? $perjanjians->where('approved', false)->where('rejected', false)->count() }}</span>
+      Perjanjian Menunggu<span>{{ $counts['waiting'] ?? 0 }}</span>
     </div>
   </div>
 
@@ -325,10 +325,10 @@ document.addEventListener('mousedown', function(event) {
           <td style="font-weight:bold;">{{ $perjanjian->pihak1_name }}</td>
           <td style="font-weight:bold; text-align:center;">{{ \Carbon\Carbon::parse($perjanjian->created_at)->format('d-m-y') }}</td>
           <td style="text-align:center; vertical-align:middle;">
-            @if($perjanjian->approved)
-              <span class="status" data-status="setuju">Disetujui</span>
-            @elseif($perjanjian->rejected)
+            @if($perjanjian->rejected === true)
               <span class="status" data-status="tolak">Ditolak</span>
+            @elseif(!empty($perjanjian->pihak2_signature))
+              <span class="status" data-status="setuju">Disetujui</span>
             @else
               <span class="status" data-status="menunggu">Menunggu</span>
             @endif

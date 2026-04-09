@@ -10,7 +10,6 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use App\Services\SupabaseService;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class DirekturDashboardController extends Controller
 {
@@ -58,7 +57,7 @@ class DirekturDashboardController extends Controller
         
         // Tentukan status dari database
         $status = 'waiting';
-        if (!empty($perjanjian->rejected) && $perjanjian->rejected == true) {
+        if ($this->isRejectedValue($perjanjian->rejected)) {
             $status = 'rejected';
         } elseif (!empty($perjanjian->pihak2_signature)) {
             $status = 'approved';
@@ -97,47 +96,44 @@ class DirekturDashboardController extends Controller
             $filter = $request->filter;
             
             if ($filter === 'approved') {
-                $query->whereNotNull('pihak2_signature')->where(function($q) {
-                    $q->whereNull('rejected')->orWhere('rejected', false);
-                });
+                $query->whereNotNull('pihak2_signature')
+                      ->where('rejected', false);
             } elseif ($filter === 'rejected') {
                 $query->where('rejected', true);
             } elseif ($filter === 'waiting') {
-                $query->whereNull('pihak2_signature')->where(function($q) {
-                    $q->whereNull('rejected')->orWhere('rejected', false);
-                });
+                $query->whereNull('pihak2_signature')
+                      ->where('rejected', false);
             }
         }
 
+        // Ambil semua data direktur sebagai pihak kedua untuk kartu status (selalu real-time)
+        $allData = Perjanjian::where(function($q) use ($user) {
+                    $q->where('pihak2_name', $user->nama)
+                      ->orWhere('pihak2_nip', $user->nip);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+        $counts = [
+            'all' => $allData->count(),
+            'approved' => $allData->filter(function($item) {
+                return !empty($item->pihak2_signature) && $this->isNotRejected($item->rejected);
+            })->count(),
+            'rejected' => $allData->filter(function($item) {
+                return $this->isRejectedValue($item->rejected);
+            })->count(),
+            'waiting' => $allData->filter(function($item) {
+                return empty($item->pihak2_signature) && $this->isNotRejected($item->rejected);
+            })->count(),
+        ];
+
         // Untuk AJAX request
         if ($request->ajax() || $request->wantsJson()) {
-            // Ambil semua data sekaligus untuk menghindari multiple query
-            $allData = Perjanjian::where(function($q) use ($user) {
-                        $q->where('pihak2_name', $user->nama)
-                          ->orWhere('pihak2_nip', $user->nip);
-                    })
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-            
-            // Hitung counts dari data yang sudah diambil
-            $counts = [
-                'all' => $allData->count(),
-                'approved' => $allData->filter(function($item) {
-                    return !empty($item->pihak2_signature) && (empty($item->rejected) || $item->rejected == false);
-                })->count(),
-                'rejected' => $allData->filter(function($item) {
-                    return !empty($item->rejected) && $item->rejected == true;
-                })->count(),
-                'waiting' => $allData->filter(function($item) {
-                    return empty($item->pihak2_signature) && (empty($item->rejected) || $item->rejected == false);
-                })->count(),
-            ];
-            
             // Filter data sesuai request
             $items = $query->get()->map(function($item) {
                 $status = 'waiting';
                 
-                if (!empty($item->rejected) && $item->rejected == true) {
+                if ($this->isRejectedValue($item->rejected)) {
                     $status = 'rejected';
                 } elseif (!empty($item->pihak2_signature)) {
                     $status = 'approved';
@@ -187,7 +183,7 @@ class DirekturDashboardController extends Controller
                 ->limit(10)
                 ->get()
                 ->map(function($item) {
-                    $status = !empty($item->rejected) && $item->rejected == true ? 'rejected' : 'approved';
+                    $status = $this->isRejectedValue($item->rejected) ? 'rejected' : 'approved';
                     $action = $status === 'approved' ? 'Disetujui' : 'Ditolak';
                     
                     // Tentukan jenis dokumen
@@ -204,7 +200,7 @@ class DirekturDashboardController extends Controller
                     ];
                 });
         
-        return view('dashboard.direktur', compact('perjanjians', 'notifications'));
+        return view('dashboard.direktur', compact('perjanjians', 'notifications', 'counts'));
     }
 
     public function laporanKinerja(Request $request)
@@ -360,7 +356,6 @@ class DirekturDashboardController extends Controller
             $perjanjian->rejected = true;
             $perjanjian->rejection_reason = $request->rejection_reason;
             $perjanjian->pihak2_signature = null;
-            $perjanjian->approved = false;
             $perjanjian->save();
             // Create notification for the user who created the perjanjian
             $pengusul = User::where('nama', $perjanjian->pihak1_name)->first();
@@ -404,8 +399,8 @@ class DirekturDashboardController extends Controller
         try {
             $user = Auth::user();
             
-            // Ambil perjanjian
-                        $perjanjian = Perjanjian::where('id', $id)
+            // Ambil perjanjian - optimized query untuk preview HTML saja
+            $perjanjian = Perjanjian::where('id', $id)
                                 ->where(function($q) use ($user) {
                                         $q->where('pihak2_name', $user->nama)
                                             ->orWhere('pihak2_nip', $user->nip)
@@ -414,7 +409,7 @@ class DirekturDashboardController extends Controller
                                 })
                                 ->firstOrFail();
             
-            // Decode tables
+            // Decode tables - lazy decode hanya saat dibutuhkan
             $data = $perjanjian;
             $tabelA = json_decode($perjanjian->tabelA, true) ?? [];
             $tabelB = json_decode($perjanjian->tabelB, true) ?? [];
@@ -425,14 +420,19 @@ class DirekturDashboardController extends Controller
             if ($user && ($user->nama === $perjanjian->pihak2_name || $user->nip === $perjanjian->pihak2_nip)) {
                 $isDirektur = true;
             }
+            
             // Set status konsisten dari database
             $status = 'menunggu';
-            if (!empty($perjanjian->rejected) && $perjanjian->rejected == true) {
+            if ($this->isRejectedValue($perjanjian->rejected)) {
                 $status = 'ditolak';
             } elseif (!empty($perjanjian->pihak2_signature)) {
                 $status = 'disetujui';
             }
-            return view('perjanjian.print', compact('data', 'perjanjian', 'tabelA', 'tabelB', 'tabelC', 'isDirektur', 'status'));
+            
+            // Flag untuk HTML preview (bukan PDF)
+            $for_pdf = false;
+            
+            return view('perjanjian.print', compact('data', 'perjanjian', 'tabelA', 'tabelB', 'tabelC', 'isDirektur', 'status', 'for_pdf'));
             
         } catch (\Exception $e) {
             Log::error('Print perjanjian error: ' . $e->getMessage());
@@ -456,81 +456,21 @@ class DirekturDashboardController extends Controller
                                    })
                                    ->firstOrFail();
             
-            // Format data untuk PDF
-            $pdfData = [
-                'data' => $perjanjian,
-                'perjanjian' => $perjanjian,
-                'tabelA' => json_decode($perjanjian->tabelA, true) ?? [],
-                'tabelB' => json_decode($perjanjian->tabelB, true) ?? [],
-                'tabelC' => json_decode($perjanjian->tabelC, true) ?? [],
-                'for_pdf' => true,
-            ];
-
-            // Helper to convert images to data URI
-            $toDataUri = function ($path) {
-                if (empty($path)) {
-                    return null;
-                }
-                if (strpos($path, 'data:') === 0) {
-                    return $path;
-                }
-
-                $candidates = [];
-                if (file_exists(public_path($path))) {
-                    $candidates[] = public_path($path);
-                }
-                if (file_exists(public_path('storage/' . ltrim($path, '/')))) {
-                    $candidates[] = public_path('storage/' . ltrim($path, '/'));
-                }
-
-                foreach ($candidates as $candidate) {
-                    try {
-                        $contents = @file_get_contents($candidate);
-                        if ($contents === false) {
-                            continue;
-                        }
-                        $mime = @mime_content_type($candidate) ?: 'image/png';
-                        $base = base64_encode($contents);
-                        return "data:{$mime};base64,{$base}";
-                    } catch (\Exception $e) {
-                        continue;
-                    }
-                }
-
-                return null;
-            };
-
-            // Convert images to data URIs
-            $logoPath = 'images/logo_pemda.png';
-            $pdfData['logo_data'] = $toDataUri($logoPath);
-            $pdfData['pihak1_ttd_data'] = $toDataUri($perjanjian->pihak1_ttd ?? null);
-            $pdfData['pihak2_ttd_data'] = $toDataUri($perjanjian->pihak2_signature ?? null);
-
-            // Generate PDF
-            $pdf = Pdf::loadView('perjanjian.print', $pdfData);
-            $pdf->setPaper('F4', 'portrait');
-            
-            // Set PDF options
-            $pdf->setOption('margin-left', 0);
-            $pdf->setOption('margin-right', 0);
-            $pdf->setOption('margin-top', 0);
-            $pdf->setOption('margin-bottom', 0);
-            $pdf->setOption('isHtml5ParserEnabled', true);
-            $pdf->setOption('isFontSubsettingEnabled', true);
-            $pdf->setOption('dpi', 96);
-            $pdf->setOption('defaultMediaType', 'print');
-            $pdf->setOption('isRemoteEnabled', true);
-            $pdf->setOption('chroot', public_path());
+            // Use PdfHelper for consistency dengan preview
+            // Menggunakan Snappy logic
+            $pdfContent = \App\Helpers\PdfHelper::generatePerjanjianSnappy($perjanjian);
             
             // Generate filename
-            $filename = 'Perjanjian_Kinerja_' . str_replace(' ', '_', $perjanjian->pihak1_name) . '_' . date('Y-m-d_His') . '.pdf';
+            $filename = \App\Helpers\PdfHelper::generateFilename($perjanjian);
             
-            // Save PDF temporarily
+            // Save PDF temporarily untuk upload ke Supabase
             $tempPath = storage_path('app/temp/' . $filename);
             if (!file_exists(dirname($tempPath))) {
                 mkdir(dirname($tempPath), 0755, true);
             }
-            file_put_contents($tempPath, $pdf->output());
+            
+            // Note: $pdfContent is string (raw bytes)
+            file_put_contents($tempPath, $pdfContent);
             
             // Upload to Supabase
             try {
@@ -552,13 +492,15 @@ class DirekturDashboardController extends Controller
                 Log::warning('Supabase upload failed: ' . $e->getMessage());
             }
             
-            // Delete temp file
+            // Delete temp file after upload (or keep it if needed, but usually we delete)
             if (file_exists($tempPath)) {
                 unlink($tempPath);
             }
             
             // Return PDF download
-            return $pdf->download($filename);
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
             
         } catch (\Exception $e) {
             Log::error('Download PDF error: ' . $e->getMessage());
@@ -567,5 +509,25 @@ class DirekturDashboardController extends Controller
                 'message' => 'Gagal generate PDF: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function isRejectedValue($value): bool
+    {
+        // Handle semua variasi boolean: true, 1, '1', 't', 'true'
+        if (is_bool($value)) {
+            return $value === true;
+        }
+        if (is_numeric($value)) {
+            return (int)$value === 1;
+        }
+        if (is_string($value)) {
+            return in_array(strtolower($value), ['1', 't', 'true', 'yes']);
+        }
+        return false;
+    }
+
+    private function isNotRejected($value): bool
+    {
+        return !$this->isRejectedValue($value);
     }
 }

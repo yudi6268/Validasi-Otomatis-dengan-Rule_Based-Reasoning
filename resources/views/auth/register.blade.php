@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daftar Akun Pegawai</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {
@@ -108,6 +109,11 @@
 
         <h4 class="register-title">Daftar Akun</h4>
         <p class="subtitle">Isi data berikut untuk membuat akun pegawai baru.</p>
+
+        <div class="alert alert-info" style="font-size: 0.85rem;">
+            <i class="fas fa-info-circle"></i>
+            <strong>Catatan:</strong> Akun Anda akan menunggu persetujuan admin sebelum dapat login. Anda akan dihubungi setelah akun disetujui.
+        </div>
 
         @if ($errors->any())
         <div class="alert alert-danger mb-3">

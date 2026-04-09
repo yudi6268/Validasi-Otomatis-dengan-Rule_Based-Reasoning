@@ -59,30 +59,26 @@ class DashboardController extends Controller
                     $q->where('pihak2_name', $user->nama)
                       ->orWhere('pihak2_nip', $user->nip);
                 })->count();
-        $perjanjianApproved = Perjanjian::where(function($q) use ($user) {
-                    $q->where('pihak2_name', $user->nama)
-                      ->orWhere('pihak2_nip', $user->nip);
-                })
-                ->whereNotNull('pihak2_signature')
-                ->where(function($q) {
-                    $q->whereNull('rejected')->orWhere('rejected', false);
-                })
-                ->count();
+                $perjanjianApproved = Perjanjian::where(function($q) use ($user) {
+                                        $q->where('pihak2_name', $user->nama)
+                                            ->orWhere('pihak2_nip', $user->nip);
+                                })
+                                ->whereNotNull('pihak2_signature')
+                                ->where('rejected', false)
+                                ->count();
         $perjanjianWaiting = Perjanjian::where(function($q) use ($user) {
                     $q->where('pihak2_name', $user->nama)
                       ->orWhere('pihak2_nip', $user->nip);
                 })
-                ->whereNull('pihak2_signature')
-                ->where(function($q) {
-                    $q->whereNull('rejected')->orWhere('rejected', false);
-                })
-                ->count();
-        $perjanjianRejected = Perjanjian::where(function($q) use ($user) {
-                    $q->where('pihak2_name', $user->nama)
-                      ->orWhere('pihak2_nip', $user->nip);
-                })
-                ->where('rejected', true)
-                ->count();
+                                ->whereNull('pihak2_signature')
+                                ->where('rejected', false)
+                                ->count();
+                $perjanjianRejected = Perjanjian::where(function($q) use ($user) {
+                                        $q->where('pihak2_name', $user->nama)
+                                            ->orWhere('pihak2_nip', $user->nip);
+                                })
+                                ->where('rejected', true)
+                                ->count();
         
         return view('dashboard.wadir', compact('totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected'));
     }
@@ -99,17 +95,27 @@ class DashboardController extends Controller
         $perjanjianApproved = Perjanjian::where('user_id', $user->id)
             ->whereNotNull('pihak2_signature')
             ->where(function($q) {
-                $q->whereNull('rejected')->orWhere('rejected', false);
+                $q->whereNull('rejected')
+                  ->orWhere('rejected', false)
+                  ->orWhere('rejected', 0)
+                  ->orWhere('rejected', '0');
             })
             ->count();
         $perjanjianWaiting = Perjanjian::where('user_id', $user->id)
             ->whereNull('pihak2_signature')
             ->where(function($q) {
-                $q->whereNull('rejected')->orWhere('rejected', false);
+                $q->whereNull('rejected')
+                  ->orWhere('rejected', false)
+                  ->orWhere('rejected', 0)
+                  ->orWhere('rejected', '0');
             })
             ->count();
         $perjanjianRejected = Perjanjian::where('user_id', $user->id)
-            ->where('rejected', true)
+            ->where(function($q){
+                $q->where('rejected', true)
+                  ->orWhere('rejected', 1)
+                  ->orWhere('rejected', '1');
+            })
             ->count();
         
         return view('dashboard.kabag-kabid', compact('totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected'));
@@ -126,15 +132,11 @@ class DashboardController extends Controller
         $totalPerjanjian = Perjanjian::where('user_id', $user->id)->count();
         $perjanjianApproved = Perjanjian::where('user_id', $user->id)
             ->whereNotNull('pihak2_signature')
-            ->where(function($q) {
-                $q->whereNull('rejected')->orWhere('rejected', false);
-            })
+            ->where('rejected', false)
             ->count();
         $perjanjianWaiting = Perjanjian::where('user_id', $user->id)
             ->whereNull('pihak2_signature')
-            ->where(function($q) {
-                $q->whereNull('rejected')->orWhere('rejected', false);
-            })
+            ->where('rejected', false)
             ->count();
         $perjanjianRejected = Perjanjian::where('user_id', $user->id)
             ->where('rejected', true)

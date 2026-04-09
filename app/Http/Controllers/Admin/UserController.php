@@ -8,6 +8,7 @@ use App\Models\Jabatan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
 use App\Services\SupabaseService;
 
 class UserController extends Controller
@@ -73,7 +74,6 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-
         $validated = $request->validate([
             'id_pegawai' => 'required|unique:users,id_pegawai',
             'nama' => 'required|string|max:255',
@@ -83,12 +83,13 @@ class UserController extends Controller
             'divisi' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'role' => 'required|in:user,admin,direktur,wadir,kabag-kabid,katimker-staf',
-            'password' => 'required|min:8|confirmed',
             'status' => 'required|in:active,non-active,pending',
         ]);
 
-        $validated['password'] = Hash::make($validated['password']);
-
+        // Generate password otomatis (12 karakter, kombinasi huruf besar, kecil, dan angka)
+        $generatedPassword = Str::password(12);
+        
+        $validated['password'] = Hash::make($generatedPassword);
 
         $user = User::create($validated);
 
@@ -108,8 +109,31 @@ class UserController extends Controller
         ];
         $this->supabase->insert('users', $supabaseData);
 
+        // Kirim email dengan password ke user
+        try {
+            Mail::send('emails.welcome-user', [
+                'user' => $user,
+                'password' => $generatedPassword
+            ], function ($message) use ($user) {
+                $message->to($user->email, $user->nama)
+                        ->subject('Akun Anda Telah Dibuat - Sistem Perjanjian Kinerja');
+            });
+
+            \Log::info('Email password berhasil dikirim ke user baru', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'admin_id' => auth()->id()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Gagal mengirim email password ke user baru', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return redirect()->route('admin.users.index')
-            ->with('success', 'User berhasil ditambahkan!');
+            ->with('success', 'User berhasil ditambahkan! Password telah dikirim ke email ' . $user->email);
     }
 
     /**
@@ -148,13 +172,8 @@ class UserController extends Controller
             'status' => 'required|in:active,non-active,pending',
         ]);
 
-        // Update password only if provided
-        if ($request->filled('password')) {
-            $request->validate([
-                'password' => 'min:8|confirmed',
-            ]);
-            $validated['password'] = Hash::make($request->password);
-        }
+        // Admin tidak bisa mengubah password user
+        // Password hanya bisa direset via resetPassword() atau diubah oleh user sendiri di settings
 
         $user->update($validated);
 
@@ -205,5 +224,61 @@ class UserController extends Controller
             \Log::error('Error reset password: ' . $e->getMessage());
             return back()->with('error', 'Gagal mereset password. Coba lagi!');
         }
+    }
+
+    /**
+     * Show pending users awaiting approval
+     */
+    public function pending()
+    {
+        $users = User::where('status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        return view('admin.users.pending', compact('users'));
+    }
+
+    /**
+     * Approve user registration
+     */
+    public function approve(User $user)
+    {
+        if ($user->status !== 'pending') {
+            return back()->with('error', 'User ini tidak dalam status pending!');
+        }
+
+        $user->status = 'active';
+        $user->save();
+
+        \Log::info('Admin approved user registration', [
+            'user_id' => $user->id,
+            'id_pegawai' => $user->id_pegawai,
+            'email' => $user->email,
+            'admin_id' => auth()->id()
+        ]);
+
+        return back()->with('success', "User {$user->nama} berhasil disetujui dan dapat login.");
+    }
+
+    /**
+     * Reject user registration
+     */
+    public function reject(User $user)
+    {
+        if ($user->status !== 'pending') {
+            return back()->with('error', 'User ini tidak dalam status pending!');
+        }
+
+        $userName = $user->nama;
+        $user->delete(); // Hapus user yang ditolak
+
+        \Log::info('Admin rejected user registration', [
+            'user_id' => $user->id,
+            'id_pegawai' => $user->id_pegawai,
+            'email' => $user->email,
+            'admin_id' => auth()->id()
+        ]);
+
+        return back()->with('success', "Pendaftaran {$userName} berhasil ditolak dan dihapus dari sistem.");
     }
 }

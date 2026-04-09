@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Perjanjian;
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Jabatan;
 use App\Models\User;
 use App\Models\Program;
 use App\Models\Kegiatan;
 use App\Models\SubKegiatan;
+use App\Models\Setting;
+use App\Helpers\PdfHelper;
 
 
 
@@ -36,7 +37,12 @@ class PerjanjianController extends Controller
         $request->validate([
             'rejection_reason' => 'required|string|max:500',
         ]);
-        // Simpan alasan dan update status
+        
+        // Simpan alasan dan update status - GUNAKAN KOLOM BARU
+        $perjanjian->status = 'ditolak';
+        $perjanjian->catatan_penolakan = $request->rejection_reason;
+        
+        // Tetap isi kolom lama untuk backward compatibility
         $perjanjian->rejected = true;
         $perjanjian->rejection_reason = $request->rejection_reason;
         $perjanjian->save();
@@ -83,38 +89,84 @@ class PerjanjianController extends Controller
             $direktur = User::where('jabatan', 'like', '%Direktur%')->first();
         }
         
-        // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown
-        $programs = Program::where('is_active', true)->orderBy('nama_program')->get();
-        $kegiatans = Kegiatan::where('is_active', true)->with('program')->orderBy('nama_kegiatan')->get();
-        $subKegiatans = SubKegiatan::where('is_active', true)->with('kegiatan')->orderBy('nama_sub_kegiatan')->get();
+        // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown (diurutkan berdasarkan kode)
+        // Include relasi untuk auto-populate
+        $programs = Program::where('is_active', true)
+            ->with(['kegiatan' => function($query) {
+                $query->where('is_active', true)
+                      ->orderBy('kode_kegiatan')
+                      ->with(['subKegiatan' => function($q) {
+                          $q->where('is_active', true)->orderBy('kode_sub_kegiatan');
+                      }]);
+            }])
+            ->orderBy('kode_program')
+            ->get();
         
-        return view('perjanjian.create', compact('jabatanData', 'direktur', 'programs', 'kegiatans', 'subKegiatans'));
+        $kegiatans = Kegiatan::where('is_active', true)->with('program')->orderBy('kode_kegiatan')->get();
+        $subKegiatans = SubKegiatan::where('is_active', true)->with('kegiatan')->orderBy('kode_sub_kegiatan')->get();
+        
+        // Ambil tahun yang tersedia dari settings
+        $availableYears = Setting::getAvailableYears();
+        
+        return view('perjanjian.create', compact('jabatanData', 'direktur', 'programs', 'kegiatans', 'subKegiatans', 'availableYears'));
     }
     // ==============================
     // INDEX
     // ==============================
     public function index()
     {
-        $query = Perjanjian::orderBy('id', 'desc');
+        $user = auth()->user();
+        $query = Perjanjian::query();
+        
+        // Filter berdasarkan role user
+        if ($user) {
+            $isAdmin = $user->role === 'admin';
+            $isDirektur = false;
+            
+            // Cek apakah user adalah direktur/pimpinan berdasarkan jabatan
+            if (isset($user->jabatan)) {
+                $jabatan = strtolower($user->jabatan);
+                $isDirektur = strpos($jabatan, 'direktur') !== false || 
+                             strpos($jabatan, 'wadir') !== false ||
+                             strpos($jabatan, 'wakil direktur') !== false;
+            }
+            
+            // Admin melihat semua perjanjian
+            if (!$isAdmin) {
+                if ($isDirektur) {
+                    // Direktur/Pimpinan melihat perjanjian yang ditujukan kepada mereka
+                    // Cek berdasarkan nama (pihak2_name) atau jabatan mereka
+                    $query->where(function($q) use ($user) {
+                        $q->where('pihak2_name', $user->nama)
+                          ->orWhere('pihak2_jabatan', $user->jabatan)
+                          ->orWhere('user_id', $user->id); // juga lihat perjanjian yang mereka buat sendiri
+                    });
+                } else {
+                    // User biasa hanya melihat perjanjian mereka sendiri
+                    $query->where('user_id', $user->id);
+                }
+            }
+        }
+        
+        $query->orderBy('id', 'desc');
 
         // If AJAX request for filtered list, return JSON
         if (request()->ajax() || request()->wantsJson()) {
             $filter = request()->get('filter');
 
             $items = $query->get()->map(function($item) {
-                // determine status
-                $status = 'sent'; // default: laporan dikirim (created)
-                if (!empty($item->pihak2_signature)) {
-                    $status = 'approved';
-                } else if (!empty($item->pihak2_name)) {
-                    // waiting for signature from pihak kedua
-                    $status = 'waiting';
-                }
-
-                // if there's an explicit rejection flag, prefer it (best-effort)
-                if (isset($item->rejected) && $item->rejected) {
-                    $status = 'rejected';
-                }
+                // Gunakan kolom 'status' baru (menunggu, disetujui, ditolak, draft)
+                $status = $item->status ?? 'waiting'; // default: menunggu
+                
+                // Map dari status database ke status untuk frontend
+                $statusMap = [
+                    'menunggu' => 'waiting',
+                    'disetujui' => 'approved',
+                    'ditolak' => 'rejected',
+                    'draft' => 'sent',
+                ];
+                
+                $frontendStatus = $statusMap[$status] ?? 'waiting';
 
                 return [
                     'id' => $item->id,
@@ -122,8 +174,8 @@ class PerjanjianController extends Controller
                     'pihak2_name' => $item->pihak2_name,
                     'jabatan' => $item->jabatan,
                     'created_at' => optional($item->created_at)->format('d M Y'),
-                    'status' => $status,
-                    'approved' => ($status === 'approved'),
+                    'status' => $frontendStatus,
+                    'approved' => ($frontendStatus === 'approved'),
                     'pihak2_signature' => $item->pihak2_signature,
                 ];
             });
@@ -144,7 +196,7 @@ class PerjanjianController extends Controller
 
         $items = $query->get();
 
-        // compute counts per status for dashboard
+        // compute counts per status for dashboard - GUNAKAN KOLOM STATUS BARU
         $counts = [
             'sent' => 0,
             'approved' => 0,
@@ -154,17 +206,20 @@ class PerjanjianController extends Controller
         ];
 
         foreach ($items as $item) {
-            $status = 'sent';
-            if (!empty($item->pihak2_signature)) {
-                $status = 'approved';
-            } else if (!empty($item->pihak2_name)) {
-                $status = 'waiting';
-            }
-            if (isset($item->rejected) && $item->rejected) {
-                $status = 'rejected';
-            }
-            if (isset($counts[$status])) {
-                $counts[$status]++;
+            $status = $item->status ?? 'menunggu';
+            
+            // Map dari status database ke count keys
+            $statusMap = [
+                'menunggu' => 'waiting',
+                'disetujui' => 'approved',
+                'ditolak' => 'rejected',
+                'draft' => 'sent',
+            ];
+            
+            $countKey = $statusMap[$status] ?? 'waiting';
+            
+            if (isset($counts[$countKey])) {
+                $counts[$countKey]++;
             }
             $counts['total']++;
         }
@@ -176,17 +231,72 @@ class PerjanjianController extends Controller
     public function print($id)
     {
         $perjanjian = Perjanjian::findOrFail($id);
+        $user = auth()->user();
+        
+        // Validasi akses: user hanya bisa melihat perjanjian mereka sendiri atau yang ditujukan kepada mereka
+        if ($user) {
+            $isAdmin = $user->role === 'admin';
+            
+            if (!$isAdmin) {
+                $isDirektur = false;
+                if (isset($user->jabatan)) {
+                    $jabatan = strtolower($user->jabatan);
+                    $isDirektur = strpos($jabatan, 'direktur') !== false || 
+                                 strpos($jabatan, 'wadir') !== false ||
+                                 strpos($jabatan, 'wakil direktur') !== false;
+                }
+                
+                $canAccess = false;
+                
+                if ($isDirektur) {
+                    // Direktur bisa akses jika perjanjian ditujukan kepada mereka atau mereka yang buat
+                    $canAccess = ($perjanjian->user_id == $user->id) ||
+                                ($perjanjian->pihak2_name == $user->nama) ||
+                                ($perjanjian->pihak2_jabatan == $user->jabatan);
+                } else {
+                    // User biasa hanya bisa akses perjanjian mereka sendiri
+                    $canAccess = ($perjanjian->user_id == $user->id);
+                }
+                
+                if (!$canAccess) {
+                    abort(403, 'Anda tidak memiliki akses ke perjanjian ini.');
+                }
+            }
+        }
+        
         \Log::debug('PRINT: tugas_pelaksana = ' . var_export($perjanjian->tugas_pelaksana, true));
         \Log::debug('PRINT: fungsi_pelaksana = ' . var_export($perjanjian->fungsi_pelaksana, true));
         \Log::debug('PRINT: rejected = ' . var_export($perjanjian->rejected, true) . ', rejection_reason = ' . var_export($perjanjian->rejection_reason, true));
+        
+        // Debug tabel data
+        $tabelBRaw = $perjanjian->tabelB;
+        $tabelCRaw = $perjanjian->tabelC;
+        \Log::info("PRINT ID {$id}: TabelB = " . (empty($tabelBRaw) ? 'KOSONG' : (is_string($tabelBRaw) ? strlen($tabelBRaw) . ' chars' : 'array')));
+        \Log::info("PRINT ID {$id}: TabelC = " . (empty($tabelCRaw) ? 'KOSONG' : (is_string($tabelCRaw) ? strlen($tabelCRaw) . ' chars' : 'array')));
 
         // Logo
         $logoSrc = asset('images/logo_pemda.png');
         $logoPemda = $logoSrc;
         $logoRsud = asset('images/logo_rsud.png');
 
-        // Tanggal (bisa dari field, atau default hari ini)
-        $tanggal = $perjanjian->tanggal ?? date('d F Y');
+        // Tanggal menggunakan agreement_date atau created_at (snapshot saat perjanjian dibuat)
+        $tanggalData = $perjanjian->agreement_date ?? $perjanjian->created_at;
+        $tanggal = \Carbon\Carbon::parse($tanggalData)->translatedFormat('d F Y');
+        
+        // Tahun dari tanggal perjanjian dibuat
+        $tahun = \Carbon\Carbon::parse($tanggalData)->format('Y');
+        
+        // Ambil data user untuk mendapatkan pangkat yang mungkin kosong di perjanjian
+        $pihak1User = \App\Models\User::where('nama', $perjanjian->pihak1_name)->first();
+        $pihak2User = \App\Models\User::where('nama', $perjanjian->pihak2_name)->first();
+        
+        // Override pangkat jika kosong di perjanjian tapi ada di user
+        if (empty($perjanjian->pihak1_pangkat) && $pihak1User && !empty($pihak1User->pangkat)) {
+            $perjanjian->pihak1_pangkat = $pihak1User->pangkat;
+        }
+        if (empty($perjanjian->pihak2_pangkat) && $pihak2User && !empty($pihak2User->pangkat)) {
+            $perjanjian->pihak2_pangkat = $pihak2User->pangkat;
+        }
 
         // Gabungkan tugas & fungsi pelaksana (untuk preview)
         $tugas = $perjanjian->tugas_pelaksana ?? '';
@@ -258,20 +368,7 @@ class PerjanjianController extends Controller
             $isDirektur = strpos($jabatan, 'direktur') !== false || strpos($jabatan, 'pimpinan') !== false;
         }
 
-        // Ambil user yang membuat perjanjian (pihak pertama) untuk data pangkat/jabatan
-        $user = User::find($perjanjian->user_id);
-
-        // Ambil user pihak kedua berdasarkan nama pihak kedua
-        $pihak2User = null;
-        if (!empty($perjanjian->pihak2_name)) {
-            $pihak2User = User::where('nama', $perjanjian->pihak2_name)->first();
-        }
-        // Jika pihak2_pangkat kosong, ambil dari pihak2User
-        if (empty($perjanjian->pihak2_pangkat) && $pihak2User) {
-            $perjanjian->pihak2_pangkat = $pihak2User->pangkat ?? null;
-        }
-
-        // Jika tugas_pelaksana atau fungsi_pelaksana null, ambil dari tabel jabatan
+        // GUNAKAN DATA SNAPSHOT DARI PERJANJIAN, BUKAN DATA REAL-TIME DARI USER
         if (empty($perjanjian->tugas_pelaksana) || empty($perjanjian->fungsi_pelaksana)) {
             $jabatanData = Jabatan::where('nama_jabatan', $perjanjian->pihak1_jabatan)->first();
             if ($jabatanData) {
@@ -299,6 +396,7 @@ class PerjanjianController extends Controller
             'logoPemda',
             'logoRsud',
             'tanggal',
+            'tahun',
             'tugas_fungsi',
             'tabelA',
             'tabelB',
@@ -306,7 +404,7 @@ class PerjanjianController extends Controller
             'user',
             'isDirektur',
             'status'
-        ));
+        ) + ['for_pdf' => false]);
     }
 
 
@@ -411,6 +509,15 @@ class PerjanjianController extends Controller
     {
         $perjanjian = Perjanjian::findOrFail($id);
         $user = auth()->user();
+        
+        // Validasi akses
+        if ($user && $user->role !== 'admin') {
+            // User biasa hanya bisa edit perjanjian mereka sendiri
+            if ($perjanjian->user_id != $user->id) {
+                return redirect()->route('perjanjian.index')->with('error', 'Anda tidak memiliki akses untuk mengedit perjanjian ini.');
+            }
+        }
+        
         // Hanya direktur/pimpinan yang boleh edit
         if (!$user || !(stripos($user->jabatan, 'direktur') !== false || stripos($user->jabatan, 'pimpinan') !== false)) {
             return redirect()->route('perjanjian.index')->with('error', 'Hanya Direktur/Pimpinan yang dapat mengedit perjanjian.');
@@ -425,12 +532,26 @@ class PerjanjianController extends Controller
             $jabatanData = \App\Models\Jabatan::where('nama_jabatan', $perjanjian->pihak1_jabatan)->first();
         }
         
-        // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown
-        $programs = Program::where('is_active', true)->orderBy('nama_program')->get();
-        $kegiatans = Kegiatan::where('is_active', true)->with('program')->orderBy('nama_kegiatan')->get();
-        $subKegiatans = SubKegiatan::where('is_active', true)->with('kegiatan')->orderBy('nama_sub_kegiatan')->get();
+        // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown (diurutkan berdasarkan kode)
+        // Include relasi untuk auto-populate
+        $programs = Program::where('is_active', true)
+            ->with(['kegiatan' => function($query) {
+                $query->where('is_active', true)
+                      ->orderBy('kode_kegiatan')
+                      ->with(['subKegiatan' => function($q) {
+                          $q->where('is_active', true)->orderBy('kode_sub_kegiatan');
+                      }]);
+            }])
+            ->orderBy('kode_program')
+            ->get();
         
-        return view('perjanjian.edit', compact('perjanjian', 'jabatanData', 'programs', 'kegiatans', 'subKegiatans'));
+        $kegiatans = Kegiatan::where('is_active', true)->with('program')->orderBy('kode_kegiatan')->get();
+        $subKegiatans = SubKegiatan::where('is_active', true)->with('kegiatan')->orderBy('kode_sub_kegiatan')->get();
+        
+        // Ambil tahun yang tersedia dari settings
+        $availableYears = Setting::getAvailableYears();
+        
+        return view('perjanjian.edit', compact('perjanjian', 'jabatanData', 'programs', 'kegiatans', 'subKegiatans', 'availableYears'));
     }
 
     // ==============================
@@ -440,6 +561,15 @@ class PerjanjianController extends Controller
     {
         $perjanjian = Perjanjian::findOrFail($id);
         $user = auth()->user();
+        
+        // Validasi akses
+        if ($user && $user->role !== 'admin') {
+            // User biasa hanya bisa update perjanjian mereka sendiri
+            if ($perjanjian->user_id != $user->id) {
+                return back()->with('error', 'Anda tidak memiliki akses untuk mengubah perjanjian ini.');
+            }
+        }
+        
         // Hanya direktur/pimpinan yang boleh update
         if (!$user || !(stripos($user->jabatan, 'direktur') !== false || stripos($user->jabatan, 'pimpinan') !== false)) {
             return back()->with('error', 'Hanya Direktur/Pimpinan yang dapat mengubah perjanjian.');
@@ -460,18 +590,28 @@ class PerjanjianController extends Controller
             'fungsi_pelaksana'   => 'nullable|string',
         ]);
 
-        // Prepare tabelC
+        // Prepare tabelC from hierarchical-budget-json (Tabel D input)
         $tabelC = $request->hierarchical_budget_json ?? null;
         if ($tabelC && !is_string($tabelC)) {
             $tabelC = json_encode($tabelC);
         }
-        if (!$tabelC) {
+        if (!$tabelC || $tabelC === '[]' || $tabelC === 'null') {
+            // Fallback to old flat format if hierarchical empty
             $tabelC = json_encode([
                 'program'     => $request->d_program ?? [],
                 'anggaran'    => $request->d_anggaran ?? [],
                 'keterangan'  => $request->d_keterangan ?? [],
             ]);
         }
+        
+        \Log::info("UPDATE Perjanjian #{$id}: TabelC size = " . strlen($tabelC) . " bytes");
+
+        // Cek status sebelum update - jika ditolak, ubah ke menunggu
+        $statusLama = $perjanjian->status ?? 'menunggu';
+        $statusBaru = ($statusLama === 'ditolak') ? 'menunggu' : $statusLama;
+        $catatanPenolakan = ($statusLama === 'ditolak') ? null : $perjanjian->catatan_penolakan;
+        
+        \Log::info("UPDATE PERJANJIAN #{$perjanjian->id}: Status lama = '{$statusLama}', Status baru = '{$statusBaru}'");
 
         // Update data
         $perjanjian->update([
@@ -484,6 +624,14 @@ class PerjanjianController extends Controller
             'jabatan_pelaksana' => $request->jabatan_pelaksana,
             'tugas_pelaksana'   => $request->tugas_pelaksana,
             'fungsi_pelaksana'  => $request->fungsi_pelaksana,
+            
+            // Reset status ke menunggu jika sebelumnya ditolak (kolom baru)
+            'status'            => $statusBaru,
+            'catatan_penolakan' => $catatanPenolakan,
+            
+            // Update kolom lama untuk backward compatibility
+            'rejected'          => ($statusBaru === 'ditolak'),
+            'rejection_reason'  => $catatanPenolakan,
             
             'tabelA' => json_encode([
                 'sasaran'   => $request->a_sasaran ?? [],
@@ -504,224 +652,60 @@ class PerjanjianController extends Controller
             
             'tabelC' => $tabelC,
         ]);
+        
+        // Refresh data dari database untuk memastikan
+        $perjanjian->refresh();
+        
+        // Log perubahan status untuk debugging
+        \Log::info("UPDATE SUKSES - Perjanjian #{$perjanjian->id}: Status akhir di database = '{$perjanjian->status}', Catatan = " . ($perjanjian->catatan_penolakan ? 'ada' : 'null'));
+        
+        if ($statusLama === 'ditolak') {
+            \Log::info("✓ Status berhasil diubah dari 'ditolak' ke '{$perjanjian->status}'");
+        }
+        
         // Return JSON when requested via fetch/AJAX
         if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Data perjanjian berhasil diperbarui!',
                 'id' => $perjanjian->id,
+                'status' => $statusBaru,
             ]);
         }
 
+        $successMessage = 'Data perjanjian berhasil diperbarui!';
+        if ($statusLama === 'ditolak') {
+            $successMessage .= ' Status perjanjian dikembalikan ke menunggu persetujuan.';
+        }
+
         return redirect()->route('perjanjian.index')
-            ->with('success', 'Data perjanjian berhasil diperbarui!');
+            ->with('success', $successMessage);
     }
 
 
     // ==============================
     // EXPORT TO PDF
     // ==============================
-    public function exportPdf($id)
+    public function exportPdf(string $id)
     {
-        $data = Perjanjian::findOrFail($id);
+        // Cari data perjanjian by ID
+        $perjanjian = Perjanjian::findOrFail($id);
+
+        // Generate PDF using Snappy (Split & Merge approach)
+        $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian);
         
-        // Fetch program & kegiatan data from Supabase
-        $supabaseService = app(\App\Services\SupabaseService::class);
-        $programsData = [];
-        $kegiatanData = [];
-        
-        // Get tabelC to find program IDs
-        $tabelC = is_array($data->tabelC) ? $data->tabelC : json_decode($data->tabelC, true);
-        
-        if (!empty($tabelC['programs'])) {
-            foreach ($tabelC['programs'] as $programEntry) {
-                // Fetch program details from Supabase if program_id exists
-                if (!empty($programEntry['program_id'])) {
-                    $programResult = $supabaseService->select('program', ['id' => 'eq.' . $programEntry['program_id']]);
-                    if ($programResult['success'] && !empty($programResult['data'])) {
-                        $programsData[$programEntry['program_id']] = $programResult['data'][0];
-                    }
-                }
-                
-                // Fetch kegiatan details if exists
-                if (!empty($programEntry['kegiatan'])) {
-                    foreach ($programEntry['kegiatan'] as $kegiatanEntry) {
-                        if (!empty($kegiatanEntry['kegiatan_id'])) {
-                            $kegiatanResult = $supabaseService->select('kegiatan', ['id' => 'eq.' . $kegiatanEntry['kegiatan_id']]);
-                            if ($kegiatanResult['success'] && !empty($kegiatanResult['data'])) {
-                                $kegiatanData[$kegiatanEntry['kegiatan_id']] = $kegiatanResult['data'][0];
-                            }
-                        }
-                    }
-                }
-            }
+        // Setup filename
+        $fileName = PdfHelper::generateFilename($perjanjian);
+
+        // Check if output is raw content (string) or Snappy object
+        if (is_string($pdfContent)) {
+             return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
         }
-        
-        // Format data untuk PDF
-        $pdfData = [
-            'data' => $data,
-            'perjanjian' => $data,
-            'tabelA' => is_array($data->tabelA) ? $data->tabelA : json_decode($data->tabelA, true),
-            'tabelB' => is_array($data->tabelB) ? $data->tabelB : json_decode($data->tabelB, true),
-            'tabelC' => $tabelC,
-            'programsData' => $programsData,
-            'kegiatanData' => $kegiatanData,
-        ];
 
-        // Deteksi apakah user adalah direktur/pimpinan
-        $authUser = auth()->user();
-        $isDirektur = false;
-        if ($authUser && isset($authUser->jabatan)) {
-            $jabatan = strtolower($authUser->jabatan);
-            $isDirektur = strpos($jabatan, 'direktur') !== false || strpos($jabatan, 'pimpinan') !== false;
-        }
-        $pdfData['isDirektur'] = $isDirektur;
-
-        // Ambil user yang membuat perjanjian (pihak pertama)
-        $user = User::find($data->user_id);
-        $pdfData['user'] = $user;
-
-        // Set status
-        $status = 'menunggu';
-        if ($data->rejected === true || $data->rejected === 1 || $data->rejected === '1') {
-            $status = 'ditolak';
-        } elseif (!empty($data->pihak2_signature)) {
-            $status = 'disetujui';
-        }
-        $pdfData['status'] = $status;
-
-        // Try to generate PDF; if system lacks GD (or other required extensions), fall back to HTML view
-        try {
-            // mark view as PDF so blade can adjust image paths
-            $pdfData['for_pdf'] = true;
-
-            // Helper to convert local image path or storage path to data URI
-            $toDataUri = function ($path) {
-                if (empty($path)) {
-                    return null;
-                }
-                // already a data URI
-                if (strpos($path, 'data:') === 0) {
-                    return $path;
-                }
-
-                // Try public path direct
-                $candidates = [];
-                if (file_exists(public_path($path))) {
-                    $candidates[] = public_path($path);
-                }
-                // Try storage path
-                if (file_exists(public_path('storage/' . ltrim($path, '/')))) {
-                    $candidates[] = public_path('storage/' . ltrim($path, '/'));
-                }
-
-                foreach ($candidates as $candidate) {
-                    try {
-                        $contents = @file_get_contents($candidate);
-                        if ($contents === false) {
-                            continue;
-                        }
-                        $mime = @mime_content_type($candidate) ?: 'image/png';
-                        $base = base64_encode($contents);
-                        return "data:{$mime};base64,{$base}";
-                    } catch (\Exception $e) {
-                        continue;
-                    }
-                }
-
-                return null;
-            };
-
-            // Convert logo and signatures to data URIs when possible (makes Dompdf render reliably)
-            $logoPath = 'images/logo_pemda.png';
-            $logoRsudPath = 'images/logo_rsud.png';
-            $pdfData['logo_data'] = $toDataUri($logoPath);
-            $pdfData['logoPemda'] = $pdfData['logo_data'] ?: $toDataUri($logoPath) ?: asset($logoPath);
-            $pdfData['logoRsud'] = $toDataUri($logoRsudPath) ?: asset($logoRsudPath);
-            $pdfData['pihak1_ttd_data'] = $toDataUri($data->pihak1_ttd ?? null);
-            $pdfData['pihak2_ttd_data'] = $toDataUri($data->pihak2_signature ?? null);
-
-            $pdf = Pdf::loadView('perjanjian.print', $pdfData);
-
-            // Allow optional orientation via query param (?orientation=landscape)
-            $orientation = request()->get('orientation', 'portrait');
-            if (!in_array($orientation, ['portrait', 'landscape'])) {
-                $orientation = 'portrait';
-            }
-
-            // Dompdf tidak mengenal string F4; gunakan ukuran custom F4 dalam points (approx 612 x 936)
-            $paperSize = $orientation === 'landscape'
-                ? [0, 0, 936, 612]   // width x height untuk landscape
-                : [0, 0, 612, 936];  // width x height untuk portrait
-            $pdf->setPaper($paperSize, $orientation);
-
-            // Set margins untuk hasil PDF yang rapi
-            $pdf->setOption('margin-left', 8);
-            $pdf->setOption('margin-right', 8);
-            $pdf->setOption('margin-top', 10);
-            $pdf->setOption('margin-bottom', 10);
-
-            // DomPDF Options untuk konsistensi & kualitas
-            $pdf->setOption('isHtml5ParserEnabled', true);
-            $pdf->setOption('isFontSubsettingEnabled', true);
-            $pdf->setOption('dpi', 100);
-            $pdf->setOption('defaultMediaType', 'print');
-            $pdf->setOption('isRemoteEnabled', true);
-            $pdf->setOption('chroot', public_path());
-            $pdf->setOption('enable_javascript', false);
-            $pdf->setOption('enable_css_float', false);
-            
-            $filename = 'Perjanjian_Kinerja_' . $data->pihak1_name . '_' . date('Y-m-d') . '.pdf';
-            
-            // Auto-upload to Supabase if perjanjian is approved
-            if (!empty($data->pihak2_signature)) {
-                try {
-                    // Generate PDF content
-                    $pdfContent = $pdf->output();
-                    
-                    // Save to temporary file
-                    $tempPath = storage_path('app/temp/' . $filename);
-                    if (!is_dir(dirname($tempPath))) {
-                        mkdir(dirname($tempPath), 0755, true);
-                    }
-                    file_put_contents($tempPath, $pdfContent);
-                    
-                    // Upload to Supabase
-                    $uploadResult = $supabaseService->uploadFile(
-                        $tempPath,
-                        $filename,
-                        'perjanjian-' . $data->id
-                    );
-                    
-                    if ($uploadResult['success']) {
-                        // Update perjanjian with PDF URL
-                        $data->pdf_url = $uploadResult['url'];
-                        $data->pdf_path = $uploadResult['path'];
-                        $data->save();
-                        
-                        \Log::info('PDF uploaded to Supabase', [
-                            'perjanjian_id' => $data->id,
-                            'url' => $uploadResult['url']
-                        ]);
-                    }
-                    
-                    // Clean up temp file
-                    @unlink($tempPath);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to upload PDF to Supabase: ' . $e->getMessage());
-                }
-            }
-            
-            // Download PDF
-            return $pdf->download($filename);
-        } catch (\Exception $e) {
-            // Log error and return JSON error so client doesn't download HTML as .pdf
-            \Log::error('PDF generation failed: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'PDF generation failed: ' . $e->getMessage()
-            ], 500);
-        }
+        // Fallback or explicit object return
+        return $pdfContent->download($fileName);
     }   
 
     
@@ -769,6 +753,7 @@ class PerjanjianController extends Controller
                 'user_id'           => auth()->id() ?? null,
                 'pihak1_name'       => auth()->user()->nama,
                 'pihak1_jabatan'    => auth()->user()->jabatan,
+                'pihak1_pangkat'    => auth()->user()->pangkat,
                 'pihak1_nip'        => auth()->user()->nip,
                 'pihak1_ttd'        => auth()->user()->tanda_tangan,
                 'pihak2_name'       => $request->pihak2_name,
@@ -817,6 +802,17 @@ class PerjanjianController extends Controller
             \Log::info("Attempting to delete perjanjian with ID: " . $id);
             
             $perjanjian = Perjanjian::findOrFail($id);
+            $user = auth()->user();
+            
+            // Validasi akses: hanya pembuat perjanjian atau admin yang bisa hapus
+            if ($user && $user->role !== 'admin') {
+                if ($perjanjian->user_id != $user->id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda tidak memiliki akses untuk menghapus perjanjian ini'
+                    ], 403);
+                }
+            }
             
             \Log::info("Perjanjian found, deleting...");
             

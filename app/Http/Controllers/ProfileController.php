@@ -5,9 +5,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use App\Services\SupabaseService;
 
 class ProfileController extends Controller
 {
+    protected $supabase;
+
+    public function __construct(SupabaseService $supabase)
+    {
+        $this->supabase = $supabase;
+    }
     public function index()
     {
         $user = Auth::user();
@@ -20,6 +27,13 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = Auth::user();
+        
+        // Log request untuk debugging
+        \Log::info('Profile update attempt', [
+            'user_id' => $user->id,
+            'has_photo' => $request->filled('croppedPhotoData'),
+            'has_signature' => $request->filled('signature_data')
+        ]);
 
         $request->validate([
             'nama' => 'nullable|string|max:255',
@@ -42,14 +56,8 @@ class ProfileController extends Controller
                 'croppedPhotoData',
                 'signature_data'
             ]));
-
-            /* ===========================
-             * SETTING SUPABASE
-             =========================== */
-            $supabaseUrl = env('SUPABASE_URL');
-            $serviceKey  = env('SUPABASE_SERVICE_ROLE_KEY');
-            $anonKey     = env('SUPABASE_ANON_KEY');
-            $bucket      = env('SUPABASE_STORAGE_BUCKET', 'public');
+            
+            \Log::info('Profile text data updated', ['user_id' => $user->id]);
 
             /* ======================================================
              * 1) HAPUS FOTO PROFIL
@@ -64,22 +72,24 @@ class ProfileController extends Controller
             if ($request->filled('croppedPhotoData') && 
                 $request->croppedPhotoData !== "__DELETE_PHOTO__") {
 
-                $raw = preg_replace('/^data:image\/\w+;base64,/', '', $request->croppedPhotoData);
-                $binary = base64_decode($raw);
-
-                $remotePath = 'foto_profil/' . $user->id . '_' . uniqid() . '.png';
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $serviceKey,
-                    'apikey' => $anonKey,
-                    'Content-Type' => 'image/png',
-                ])->withBody($binary, 'image/png')->put(
-                    rtrim($supabaseUrl, '/') . "/storage/v1/object/$bucket/$remotePath"
+                $fileName = $user->id . '_' . uniqid() . '.png';
+                $result = $this->supabase->uploadBase64Image(
+                    $request->croppedPhotoData,
+                    $fileName,
+                    'foto_profil'
                 );
 
-                if ($response->successful()) {
-                    $user->foto_profil = 
-                        rtrim($supabaseUrl, '/') . "/storage/v1/object/public/$bucket/$remotePath";
+                if ($result['success']) {
+                    $user->foto_profil = $result['url'];
+                    \Log::info('Foto profil uploaded successfully', [
+                        'user_id' => $user->id,
+                        'url' => $result['url']
+                    ]);
+                } else {
+                    \Log::error('Failed to upload foto profil', [
+                        'user_id' => $user->id,
+                        'error' => $result['error']
+                    ]);
                 }
             }
 
@@ -88,32 +98,46 @@ class ProfileController extends Controller
              ====================================================== */
             if ($request->filled('signature_data')) {
 
-                $raw = preg_replace('/^data:image\/\w+;base64,/', '', $request->signature_data);
-                $binary = base64_decode($raw);
-
-                $remotePath = 'tanda_tangan/' . $user->id . '_' . uniqid() . '.png';
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $serviceKey,
-                    'apikey' => $anonKey,
-                    'Content-Type' => 'image/png',
-                ])->withBody($binary, 'image/png')->put(
-                    rtrim($supabaseUrl, '/') . "/storage/v1/object/$bucket/$remotePath"
+                $fileName = $user->id . '_' . uniqid() . '.png';
+                $result = $this->supabase->uploadBase64Image(
+                    $request->signature_data,
+                    $fileName,
+                    'tanda_tangan'
                 );
 
-                if ($response->successful()) {
-                    $user->tanda_tangan = 
-                        rtrim($supabaseUrl, '/') . "/storage/v1/object/public/$bucket/$remotePath";
+                if ($result['success']) {
+                    $user->tanda_tangan = $result['url'];
+                    \Log::info('Tanda tangan uploaded successfully', [
+                        'user_id' => $user->id,
+                        'url' => $result['url']
+                    ]);
+                } else {
+                    \Log::error('Failed to upload tanda tangan', [
+                        'user_id' => $user->id,
+                        'error' => $result['error']
+                    ]);
                 }
             }
 
             $user->save();
 
+            // Refresh user data dari database untuk memastikan data terbaru
+            $user->refresh();
+            
+            \Log::info('Profile update successful', [
+                'user_id' => $user->id,
+                'foto_profil' => $user->foto_profil,
+                'tanda_tangan' => $user->tanda_tangan
+            ]);
+
             return back()->with('success', 'Profil berhasil diperbarui!');
 
         } catch (\Exception $e) {
 
-            \Log::error('Profile update failed: ' . $e->getMessage());
+            \Log::error('Profile update failed: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'trace' => $e->getTraceAsString()
+            ]);
             return back()->withErrors([
                 'error' => 'Terjadi kesalahan saat menyimpan profil.'
             ]);
@@ -129,28 +153,39 @@ class ProfileController extends Controller
             'foto_profil' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        $file = $request->file('foto_profil');
-        $imageData = base64_encode(file_get_contents($file->getRealPath()));
+        try {
+            $file = $request->file('foto_profil');
+            $fileName = $user->id . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            
+            $result = $this->supabase->uploadFile(
+                $file->getRealPath(),
+                $fileName,
+                'foto_profil'
+            );
 
-        $supabaseUrl = env('SUPABASE_URL');
-        $serviceKey  = env('SUPABASE_SERVICE_ROLE_KEY');
-        $anonKey     = env('SUPABASE_ANON_KEY');
-        $bucket      = env('SUPABASE_STORAGE_BUCKET', 'public');
-        $remotePath = 'foto_profil/' . $user->id . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . $serviceKey,
-            'apikey' => $anonKey,
-            'Content-Type' => $file->getMimeType(),
-        ])->withBody(file_get_contents($file->getRealPath()), $file->getMimeType())
-        ->put(rtrim($supabaseUrl, '/') . "/storage/v1/object/$bucket/$remotePath");
-
-        if ($response->successful()) {
-            $user->foto_profil = rtrim($supabaseUrl, '/') . "/storage/v1/object/public/$bucket/$remotePath";
-            $user->save();
-            return back()->with('success', 'Foto profil berhasil diupload!');
-        } else {
-            return back()->withErrors(['error' => 'Gagal upload foto profil.']);
+            if ($result['success']) {
+                $user->foto_profil = $result['url'];
+                $user->save();
+                
+                \Log::info('Foto profil uploaded successfully', [
+                    'user_id' => $user->id,
+                    'foto_url' => $user->foto_profil
+                ]);
+                
+                return back()->with('success', 'Foto profil berhasil diupload!');
+            } else {
+                \Log::error('Failed to upload foto profil', [
+                    'user_id' => $user->id,
+                    'error' => $result['error']
+                ]);
+                return back()->withErrors(['error' => 'Gagal upload foto profil: ' . $result['error']]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Exception while uploading foto profil: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat upload foto profil.']);
         }
     }
     /**
@@ -159,30 +194,66 @@ class ProfileController extends Controller
     public function uploadTTD(Request $request)
     {
         $user = Auth::user();
+        
+        // Validasi: terima file upload ATAU signature canvas data
         $request->validate([
-            'tanda_tangan' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'tanda_tangan' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'signature_data' => 'nullable|string',
         ]);
 
-        $file = $request->file('tanda_tangan');
-        $supabaseUrl = env('SUPABASE_URL');
-        $serviceKey  = env('SUPABASE_SERVICE_ROLE_KEY');
-        $anonKey     = env('SUPABASE_ANON_KEY');
-        $bucket      = env('SUPABASE_STORAGE_BUCKET', 'public');
-        $remotePath = 'tanda_tangan/' . $user->id . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        // Cek apakah ada data yang dikirim
+        if (!$request->hasFile('tanda_tangan') && !$request->filled('signature_data')) {
+            return back()->withErrors(['error' => 'Silakan upload file atau gambar tanda tangan terlebih dahulu.']);
+        }
 
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . $serviceKey,
-            'apikey' => $anonKey,
-            'Content-Type' => $file->getMimeType(),
-        ])->withBody(file_get_contents($file->getRealPath()), $file->getMimeType())
-        ->put(rtrim($supabaseUrl, '/') . "/storage/v1/object/$bucket/$remotePath");
+        try {
+            $result = null;
+            
+            // Case 1: Upload dari file
+            if ($request->hasFile('tanda_tangan')) {
+                $file = $request->file('tanda_tangan');
+                $fileName = $user->id . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                
+                $result = $this->supabase->uploadFile(
+                    $file->getRealPath(),
+                    $fileName,
+                    'tanda_tangan'
+                );
+            } 
+            // Case 2: Upload dari canvas (base64)
+            else if ($request->filled('signature_data')) {
+                $fileName = $user->id . '_' . uniqid() . '.png';
+                
+                $result = $this->supabase->uploadBase64Image(
+                    $request->signature_data,
+                    $fileName,
+                    'tanda_tangan'
+                );
+            }
 
-        if ($response->successful()) {
-            $user->tanda_tangan = rtrim($supabaseUrl, '/') . "/storage/v1/object/public/$bucket/$remotePath";
-            $user->save();
-            return back()->with('success', 'Tanda tangan berhasil diupload!');
-        } else {
-            return back()->withErrors(['error' => 'Gagal upload tanda tangan.']);
+            if ($result && $result['success']) {
+                $user->tanda_tangan = $result['url'];
+                $user->save();
+                
+                \Log::info('Tanda tangan uploaded successfully', [
+                    'user_id' => $user->id,
+                    'ttd_url' => $user->tanda_tangan
+                ]);
+                
+                return back()->with('success', 'Tanda tangan berhasil diupload!');
+            } else {
+                \Log::error('Failed to upload tanda tangan', [
+                    'user_id' => $user->id,
+                    'error' => $result['error'] ?? 'Unknown error'
+                ]);
+                return back()->withErrors(['error' => 'Gagal upload tanda tangan: ' . ($result['error'] ?? 'Unknown error')]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Exception while uploading tanda tangan: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat upload tanda tangan.']);
         }
     }
 }

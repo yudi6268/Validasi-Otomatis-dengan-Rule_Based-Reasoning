@@ -201,6 +201,22 @@
       color: #C62828;
       border-left: 5px solid #E53935;
     }
+
+    .info-text {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #F0F9FF;
+      border-left: 3px solid #009970;
+      border-radius: 4px;
+      line-height: 1.5;
+    }
+
+    .info-text i {
+      color: #009970;
+      margin-right: 5px;
+    }
   </style>
 </head>
 
@@ -216,23 +232,35 @@
   <!-- MAIN -->
   <main>
     @if(session('success'))
-      <div class="alert alert-success" role="alert">
+      <div class="alert alert-success" id="alertSuccess" role="alert">
         <i class="fa-solid fa-circle-check"></i>
         <span>{{ session('success') }}</span>
       </div>
     @endif
 
     @if($errors->any())
-      <div class="alert alert-danger" role="alert">
+      <div class="alert alert-danger" id="alertError" role="alert">
         <i class="fa-solid fa-circle-exclamation"></i>
-        <span>{{ $errors->first() }}</span>
+        <span>
+          @if($errors->has('current_password'))
+            {{ $errors->first('current_password') }}
+          @elseif($errors->has('new_password'))
+            {{ $errors->first('new_password') }}
+          @elseif($errors->has('current_email'))
+            {{ $errors->first('current_email') }}
+          @elseif($errors->has('new_email'))
+            {{ $errors->first('new_email') }}
+          @else
+            {{ $errors->first() }}
+          @endif
+        </span>
       </div>
     @endif
 
     <div class="form-section">
 
       <!-- GANTI PASSWORD -->
-      <form class="form-group" method="POST" action="{{ route('settings.password.update') }}">
+      <form class="form-group" id="passwordForm" method="POST" action="{{ route('settings.password.update') }}">
         @csrf
 
         <!-- USER IDENTIFIER (HIDDEN - UNTUK ACCESSIBILITY) -->
@@ -242,61 +270,86 @@
         <h2><i class="fa-solid fa-key"></i> Ganti Password</h2>
 
         <input
-          type="password" name="current_password" placeholder="Password Lama" autocomplete="current-password" required style="margin-bottom:10px;">
+          type="password" name="current_password" id="current_password" placeholder="Password Lama" autocomplete="current-password" required style="margin-bottom:10px;">
         <input
-          type="password" name="new_password" placeholder="Password Baru" autocomplete="new-password" required style="margin-bottom:10px;">
+          type="password" name="new_password" id="new_password" placeholder="Password Baru (min. 8 karakter)" autocomplete="new-password" required minlength="8" style="margin-bottom:10px;">
         <input
-          type="password" name="new_password_confirmation" placeholder="Konfirmasi Password Baru" autocomplete="new-password" required style="margin-bottom:15px;">
-        <button type="submit">SIMPAN</button>
+          type="password" name="new_password_confirmation" id="new_password_confirmation" placeholder="Konfirmasi Password Baru" autocomplete="new-password" required style="margin-bottom:15px;">
+        
+        <div class="info-text">
+          <i class="fa-solid fa-info-circle"></i>
+          <strong>Catatan:</strong> Setelah password diubah, Anda akan otomatis logout dan harus login kembali dengan password baru.
+        </div>
+        
+        <button type="submit" style="margin-top:15px;">SIMPAN</button>
       </form>
 
       <!-- GANTI EMAIL -->
-        <form id="emailForm" class="form-group" method="POST" action="{{ route('settings.email.update') }}">
+      <form id="emailForm" class="form-group" method="POST" action="{{ route('settings.email.update') }}">
         @csrf
 
         <h2><i class="fa-solid fa-envelope"></i> Ganti Email</h2>
 
         <div class="input-row">
-          <input type="email" name="current_email" placeholder="Email Lama" value="{{ auth()->user()->email }}" readonly required>
-          <input type="email" name="new_email" placeholder="Email Baru" required>
+          <input type="email" name="current_email" id="current_email" placeholder="Email Lama" value="{{ auth()->user()->email }}" readonly required>
+          <input type="email" name="new_email" id="new_email" placeholder="Email Baru" required>
         </div>
 
-        <button type="submit">SIMPAN</button>
+        <div class="info-text">
+          <i class="fa-solid fa-info-circle"></i>
+          <strong>Catatan:</strong> Email baru akan digunakan untuk login dan fitur lupa password. Pastikan email yang Anda masukkan aktif dan dapat diakses.
+        </div>
+
+        <button type="submit" style="margin-top:15px;">SIMPAN</button>
       </form>
 
       <script>
-const emailForm = document.getElementById('emailForm');
-if (emailForm) {
-    emailForm.onsubmit = async function(e) {
-        e.preventDefault();
-
-        const formData = new FormData(this);
-        const response = await fetch(this.action, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            },
-            body: formData
-        });
-
-        if (response.ok) {
-            const newEmail = formData.get('new_email');
-
-            // Update di header
-            const emailHeader = document.getElementById('emailHeader');
-            if (emailHeader) emailHeader.textContent = newEmail;
-
-            // Update di profil input
-            const emailInput = document.getElementById('emailInput');
-            if (emailInput) emailInput.value = newEmail;
-
-            alert('Email berhasil diperbarui!');
-        } else {
-            alert('Gagal update email.');
+        // Password form validation and confirmation
+        const passwordForm = document.getElementById('passwordForm');
+        if (passwordForm) {
+          passwordForm.addEventListener('submit', function(e) {
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('new_password_confirmation').value;
+            
+            if (newPassword !== confirmPassword) {
+              e.preventDefault();
+              alert('Password baru dan konfirmasi password tidak cocok!');
+              return false;
+            }
+            
+            if (newPassword.length < 8) {
+              e.preventDefault();
+              alert('Password baru minimal 8 karakter!');
+              return false;
+            }
+            
+            if (!confirm('Anda akan logout otomatis setelah password diubah. Lanjutkan?')) {
+              e.preventDefault();
+              return false;
+            }
+          });
         }
-    }
-}
-</script>
+
+        // Email form validation and confirmation
+        const emailForm = document.getElementById('emailForm');
+        if (emailForm) {
+          emailForm.addEventListener('submit', function(e) {
+            const currentEmail = document.getElementById('current_email').value;
+            const newEmail = document.getElementById('new_email').value;
+            
+            if (currentEmail === newEmail) {
+              e.preventDefault();
+              alert('Email baru tidak boleh sama dengan email lama!');
+              return false;
+            }
+            
+            if (!confirm('Yakin ingin mengubah email? Email baru akan digunakan untuk login dan reset password.')) {
+              e.preventDefault();
+              return false;
+            }
+          });
+        }
+      </script>
   </main>
 
   <!-- FOOTER -->
@@ -317,6 +370,27 @@ if (emailForm) {
 
   <!-- SCRIPT -->
   <script>
+    // Auto-hide alerts after 5 seconds
+    const alertSuccess = document.getElementById('alertSuccess');
+    const alertError = document.getElementById('alertError');
+    
+    if (alertSuccess) {
+      setTimeout(() => {
+        alertSuccess.style.transition = 'opacity 0.5s';
+        alertSuccess.style.opacity = '0';
+        setTimeout(() => alertSuccess.remove(), 500);
+      }, 5000);
+    }
+    
+    if (alertError) {
+      setTimeout(() => {
+        alertError.style.transition = 'opacity 0.5s';
+        alertError.style.opacity = '0';
+        setTimeout(() => alertError.remove(), 500);
+      }, 7000);
+    }
+
+    // Logout modal handlers
     const logoutIcon = document.getElementById('logoutIcon');
     const logoutModal = document.getElementById('logoutModal');
     const noBtn = document.getElementById('noBtn');

@@ -5,6 +5,19 @@
 
 @section('content')
 <div class="container-fluid" style="max-width: 100%; overflow-x: hidden;">
+    <!-- Alert Pending Users -->
+    @php
+        $pendingUsers = \App\Models\User::where('status', 'pending')->count();
+    @endphp
+    @if($pendingUsers > 0)
+        <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Perhatian!</strong> Ada <strong>{{ $pendingUsers }}</strong> pengguna baru yang menunggu persetujuan.
+            <a href="{{ route('admin.users.pending') }}" class="alert-link">Lihat sekarang →</a>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
     <!-- Card Dashboard: 3 Atas, 3 Bawah, Responsive & Konsisten -->
     <div class="row g-2 g-md-4 mb-3 mb-md-4">
     <!-- Atas -->
@@ -38,18 +51,47 @@
 </div>
 
 <div class="row g-2 g-md-4">
-    <!-- Total Anggaran - Pie Chart -->
-    <div class="col-md-6">
-        <div class="data-table" style="background: white; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,153,112,0.1);">
-            <h5 class="mb-4" style="color: #1B2A41;"><i class="fas fa-chart-pie"></i> Total Anggaran</h5>
-            <div style="position: relative; height: 280px;">
-                <canvas id="budgetByJabatanChart"></canvas>
+    <!-- Card: Total Program -->
+    <div class="col-md-4">
+        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" 
+             style="border-inline-start: 4px solid #9C27B0; background: linear-gradient(135deg, #F3E5F5, #E1BEE7); min-height: 140px; cursor: pointer;"
+             data-bs-toggle="modal" data-bs-target="#programModal">
+            <div class="icon mb-2" style="background: #9C27B0; color: white; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.8rem;">
+                <i class="fas fa-folder-open"></i>
             </div>
+            <div style="font-size: 1rem; color: #9C27B0; font-weight: 700;">Total Program</div>
+            <div style="font-size: 1.8rem; color: #9C27B0; font-weight: 700;">{{ $totalPrograms }}</div>
         </div>
     </div>
 
-    <!-- Pengguna Table -->
-    <div class="col-md-6">
+    <!-- Card: Total Kegiatan -->
+    <div class="col-md-4">
+        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" 
+             style="border-inline-start: 4px solid #FF5722; background: linear-gradient(135deg, #FBE9E7, #FFCCBC); min-height: 140px; cursor: pointer;"
+             data-bs-toggle="modal" data-bs-target="#kegiatanModal">
+            <div class="icon mb-2" style="background: #FF5722; color: white; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.8rem;">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div style="font-size: 1rem; color: #FF5722; font-weight: 700;">Total Kegiatan</div>
+            <div style="font-size: 1.8rem; color: #FF5722; font-weight: 700;">{{ $totalKegiatan }}</div>
+        </div>
+    </div>
+
+    <!-- Card: Total Sub-Kegiatan -->
+    <div class="col-md-4">
+        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" 
+             style="border-inline-start: 4px solid #3F51B5; background: linear-gradient(135deg, #E8EAF6, #C5CAE9); min-height: 140px; cursor: pointer;"
+             data-bs-toggle="modal" data-bs-target="#subKegiatanModal">
+            <div class="icon mb-2" style="background: #3F51B5; color: white; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.8rem;">
+                <i class="fas fa-list-ul"></i>
+            </div>
+            <div style="font-size: 1rem; color: #3F51B5; font-weight: 700;">Total Sub-Kegiatan</div>
+            <div style="font-size: 1.8rem; color: #3F51B5; font-weight: 700;">{{ $totalSubKegiatan }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-2 g-md-4 mt-3">
         <div class="data-table">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h5 class="mb-0" style="font-size: 1rem;"><i class="fas fa-users"></i> Pengguna</h5>
@@ -85,50 +127,142 @@
     </div>
 </div>
 
-<!-- Program / Kegiatan / Sub-Kegiatan - Hierarchical List -->
-<div class="row g-4 mt-4">
-    <div class="col-12">
-        <div class="data-table" style="background: white; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,153,112,0.1);">
-            <h5 class="mb-3" style="color: #1B2A41;"><i class="fas fa-list"></i> Program / Kegiatan / Sub-Kegiatan</h5>
-            <div style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
-                @php
-                    function format_rp($v) { return 'Rp ' . number_format((float)$v, 0, ',', '.'); }
-                @endphp
-                @if(!empty($programKegiatanData))
-                    <ul class="list-group" style="word-wrap: break-word; overflow-wrap: break-word; border: none;">
-                        @foreach($programKegiatanData as $programName => $program)
-                            <li class="list-group-item" style="overflow: hidden; border-bottom: 1px solid #eee;">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <strong style="word-break: break-word; flex: 1; font-size: 0.95rem;">{{ Str::limit($programName, 50) }}</strong>
-                                    <span class="badge bg-teal" style="background:#00B5A0; white-space: nowrap; flex-shrink: 0;">{{ format_rp($program['total'] ?? 0) }}</span>
-                                </div>
-                                @if(!empty($program['kegiatan']))
-                                    <ul class="mt-2" style="padding-left: 15px; list-style-type: none; margin-bottom: 0;">
-                                        @foreach($program['kegiatan'] as $kegiatanName => $kegiatan)
-                                            <li class="mb-1">
-                                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                                    <span style="word-break: break-word; flex: 1; font-size: 0.9rem;">{{ Str::limit($kegiatanName, 45) }}</span>
-                                                    <span class="badge bg-primary" style="white-space: nowrap; flex-shrink: 0; font-size: 0.8rem;">{{ format_rp($kegiatan['total'] ?? 0) }}</span>
-                                                </div>
-                                                @if(!empty($kegiatan['subKegiatan']))
-                                                    <ul class="mt-1" style="padding-left: 15px; list-style-type: none; margin-bottom: 0;">
-                                                        @foreach($kegiatan['subKegiatan'] as $subName => $subAmount)
-                                                            <li class="d-flex justify-content-between align-items-start gap-2 py-1">
-                                                                <span class="text-muted" style="word-break: break-word; flex: 1; font-size: 0.85rem;">— {{ Str::limit($subName, 40) }}</span>
-                                                                <span class="badge bg-secondary" style="white-space: nowrap; flex-shrink: 0; font-size: 0.75rem;">{{ format_rp($subAmount ?? 0) }}</span>
-                                                            </li>
-                                                        @endforeach
-                                                    </ul>
-                                                @endif
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </li>
-                        @endforeach
-                    </ul>
+<!-- Modals for Program, Kegiatan, Sub-Kegiatan -->
+<!-- Modal Program -->
+<div class="modal fade" id="programModal" tabindex="-1" aria-labelledby="programModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #9C27B0; color: white;">
+                <h5 class="modal-title" id="programModalLabel">
+                    <i class="fas fa-folder-open"></i> Daftar Program ({{ $totalPrograms }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if(!empty($allPrograms))
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 20%;">Kode</th>
+                                    <th style="width: 50%;">Nama Program</th>
+                                    <th style="width: 25%;">Deskripsi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allPrograms as $index => $program)
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td><span class="badge bg-primary">{{ $program['kode'] }}</span></td>
+                                        <td><strong>{{ $program['nama'] }}</strong></td>
+                                        <td><small class="text-muted">{{ $program['deskripsi'] ?? '-' }}</small></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 @else
-                    <div class="text-center text-muted py-4"><i class="fas fa-list fa-2x mb-3"></i><p>Belum ada data program/kegiatan</p></div>
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-folder-open fa-3x mb-3"></i>
+                        <p>Belum ada data program</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Kegiatan -->
+<div class="modal fade" id="kegiatanModal" tabindex="-1" aria-labelledby="kegiatanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #FF5722; color: white;">
+                <h5 class="modal-title" id="kegiatanModalLabel">
+                    <i class="fas fa-tasks"></i> Daftar Kegiatan ({{ $totalKegiatan }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if(!empty($allKegiatan))
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 15%;">Kode</th>
+                                    <th style="width: 35%;">Nama Kegiatan</th>
+                                    <th style="width: 25%;">Program</th>
+                                    <th style="width: 20%;">Deskripsi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allKegiatan as $index => $kegiatan)
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td><span class="badge bg-warning">{{ $kegiatan['kode'] }}</span></td>
+                                        <td><strong>{{ $kegiatan['nama'] }}</strong></td>
+                                        <td><small class="text-primary">{{ $kegiatan['program'] }}</small></td>
+                                        <td><small class="text-muted">{{ $kegiatan['deskripsi'] ?? '-' }}</small></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-tasks fa-3x mb-3"></i>
+                        <p>Belum ada data kegiatan</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sub-Kegiatan -->
+<div class="modal fade" id="subKegiatanModal" tabindex="-1" aria-labelledby="subKegiatanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #3F51B5; color: white;">
+                <h5 class="modal-title" id="subKegiatanModalLabel">
+                    <i class="fas fa-list-ul"></i> Daftar Sub-Kegiatan ({{ $totalSubKegiatan }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if(!empty($allSubKegiatan))
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 15%;">Kode</th>
+                                    <th style="width: 30%;">Nama Sub-Kegiatan</th>
+                                    <th style="width: 20%;">Kegiatan</th>
+                                    <th style="width: 15%;">Program</th>
+                                    <th style="width: 15%;">Deskripsi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allSubKegiatan as $index => $subKegiatan)
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td><span class="badge bg-info">{{ $subKegiatan['kode'] }}</span></td>
+                                        <td><strong>{{ $subKegiatan['nama'] }}</strong></td>
+                                        <td><small class="text-warning">{{ $subKegiatan['kegiatan'] }}</small></td>
+                                        <td><small class="text-primary">{{ $subKegiatan['program'] }}</small></td>
+                                        <td><small class="text-muted">{{ $subKegiatan['deskripsi'] ?? '-' }}</small></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-list-ul fa-3x mb-3"></i>
+                        <p>Belum ada data sub-kegiatan</p>
+                    </div>
                 @endif
             </div>
         </div>
@@ -251,61 +385,6 @@
 
 @push('scripts')
 <script>
-// Budget by Jabatan - Pie Chart
-const budgetByJabatanCtx = document.getElementById('budgetByJabatanChart').getContext('2d');
-const budgetByJabatanData = @json($budgetByJabatan);
-
-if (Object.keys(budgetByJabatanData).length === 0) {
-    document.getElementById('budgetByJabatanChart').parentElement.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-chart-pie fa-3x mb-3"></i><p>Belum ada data anggaran dari perjanjian yang disetujui</p></div>';
-} else {
-    new Chart(budgetByJabatanCtx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(budgetByJabatanData),
-            datasets: [{
-                data: Object.values(budgetByJabatanData),
-                backgroundColor: [
-                    '#00B5A0', '#1E88E5', '#FF9800', '#9C27B0', '#4CAF50',
-                    '#F44336', '#00BCD4', '#E91E63', '#FFC107', '#795548', '#607D8B'
-                ],
-                borderWidth: 3,
-                borderColor: '#fff',
-                hoverOffset: 12
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        padding: 12,
-                        font: { size: 11, family: 'Segoe UI' },
-                        usePointStyle: true,
-                        pointStyle: 'circle'
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.parsed;
-                            let formatted = 'Rp ';
-                            if (value >= 1000000000) formatted += (value / 1000000000).toFixed(2) + ' Miliar';
-                            else if (value >= 1000000) formatted += (value / 1000000).toFixed(2) + ' Juta';
-                            else if (value >= 1000) formatted += (value / 1000).toFixed(0) + ' Ribu';
-                            else formatted += value.toLocaleString('id-ID');
-                            return context.label + ': ' + formatted;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
 // Live search pada tabel perjanjian
 const adminPerjanjianSearch = document.getElementById('adminPerjanjianSearch');
 const adminPerjanjianTableBody = document.querySelector('#adminPerjanjianTable tbody');

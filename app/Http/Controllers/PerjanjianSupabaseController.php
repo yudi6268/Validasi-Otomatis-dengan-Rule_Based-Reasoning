@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Perjanjian;
 use App\Services\SupabaseService;
 use App\Jobs\ExportPerjanjianPdfJob;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -42,36 +41,49 @@ class PerjanjianSupabaseController extends Controller
     protected function generateAndUploadPdf(Perjanjian $perjanjian): array
 {
     try {
+        // GUNAKAN DATA SNAPSHOT DARI PERJANJIAN, BUKAN DATA REAL-TIME
+        // Buat object user dari data snapshot di perjanjian
+        $user = new \stdClass();
+        $user->id = $perjanjian->user_id;
+        $user->nama = $perjanjian->pihak1_name;
+        $user->jabatan = $perjanjian->pihak1_jabatan;
+        $user->pangkat = $perjanjian->pihak1_pangkat ?? null;
+        $user->nip = $perjanjian->pihak1_nip ?? null;
+        $user->tanda_tangan = $perjanjian->pihak1_ttd ?? null;
+        
         // Decode tabel
         $tabelA = json_decode($perjanjian->tabelA, true) ?? [];
         $tabelB = json_decode($perjanjian->tabelB, true) ?? [];
         $tabelC = json_decode($perjanjian->tabelC, true) ?? [];
 
-        // Generate PDF
-        $pdf = Pdf::loadView('perjanjian.pdf', [
-            'data'   => $perjanjian,
-            'tabelA' => $tabelA,
-            'tabelB' => $tabelB,
-            'tabelC' => $tabelC,
-            'for_pdf' => true,
-        ]);
+        // Convert images to base64 data URIs for dompdf
+        $logoPath = public_path('images/logo_pemda.png');
+        $logo_data = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
+        
+        // Handle pihak1 signature - convert to base64 if file path
+        if (!empty($perjanjian->pihak1_ttd)) {
+            if (strpos($perjanjian->pihak1_ttd, 'data:') !== 0) {
+                // Not base64, try as file path
+                $filePath = public_path($perjanjian->pihak1_ttd);
+                if (file_exists($filePath)) {
+                    $perjanjian->pihak1_ttd = 'data:image/png;base64,' . base64_encode(file_get_contents($filePath));
+                }
+            }
+        }
+        
+        // Handle pihak2 signature - convert to base64 if file path
+        if (!empty($perjanjian->pihak2_signature)) {
+            if (strpos($perjanjian->pihak2_signature, 'data:') !== 0) {
+                // Not base64, try as file path
+                $filePath = public_path($perjanjian->pihak2_signature);
+                if (file_exists($filePath)) {
+                    $perjanjian->pihak2_signature = 'data:image/png;base64,' . base64_encode(file_get_contents($filePath));
+                }
+            }
+        }
 
-        // Gunakan ukuran custom F4 dalam points (approx 612 x 936)
-        $orientation = 'portrait';
-        $paperSize = $orientation === 'landscape'
-            ? [0, 0, 936, 612]
-            : [0, 0, 612, 936];
-        $pdf->setPaper($paperSize, $orientation);
-
-        $pdf->setOption('isHtml5ParserEnabled', true);
-        $pdf->setOption('isRemoteEnabled', true);
-        $pdf->setOption('dpi', 96);
-        $pdf->setOption('defaultMediaType', 'print');
-
-        // Margin biar tidak kepotong
-        $pdf->setOption('margin-bottom', 12);
-        $pdf->setOption('margin-left', 10);
-        $pdf->setOption('margin-right', 10);
+        // Generate PDF using Snappy with landscape/portrait support
+        $pdfContent = \App\Helpers\PdfHelper::generatePerjanjianSnappy($perjanjian);
 
         // Simpan sementara
         $fileName = 'perjanjian-' . $perjanjian->nomor_perjanjian . '.pdf';
@@ -82,7 +94,7 @@ class PerjanjianSupabaseController extends Controller
         }
 
         $tempPath = $tempDir . '/' . $fileName;
-        $pdf->save($tempPath);
+        file_put_contents($tempPath, $pdfContent);
 
         // Upload ke Supabase
         $folder = 'pdf/' . date('Y') . '/' . date('m');

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Perjanjian;
-// Program/Kegiatan/SubKegiatan are managed via Supabase; no admin UI references
+use App\Models\Program;
+use App\Models\Kegiatan;
+use App\Models\SubKegiatan;
 use App\Models\Jabatan;
 use App\Models\Notification;
 use Illuminate\Http\Request;
@@ -31,104 +33,56 @@ class AdminController extends Controller
         // Get recent perjanjian (last 5)
         $recentPerjanjian = Perjanjian::with('user')->latest()->take(5)->get();
 
-        // Get program/kegiatan/sub-kegiatan data from approved perjanjian
-        $programKegiatanData = [];
-        $perjanjians = Perjanjian::with('user')
-            ->whereNotNull('tabelC')
-            ->whereNotNull('pihak2_signature')
-            ->where(function($query) {
-                $query->whereNull('rejected')->orWhere('rejected', false);
+        // Get program/kegiatan/sub-kegiatan data from MASTER tables (REALTIME)
+        // Mengambil data dari tabel programs, kegiatan, sub_kegiatan bukan dari snapshot perjanjian
+        $allPrograms = Program::where('is_active', true)
+            ->orderBy('kode_program')
+            ->get()
+            ->map(function($program) {
+                return [
+                    'id' => $program->id,
+                    'kode' => $program->kode_program,
+                    'nama' => $program->nama_program,
+                    'deskripsi' => $program->deskripsi
+                ];
             })
-            ->get();
+            ->toArray();
         
-        foreach ($perjanjians as $perjanjian) {
-            $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC, true);
-            
-            if (!empty($tabelC['programs'])) {
-                foreach ($tabelC['programs'] as $programIdx => $program) {
-                    $programName = $program['name'] ?? 'Program ' . ($programIdx + 1);
-                    $programAmount = floatval(str_replace([',', '.'], '', $program['amount'] ?? '0'));
-                    
-                    // Initialize program in array
-                    if (!isset($programKegiatanData[$programName])) {
-                        $programKegiatanData[$programName] = [
-                            'total' => 0,
-                            'kegiatan' => [],
-                            'color' => $this->getRandomColor($programIdx)
-                        ];
-                    }
-                    
-                    $programKegiatanData[$programName]['total'] += $programAmount;
-                    
-                    // Process kegiatan
-                    if (!empty($program['kegiatan']) && is_array($program['kegiatan'])) {
-                        foreach ($program['kegiatan'] as $kegiatanIdx => $kegiatan) {
-                            $kegiatanName = $kegiatan['name'] ?? 'Kegiatan ' . ($kegiatanIdx + 1);
-                            $kegiatanAmount = floatval(str_replace([',', '.'], '', $kegiatan['amount'] ?? '0'));
-                            
-                            if (!isset($programKegiatanData[$programName]['kegiatan'][$kegiatanName])) {
-                                $programKegiatanData[$programName]['kegiatan'][$kegiatanName] = [
-                                    'total' => 0,
-                                    'subKegiatan' => []
-                                ];
-                            }
-                            
-                            $programKegiatanData[$programName]['kegiatan'][$kegiatanName]['total'] += $kegiatanAmount;
-                            
-                            // Process sub-kegiatan
-                            if (!empty($kegiatan['subKegiatan']) && is_array($kegiatan['subKegiatan'])) {
-                                foreach ($kegiatan['subKegiatan'] as $subIdx => $sub) {
-                                    $subName = $sub['name'] ?? 'Sub-Kegiatan ' . ($subIdx + 1);
-                                    $subAmount = floatval(str_replace([',', '.'], '', $sub['amount'] ?? '0'));
-                                    
-                                    $programKegiatanData[$programName]['kegiatan'][$kegiatanName]['subKegiatan'][$subName] = $subAmount;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        $allKegiatan = Kegiatan::where('is_active', true)
+            ->with('program')
+            ->orderBy('kode_kegiatan')
+            ->get()
+            ->map(function($kegiatan) {
+                return [
+                    'id' => $kegiatan->id,
+                    'kode' => $kegiatan->kode_kegiatan,
+                    'nama' => $kegiatan->nama_kegiatan,
+                    'program' => $kegiatan->program ? $kegiatan->program->nama_program : '-',
+                    'deskripsi' => $kegiatan->deskripsi
+                ];
+            })
+            ->toArray();
         
-        // Format for bar chart: flatten to show top programs and kegiatan
-        $chartData = [
-            'programs' => [],
-            'kegiatan' => [],
-            'total' => 0
-        ];
+        $allSubKegiatan = SubKegiatan::where('is_active', true)
+            ->with('kegiatan.program')
+            ->orderBy('kode_sub_kegiatan')
+            ->get()
+            ->map(function($sub) {
+                return [
+                    'id' => $sub->id,
+                    'kode' => $sub->kode_sub_kegiatan,
+                    'nama' => $sub->nama_sub_kegiatan,
+                    'kegiatan' => $sub->kegiatan ? $sub->kegiatan->nama_kegiatan : '-',
+                    'program' => $sub->kegiatan && $sub->kegiatan->program ? $sub->kegiatan->program->nama_program : '-',
+                    'deskripsi' => $sub->deskripsi
+                ];
+            })
+            ->toArray();
         
-        foreach ($programKegiatanData as $programName => $programData) {
-            $chartData['programs'][$programName] = $programData['total'];
-            $chartData['total'] += $programData['total'];
-            
-            // Add top kegiatan
-            foreach ($programData['kegiatan'] as $kegiatanName => $kegiatanData) {
-                $key = $programName . ' > ' . $kegiatanName;
-                $chartData['kegiatan'][$key] = $kegiatanData['total'];
-            }
-        }
-        
-        // Budget by Jabatan (kept for reference/other purposes)
-        $budgetByJabatan = [];
-        foreach ($perjanjians as $perjanjian) {
-            if ($perjanjian->user && $perjanjian->user->jabatan) {
-                $jabatan = $perjanjian->user->jabatan;
-                $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC, true);
-                
-                if (!empty($tabelC['programs'])) {
-                    foreach ($tabelC['programs'] as $program) {
-                        if (!empty($program['amount'])) {
-                            $anggaranValue = floatval(str_replace([',', '.'], '', $program['amount']));
-                            
-                            if (!isset($budgetByJabatan[$jabatan])) {
-                                $budgetByJabatan[$jabatan] = 0;
-                            }
-                            $budgetByJabatan[$jabatan] += $anggaranValue;
-                        }
-                    }
-                }
-            }
-        }
+        // Count totals
+        $totalPrograms = count($allPrograms);
+        $totalKegiatan = count($allKegiatan);
+        $totalSubKegiatan = count($allSubKegiatan);
 
         // Count perjanjian by status (sama dengan user dashboard)
         // Status: waiting (belum signature & not rejected), approved (ada signature & not rejected), rejected (rejected=true)
@@ -180,30 +134,17 @@ class AdminController extends Controller
         return view('admin.dashboard', compact(
             'totalUsers',
             'totalPerjanjian',
-            // Program/Kegiatan/SubKegiatan totals removed
-            // 'totalTemplates',
             'totalNotifications',
+            'totalPrograms',
+            'totalKegiatan',
+            'totalSubKegiatan',
             'users',
             'recentPerjanjian',
-            'budgetByJabatan',
             'perjanjianByStatus',
-            'budgetBySource',
             'jabatanStats',
-            'programKegiatanData',
-            'chartData'
+            'allPrograms',
+            'allKegiatan',
+            'allSubKegiatan'
         ));
-    }
-    
-    /**
-     * Helper function to get random color
-     */
-    private function getRandomColor($index)
-    {
-        $colors = [
-            '#00B5A0', '#1E88E5', '#FF9800', '#9C27B0', '#4CAF50',
-            '#F44336', '#00BCD4', '#E91E63', '#FFC107', '#795548',
-            '#607D8B', '#2196F3', '#8BC34A', '#FF5722', '#673AB7'
-        ];
-        return $colors[$index % count($colors)];
     }
 }

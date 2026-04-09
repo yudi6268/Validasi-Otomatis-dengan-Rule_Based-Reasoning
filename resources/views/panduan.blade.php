@@ -30,7 +30,7 @@
                     <li><b>Login ke Sistem</b>
                         <ul>
                             <li>Buka halaman utama aplikasi.</li>
-                            <li>Masukkan username (NIP) dan password yang telah terdaftar pada sistem.</li>
+                            <li>Masukkan username (RS_ID) dan password yang telah terdaftar pada sistem.</li>
                             <li>Jika belum memiliki akun, hubungi Administrator atau Tim IT RSUD Bangil untuk pendaftaran akun baru.</li>
                             <li>Pastikan menjaga kerahasiaan akun Anda demi keamanan data pribadi dan kinerja.</li>
                         </ul>

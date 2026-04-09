@@ -17,12 +17,10 @@ class SupabaseService
     {
         $this->url = config('services.supabase.url');
         // Support both legacy and current config keys
-        $this->key = config('services.supabase.key')
-            ?? config('services.supabase.anon_key');
-        $this->serviceKey = config('services.supabase.service_key')
-            ?? config('services.supabase.service_role_key');
+        $this->key = config('services.supabase.anon_key');
+        $this->serviceKey = config('services.supabase.service_role_key');
         $this->storageUrl = config('services.supabase.storage_url') ?? $this->url . '/storage/v1';
-        $this->bucket = config('services.supabase.bucket', 'perjanjian-files');
+        $this->bucket = config('services.supabase.bucket', 'uploads');
     }
 
     /**
@@ -62,6 +60,59 @@ class SupabaseService
             ];
         } catch (\Exception $e) {
             Log::error('Supabase upload error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Upload base64 image to Supabase Storage
+     *
+     * @param string $base64Data Base64 encoded image data
+     * @param string $fileName File name in storage
+     * @param string $folder Folder in bucket (optional)
+     * @return array
+     */
+    public function uploadBase64Image($base64Data, $fileName, $folder = '')
+    {
+        try {
+            $path = $folder ? trim($folder, '/') . '/' . $fileName : $fileName;
+            
+            // Remove data:image/xxx;base64, prefix if exists
+            $base64Data = preg_replace('/^data:image\/\w+;base64,/', '', $base64Data);
+            $imageContent = base64_decode($base64Data);
+            
+            if ($imageContent === false) {
+                return [
+                    'success' => false,
+                    'error' => 'Invalid base64 data',
+                ];
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->serviceKey,
+                'Content-Type' => 'image/png',
+            ])->withBody($imageContent, 'image/png')
+              ->post("{$this->storageUrl}/object/{$this->bucket}/{$path}");
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'path' => $path,
+                    'url' => $this->getPublicUrl($path),
+                    'data' => $response->json(),
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => $response->json()['message'] ?? 'Upload failed',
+                'response' => $response->body(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Supabase upload base64 error: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage(),

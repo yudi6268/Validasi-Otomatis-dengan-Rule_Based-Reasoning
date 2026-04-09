@@ -98,34 +98,6 @@
                     @enderror
                 </div>
 
-                <hr class="my-4">
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Password <span class="text-danger">*</span></label>
-                        <div class="position-relative">
-                            <input type="password" name="password" id="passwordInput" class="form-control pe-5 @error('password') is-invalid @enderror" required style="padding-right: 2.5rem;">
-                            <button type="button" id="togglePassword" tabindex="-1" style="position:absolute;top:50%;right:10px;transform:translateY(-50%);border:none;background:transparent;padding:0;margin:0;outline:none;">
-                                <i class="fas fa-eye" id="iconPassword" style="font-size:1.1rem;color:#888;"></i>
-                            </button>
-                        </div>
-                        <small class="text-muted">Minimal 8 karakter</small>
-                        @error('password')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Konfirmasi Password <span class="text-danger">*</span></label>
-                        <div class="position-relative">
-                            <input type="password" name="password_confirmation" id="passwordConfirmInput" class="form-control pe-5" required style="padding-right: 2.5rem;">
-                            <button type="button" id="togglePasswordConfirm" tabindex="-1" style="position:absolute;top:50%;right:10px;transform:translateY(-50%);border:none;background:transparent;padding:0;margin:0;outline:none;">
-                                <i class="fas fa-eye" id="iconPasswordConfirm" style="font-size:1.1rem;color:#888;"></i>
-                            </button>
-                        </div>
-                    </div>
-                <!-- (scripts moved to bottom) -->
-                </div>
-
                 <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Simpan Pengguna
@@ -149,7 +121,7 @@
                     <li>ID Pegawai harus unik</li>
                     <li>NIP harus unik</li>
                     <li>Email harus valid dan unik</li>
-                    <li>Password minimal 8 karakter</li>
+                    <li><strong>Password akan di-generate otomatis</strong> dan dikirim ke email user</li>
                 </ul>
             </div>
 
@@ -177,30 +149,6 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Password toggle
-    const passwordInput = document.getElementById('passwordInput');
-    const togglePassword = document.getElementById('togglePassword');
-    const iconPassword = document.getElementById('iconPassword');
-    if (togglePassword && passwordInput && iconPassword) {
-        togglePassword.addEventListener('click', function() {
-            const type = passwordInput.type === 'password' ? 'text' : 'password';
-            passwordInput.type = type;
-            iconPassword.classList.toggle('fa-eye');
-            iconPassword.classList.toggle('fa-eye-slash');
-        });
-    }
-    // Konfirmasi Password toggle
-    const passwordConfirmInput = document.getElementById('passwordConfirmInput');
-    const togglePasswordConfirm = document.getElementById('togglePasswordConfirm');
-    const iconPasswordConfirm = document.getElementById('iconPasswordConfirm');
-    if (togglePasswordConfirm && passwordConfirmInput && iconPasswordConfirm) {
-        togglePasswordConfirm.addEventListener('click', function() {
-            const type = passwordConfirmInput.type === 'password' ? 'text' : 'password';
-            passwordConfirmInput.type = type;
-            iconPasswordConfirm.classList.toggle('fa-eye');
-            iconPasswordConfirm.classList.toggle('fa-eye-slash');
-        });
-    }
     // Required fields check
     const userCreateForm = document.getElementById('userCreateForm');
     if (userCreateForm) {

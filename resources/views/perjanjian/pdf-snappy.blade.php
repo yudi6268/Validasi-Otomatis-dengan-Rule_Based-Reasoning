@@ -21,29 +21,31 @@
 
         < !-- FOR PDF: Set page margins and size -->
 
+            /* FOR PDF: Set page margins and size */
         @if(!empty($for_pdf) && $for_pdf)
             @page {
-                size: 215.9mm 330.2mm; /* F4 / Folio */
+                width: 215.9mm; /* F4 / Folio Portrait */
+                height: 330.2mm;
                 margin: 0;
             }
 
             html, body {
                 margin: 0;
                 padding: 0;
-                width: 100%;
+                width: 215.9mm;
                 background: #fff;
                 font-family: Arial, sans-serif;
+                -webkit-print-color-adjust: exact; 
+                zoom: 1; /* Disable zoom to prevent overflow */
             }
 
             .page {
-                width: 100%;
-                /* Reduce padding to fit more content */
-                padding: 10mm 15mm;
+                width: 215.9mm; /* Full width no reduction */
+                /* Reduce padding untuk maksimalkan space */
+                padding: 6mm 10mm;
                 position: relative;
                 page-break-after: always;
-                /* overflow: hidden;  */
                 box-sizing: border-box;
-                font-size: 10pt !important;
                 line-height: 1.15;
             }
 
@@ -53,44 +55,58 @@
 
             /* Adjust header for PDF */
             .header {
-                margin-bottom: 5px !important;
+                margin-bottom: 3px !important;
                 padding-bottom: 0 !important;
             }
             .header div {
-                font-size: 11pt !important;
-                margin-bottom: 2px !important;
+                font-size: 9pt !important;
+                margin-bottom: 0px !important;
+                line-height: 1.0;
             }
             .header .logo {
-                max-height: 40px !important;
+                max-height: 30px !important;
                 margin-bottom: 2px !important;
             }
 
             /* Adjust content section for PDF */
             .content-section {
-                font-size: 10pt !important;
-                line-height: 1.25 !important;
-                /* Remove fixed width if set for browser */
+                font-size: 9pt !important;
+                line-height: 1.2 !important;
                 width: 100%; 
-                margin-top: 5px !important;
+                margin-top: 3px !important;
             }
             
-            /* Tighten paragraph spacing */
             .content-section div {
                 margin-bottom: 3px !important;
             }
 
-            /* Force landscape page break */
+            /* ROTATED LANDSCAPE FOR PAGE 3 */
             .page-landscape {
-                page: landscape !important;
-                /* page-break-before: always; */
-                width: 100%;
-                padding: 10mm 12mm;
+                page: landscape;
+                width: 100%; 
+                height: 100%;
+                padding: 0;
                 position: relative;
-                /* page-break-before: always; */
-                /* page-break-after: always; */
-                /* overflow: hidden; */
                 box-sizing: border-box;
-                font-size: 9pt !important; /* Smaller font for dense tables */
+                overflow: hidden;
+            }
+            
+            .landscape-content {
+                /* Rotate the content to fit on portrait page sideways */
+                transform: rotate(-90deg);
+                transform-origin: top left;
+                
+                /* Dimensions must be swapped */
+                width: 310mm; 
+                height: 195mm; 
+                
+                /* Position adjustment after rotation */
+                position: absolute;
+                top: 320mm;
+                left: 10mm;
+                
+                padding: 8mm 10mm;
+                font-size: 9pt !important;
             }
 
             /* Hide UI elements in PDF */
@@ -124,45 +140,27 @@
                 max-width: none !important;
             }
 
-            /* Signature layout */
+            /* Signature uses table layout */
             .sig-flex-row {
                 display: table !important;
                 width: 100% !important;
                 table-layout: fixed;
-                margin-top: 5px !important; /* Minimal margin */
+                margin-top: 4px !important;
             }
 
             .sig-flex-col {
                 display: table-cell !important;
                 width: 50% !important;
                 vertical-align: top !important;
-                padding: 0 5px;
+                padding: 0 6px;
+                font-size: 9pt;
             }
             
-            /* Signature items tight spacing */
-            .sig-flex-col br {
-                line-height: 1.0 !important;
-                display: block;
-                margin: 2px 0;
-            }
-
             .sig-flex-col img {
-                max-height: 45px !important; /* Smaller signature image */
+                max-height: 45px !important;
                 margin: 2px 0 !important;
             }
-            
-            /* Tighten table spacing for PDF */
-            table th, table td {
-                padding: 2px 3px !important;
-                font-size: 9pt !important;
-                word-wrap: break-word;
-                line-height: 1.1;
-            }
 
-            .page-landscape table th, .page-landscape table td {
-                 font-size: 8.5pt !important; /* Even smaller for landscape table */
-                 padding: 2px 2px !important;
-            }
         @endif
         html, body {
             height: 100%;
@@ -170,7 +168,7 @@
             margin: 0;
             padding: 0;
             width: 100%;
-            background: #e6fcfc;
+            /* background: #e6fcfc; */
         }
 
         body {
@@ -355,7 +353,8 @@
         @if(empty($for_pdf) || !$for_pdf)
             .page {
                 width: 216mm;
-                height: 330mm;
+                min-height: 330mm;
+                height: auto;
                 margin: 25mm auto;
                 background: white;
                 padding: 15mm 12mm;
@@ -376,7 +375,6 @@
             transform: translateX(-50%);
             width: 80%;
             height: 2px;
-            background: linear-gradient(to right, transparent, #009970, transparent);
         }
 
         .page-landscape {
@@ -557,15 +555,27 @@
             margin-bottom: 8px;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            margin-top: 10px;
-            font-size: 12px;
-            font-family: Arial, sans-serif;
-            line-height: 1.5;
-        }
+        @if(!empty($for_pdf) && $for_pdf)
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 6px;
+                margin-top: 4px;
+                font-size: 10px;
+                font-family: Arial, sans-serif;
+                line-height: 1.2;
+            }
+        @else
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 15px;
+                margin-top: 10px;
+                font-size: 11px;
+                font-family: Arial, sans-serif;
+                line-height: 1.3;
+            }
+        @endif
 
         @media print {
             thead {
@@ -628,11 +638,11 @@
         table th,
         table td {
             border: 1px solid #000;
-            padding: 0;
+            padding: 2px 1px;
             text-align: left;
             font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
+            font-size: 9px;
+            line-height: 1.2;
             margin: 0;
             word-wrap: break-word;
             overflow-wrap: break-word;
@@ -644,16 +654,16 @@
             font-weight: 600;
             text-align: center;
             font-family: Arial, sans-serif;
-            line-height: 1.4;
+            line-height: 1.15;
             margin: 0;
-            padding: 5px 3px;
+            padding: 2px 1px;
         }
 
         table td {
             vertical-align: top;
-            line-height: 1.4;
+            line-height: 1.15;
             margin: 0;
-            padding: 5px 3px;
+            padding: 2px 1px;
         }
 
         .no-data {
@@ -728,11 +738,20 @@
             page-break-inside: avoid;
         }
 
-        .signature-wrapper {
+        /* .signature-wrapper {
             display: flex;
             justify-content: space-between;
             margin-top: 24px;
             page-break-inside: avoid;
+        } */
+        .signature-wrapper {
+            display:block;
+            margin-top:24px;
+            page-break-inside: avoid;
+            width:100%;
+            /* Ganti angka di bawah untuk geser kiri/kanan. Minus = Kiri, Positif = Kanan */
+            margin-left: -50px !important;
+            padding: 0;
         }
 
         .preview-wrapper {
@@ -753,12 +772,13 @@
 
             .signature-block {
                 width: 100%;
-                text-align: center;
+                /* text-align: center; */
             }
 
             .signature-block img {
                 max-height: 70px;
                 height: auto;
+                /* text-align: center; */
             }
         }
 
@@ -879,24 +899,24 @@
             }
 
             .logo {
-                height: 35px;
+                height: 30px;
             }
 
             .header h1 {
-                font-size: 9px;
+                font-size: 8px;
             }
 
             .header p {
-                font-size: 8px;
+                font-size: 7px;
             }
 
             .section-title {
-                font-size: 9px;
-                padding: 5px 6px;
+                font-size: 8px;
+                padding: 3px 4px;
             }
 
             table {
-                font-size: 8px;
+                font-size: 7px;
                 display: block;
                 overflow-x: auto;
                 white-space: nowrap;
@@ -904,13 +924,13 @@
 
             table th,
             table td {
-                padding: 3px 2px;
-                font-size: 8px;
+                padding: 2px 1px;
+                font-size: 7px;
             }
 
             .content-section p {
-                font-size: 8px;
-                line-height: 1.4;
+                font-size: 7px;
+                line-height: 1.2;
             }
         }
 
@@ -972,7 +992,7 @@
 
             @page {
                 /* Prefer named F4 and portrait to match Dompdf's setPaper('F4','portrait') */
-                size: 210mm 330mm;
+                size: 215.9mm 330.2mm;  /* F4 asli */
                 margin: 0;
             }
 
@@ -1027,12 +1047,12 @@
 
         /* Reduce header sizes slightly for PDF */
         .header h1 {
-            font-size: 11px !important;
+            font-size: 9px !important;
         }
 
         .logo {
-            height: 48px !important;
-            max-height: 60px !important;
+            height: 35px !important;
+            max-height: 45px !important;
             width: auto !important;
             display: inline-block;
         }
@@ -1045,8 +1065,8 @@
         /* Signature styling for proper alignment and garis width */
         .sig-nama {
             font-weight: 600;
-            font-size: 12px;
-            margin: 0 auto 1px auto;
+            font-size: 9px;
+            margin: 0 auto 0px auto;
             word-wrap: break-word;
             text-align: center;
             max-width: 100%;
@@ -1056,11 +1076,11 @@
 
         .sig-garis {
             border-bottom: 1px solid #000;
-            margin: 0 auto 1px auto;
+            margin: 0 auto 0px auto;
             display: block;
             width: auto;
-            min-width: 60px;
-            max-width: 220px;
+            min-width: 50px;
+            max-width: 180px;
             height: 0;
         }
     </style>
@@ -1071,8 +1091,7 @@
         <style>
             body,
             html {
-                font-family: Arial,
-                    sans-serif !important;
+                font-family: Arial, sans-serif !important;
                 font-size: 11pt !important;
             }
 
@@ -1242,7 +1261,7 @@
     </style>
 </head>
 
-<body style="background:#e6fcfc;min-height:100vh;">
+<body style="min-height:100vh;">
 
     @php
         // Handle tabelA, tabelB, tabelC - check if already array or JSON string
@@ -1251,6 +1270,121 @@
         $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true);
         // Penentuan role dan status preview
         $user = auth()->user();
+
+        // --- GLOBAL DATA CHECK (PAGE 2 & 3) ---
+        // Helper untuk cek value anggaran
+        $hasBudgetValue = function ($value) {
+            $num = (int) preg_replace('/[^0-9]/', '', (string) $value);
+            return $num > 0;
+        };
+
+        // 1. Cek Tabel A (Indikator Kinerja - Page 2)
+        $hasTabelAData = false;
+        if (!empty($tabelA)) {
+            if (isset($tabelA['sasaran']) && is_array($tabelA['sasaran'])) {
+                foreach ($tabelA['sasaran'] as $idx => $sasaran) {
+                    if (!empty($sasaran) || !empty($tabelA['indikator'][$idx] ?? '') || !empty($tabelA['target'][$idx] ?? '')) {
+                        $hasTabelAData = true;
+                        break;
+                    }
+                }
+            } elseif (is_array($tabelA) && isset($tabelA[0])) {
+                foreach ($tabelA as $row) {
+                    if (!empty($row['sasaran'] ?? '') || !empty($row['indikator'] ?? '') || !empty($row['target'] ?? '')) {
+                        $hasTabelAData = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. Cek Program (Page 2)
+        $hasProgramData = false;
+        if (!empty($tabelC)) {
+            if (isset($tabelC['programs']) && is_array($tabelC['programs'])) {
+                foreach ($tabelC['programs'] as $program) {
+                    if ($hasBudgetValue($program['amount'] ?? null)) {
+                        $hasProgramData = true;
+                        break;
+                    }
+                }
+            } elseif (isset($tabelC['program']) && is_array($tabelC['program'])) {
+                foreach ($tabelC['program'] as $idx => $progName) {
+                    if ($hasBudgetValue($tabelC['anggaran'][$idx] ?? null)) {
+                        $hasProgramData = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Cek Tabel B (Rencana Aksi - Page 3)
+        $hasTabelBData = false;
+        if (isset($tabelB) && is_array($tabelB) && !empty($tabelB)) {
+            if (isset($tabelB['sasaran']) && is_array($tabelB['sasaran']) && count($tabelB['sasaran']) > 0) {
+                $hasTabelBData = true;
+            } elseif (isset($tabelB[0])) {
+                $hasTabelBData = true;
+            }
+        }
+
+        // 4. Cek Tabel D (Anggaran Triwulan - Page 3)
+        $hasTabelDData = false;
+        if (isset($tabelC) && is_array($tabelC) && !empty($tabelC)) {
+            if (isset($tabelC['programs']) && is_array($tabelC['programs'])) {
+                foreach ($tabelC['programs'] as $program) {
+                    $programHasData = $hasBudgetValue($program['amount'] ?? null)
+                        || $hasBudgetValue($program['tw1'] ?? null)
+                        || $hasBudgetValue($program['tw2'] ?? null)
+                        || $hasBudgetValue($program['tw3'] ?? null)
+                        || $hasBudgetValue($program['tw4'] ?? null);
+                    if ($programHasData) {
+                        $hasTabelDData = true;
+                        break;
+                    }
+                    if (isset($program['kegiatan']) && is_array($program['kegiatan'])) {
+                        foreach ($program['kegiatan'] as $kegiatan) {
+                            $kegiatanHasData = $hasBudgetValue($kegiatan['amount'] ?? null)
+                                || $hasBudgetValue($kegiatan['tw1'] ?? null)
+                                || $hasBudgetValue($kegiatan['tw2'] ?? null)
+                                || $hasBudgetValue($kegiatan['tw3'] ?? null)
+                                || $hasBudgetValue($kegiatan['tw4'] ?? null);
+                            if ($kegiatanHasData) {
+                                $hasTabelDData = true;
+                                break 2;
+                            }
+                            if (isset($kegiatan['subKegiatan']) && is_array($kegiatan['subKegiatan'])) {
+                                foreach ($kegiatan['subKegiatan'] as $subKegiatan) {
+                                    $subHasData = $hasBudgetValue($subKegiatan['amount'] ?? null)
+                                        || $hasBudgetValue($subKegiatan['tw1'] ?? null)
+                                        || $hasBudgetValue($subKegiatan['tw2'] ?? null)
+                                        || $hasBudgetValue($subKegiatan['tw3'] ?? null)
+                                        || $hasBudgetValue($subKegiatan['tw4'] ?? null);
+                                    if ($subHasData) {
+                                        $hasTabelDData = true;
+                                        break 3;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } elseif (isset($tabelC['program']) && is_array($tabelC['program'])) {
+                $count = count($tabelC['program']);
+                for ($i = 0; $i < $count; $i++) {
+                    $hasRow = $hasBudgetValue($tabelC['anggaran'][$i] ?? null)
+                        || $hasBudgetValue($tabelC['tw1'][$i] ?? null)
+                        || $hasBudgetValue($tabelC['tw2'][$i] ?? null)
+                        || $hasBudgetValue($tabelC['tw3'][$i] ?? null)
+                        || $hasBudgetValue($tabelC['tw4'][$i] ?? null);
+                    if ($hasRow) {
+                        $hasTabelDData = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
         // Cek role direktur/pimpinan hanya berdasarkan jabatan (bukan id)
         $isDirektur = false;
         if ($user) {
@@ -1651,8 +1785,10 @@
 
         <div class="preview-card">
 
+            <!-- BAGIAN 1: PORTRAIT (Halaman 1 & 2) -->
+            @if(!isset($pdf_part) || $pdf_part == 'portrait')
             <!-- PAGE 1: COVER & IDENTITAS -->
-            <div class="page" style="font-size: 11pt;">
+            <div class="page" style="font-size: 12pt !important;">
                 <div class="header" style="text-align:center; margin-bottom:0;">
                     @if(!empty($for_pdf) && !empty($logo_data))
                         <img src="{{ $logo_data }}" class="logo" alt="Logo Pemda"
@@ -1666,7 +1802,7 @@
                     <div style="font-weight:bold;font-size:12pt;margin-bottom:1px;">PERJANJIAN KINERJA TAHUN {{ $tahun ?? '2025' }}</div>
                     <div style="font-weight:bold;font-size:12pt;margin-bottom:0;">UOBK RSUD BANGIL</div>
                 </div>
-                <div class="content-section" style="text-align:justify; line-height:1.3; width: 90%; !important">
+                <div class="content-section" style="text-align:justify; line-height:1.3;">
                     <div style="margin:0 0 6px 0;">Dalam rangka mewujudkan manajemen pemerintahan yang efektif,
                         transparan dan akuntabel serta berorientasi pada hasil, kami yang bertanda tangan dibawah ini :</div>
                     <div style="margin-bottom:4px; text-align:left;">
@@ -1738,64 +1874,17 @@
                 </div>
             </div>
 
-            @php
-                // Cek apakah tabelA (Indikator Kinerja) memiliki data valid
-                $hasTabelAData = false;
-                if (!empty($tabelA)) {
-                    if (isset($tabelA['sasaran']) && is_array($tabelA['sasaran'])) {
-                        foreach ($tabelA['sasaran'] as $idx => $sasaran) {
-                            if (!empty($sasaran) || !empty($tabelA['indikator'][$idx] ?? '') || !empty($tabelA['target'][$idx] ?? '')) {
-                                $hasTabelAData = true;
-                                break;
-                            }
-                        }
-                    } elseif (is_array($tabelA) && isset($tabelA[0])) {
-                        foreach ($tabelA as $row) {
-                            if (!empty($row['sasaran'] ?? '') || !empty($row['indikator'] ?? '') || !empty($row['target'] ?? '')) {
-                                $hasTabelAData = true;
-                                break;
-                            }
-                        }
-                    }
-                }
 
-                // Cek apakah tabel program memiliki data valid sebelum ditampilkan
-                $hasProgramData = false;
-                $hasBudgetValue = function ($value) {
-                    $num = (int) preg_replace('/[^0-9]/', '', (string) $value);
-                    return $num > 0;
-                };
-                if (!empty($tabelC)) {
-                    // Cek format hierarchical
-                    if (isset($tabelC['programs']) && is_array($tabelC['programs'])) {
-                        foreach ($tabelC['programs'] as $program) {
-                            if ($hasBudgetValue($program['amount'] ?? null)) {
-                                $hasProgramData = true;
-                                break;
-                            }
-                        }
-                    }
-                    // Cek format flat lama
-                    elseif (isset($tabelC['program']) && is_array($tabelC['program'])) {
-                        foreach ($tabelC['program'] as $idx => $progName) {
-                            if ($hasBudgetValue($tabelC['anggaran'][$idx] ?? null)) {
-                                $hasProgramData = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            @endphp
 
             @if($hasTabelAData || $hasProgramData)
                 <!-- PAGE 2: INDIKATOR KINERJA, TUGAS, FUNGSI, TABEL -->
                 <div class="page">
                     <div class="header" style="text-align:center;">
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">INDIKATOR KINERJA INDIVIDU</div>
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">UOBK RSUD BANGIL</div>
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">TAHUN {{ $tahun ?? '2025' }}</div>
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">INDIKATOR KINERJA INDIVIDU</div>
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">UOBK RSUD BANGIL</div>
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">TAHUN {{ $tahun ?? '2025' }}</div>
                     </div>
-                    <div class="content-section" style="margin-top:10px;">
+                    <div class="content-section" style="margin-top:4px;">
                         @php
                             $tugasValue = $perjanjian->tugas_pelaksana;
                             if ($tugasValue === null || $tugasValue === '') {
@@ -1886,7 +1975,7 @@
                             </tr>
                         </table>
                         <div class="table-responsive">
-                            <table class="table table-fixed" style="table-layout: fixed; width: 90%;">
+                            <table class="table table-fixed" style="table-layout: fixed;">
                                 <thead>
                                     <tr>
                                         <th style="width:25px;">NO</th>
@@ -1932,7 +2021,7 @@
 
                         @if($hasProgramData)
                             <div class="table-responsive">
-                                <table class="table table-fixed" style="table-layout: fixed; width: 90%;">
+                                <table class="table table-fixed" style="table-layout: fixed;">
                                     <thead>
                                         <tr>
                                             <th style="width:25px;">No</th>
@@ -2121,96 +2210,25 @@
                 </div>
             @endif
 
-            @php
-                // Cek apakah tabelB (Rencana Aksi) memiliki data valid
-                // Cek sederhana: apakah tabelB memiliki key 'sasaran' dan minimal ada 1 elemen
-                $hasTabelBData = false;
-                if (isset($tabelB) && is_array($tabelB) && !empty($tabelB)) {
-                    if (isset($tabelB['sasaran']) && is_array($tabelB['sasaran']) && count($tabelB['sasaran']) > 0) {
-                        $hasTabelBData = true;
-                    } elseif (isset($tabelB[0])) {
-                        $hasTabelBData = true;
-                    }
-                }
 
-                // Cek apakah tabel D (Anggaran Triwulan) memiliki data valid
-                $hasTabelDData = false;
-                $hasBudgetValue = function ($value) {
-                    $num = (int) preg_replace('/[^0-9]/', '', (string) $value);
-                    return $num > 0;
-                };
-                if (isset($tabelC) && is_array($tabelC) && !empty($tabelC)) {
-                    // Format hierarchical
-                    if (isset($tabelC['programs']) && is_array($tabelC['programs'])) {
-                        foreach ($tabelC['programs'] as $program) {
-                            $programHasData = $hasBudgetValue($program['amount'] ?? null)
-                                || $hasBudgetValue($program['tw1'] ?? null)
-                                || $hasBudgetValue($program['tw2'] ?? null)
-                                || $hasBudgetValue($program['tw3'] ?? null)
-                                || $hasBudgetValue($program['tw4'] ?? null);
-                            if ($programHasData) {
-                                $hasTabelDData = true;
-                                break;
-                            }
-                            if (isset($program['kegiatan']) && is_array($program['kegiatan'])) {
-                                foreach ($program['kegiatan'] as $kegiatan) {
-                                    $kegiatanHasData = $hasBudgetValue($kegiatan['amount'] ?? null)
-                                        || $hasBudgetValue($kegiatan['tw1'] ?? null)
-                                        || $hasBudgetValue($kegiatan['tw2'] ?? null)
-                                        || $hasBudgetValue($kegiatan['tw3'] ?? null)
-                                        || $hasBudgetValue($kegiatan['tw4'] ?? null);
-                                    if ($kegiatanHasData) {
-                                        $hasTabelDData = true;
-                                        break 2;
-                                    }
-                                    if (isset($kegiatan['subKegiatan']) && is_array($kegiatan['subKegiatan'])) {
-                                        foreach ($kegiatan['subKegiatan'] as $subKegiatan) {
-                                            $subHasData = $hasBudgetValue($subKegiatan['amount'] ?? null)
-                                                || $hasBudgetValue($subKegiatan['tw1'] ?? null)
-                                                || $hasBudgetValue($subKegiatan['tw2'] ?? null)
-                                                || $hasBudgetValue($subKegiatan['tw3'] ?? null)
-                                                || $hasBudgetValue($subKegiatan['tw4'] ?? null);
-                                            if ($subHasData) {
-                                                $hasTabelDData = true;
-                                                break 3;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // Format flat lama
-                    elseif (isset($tabelC['program']) && is_array($tabelC['program'])) {
-                        $count = count($tabelC['program']);
-                        for ($i = 0; $i < $count; $i++) {
-                            $hasRow = $hasBudgetValue($tabelC['anggaran'][$i] ?? null)
-                                || $hasBudgetValue($tabelC['tw1'][$i] ?? null)
-                                || $hasBudgetValue($tabelC['tw2'][$i] ?? null)
-                                || $hasBudgetValue($tabelC['tw3'][$i] ?? null)
-                                || $hasBudgetValue($tabelC['tw4'][$i] ?? null);
-                            if ($hasRow) {
-                                $hasTabelDData = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            @endphp
 
-            @if($hasTabelBData || $hasTabelDData)
+            @endif 
+            
+            <!-- BAGIAN 2: LANDSCAPE (Halaman 3 - Rencana Aksi) -->
+            @if((!isset($pdf_part) || $pdf_part == 'landscape') && ($hasTabelBData || $hasTabelDData))
                 <!-- PAGE 3: RENCANA AKSI -->
-                <div class="page-landscape" style="background-color: #fff;">
+                <!-- Removed 'page-landscape' class to avoid rotation hack, use raw landscape size in Snappy -->
+                <div class="page" style="width:100%; padding: 8mm 8mm; font-size:10pt !important;">
                     <div class="header" style="text-align:center;">
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">RENCANA AKSI</div>
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">RENCANA AKSI</div>
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">
                             {{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}
                         </div>
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">UOBK RSUD BANGIL KABUPATEN
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">UOBK RSUD BANGIL KABUPATEN
                             PASURUAN</div>
-                        <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">TAHUN {{ $tahun ?? '2025' }}</div>
+                        <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">TAHUN {{ $tahun ?? '2025' }}</div>
                     </div>
-                    <div class="content-section" style="margin-top:10px;">
+                    <div class="content-section" style="margin-top:4px;">
                         @if($hasTabelBData)
                             <div class="table-responsive">
                                 <table class="table table-fixed" style="table-layout: fixed; width: 100%;">
@@ -2428,17 +2446,17 @@
                         @endif
 
                             {{-- Tanda tangan, pisah div sendiri --}}
-                            <div class="signature-wrapper" style="margin-top: 20px;">
-                                <div class="signature-block">
+                            <div class="signature-wrapper" style="margin-top: 20px; width: 100%; text-align: left;">
+                                <div class="signature-block" style="width: auto; display: inline-block; text-align: center; margin-left: 15%;">
                                     Pasuruan, {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
                                     {{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}<br><br>
 
                                     @if(!empty($for_pdf) && !empty($pihak1_ttd_data))
-                                        <img src="{{ $pihak1_ttd_data }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 1">
+                                        <img src="{{ $pihak1_ttd_data }}" style="max-height:40px;margin:5px 0;" alt="TTD Pihak 1">
                                     @elseif(!empty($perjanjian->pihak1_ttd))
-                                        <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:60px;margin:5px 0;" alt="TTD Pihak 1" loading="lazy">
+                                        <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:40px;margin:5px 0;" alt="TTD Pihak 1" loading="lazy">
                                     @else
-                                        <div style="height:60px;"></div>
+                                        <div style="height:40px;"></div>
                                     @endif
                                     <br>
 

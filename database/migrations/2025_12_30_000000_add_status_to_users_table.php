@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             if (!Schema::hasColumn('users', 'status')) {
-                $table->enum('status', ['active', 'non-active', 'pending'])->default('active')->after('role');
+                $table->enum('status', ['active', 'non-active', 'pending'])->default('pending')->after('role');
             }
         });
     }

@@ -58,20 +58,25 @@ class RegisterController extends Controller
 
             // Hash password
             $validated['password'] = Hash::make($validated['password']);
+            
+            // Set status as pending - requires admin approval
+            $validated['status'] = 'pending';
+            $validated['role'] = 'user'; // Default role
 
             // Create user in local database
             $user = User::create($validated);
 
             // Log successful registration
-            Log::info('User registered successfully', [
+            Log::info('User registered successfully - pending approval', [
                 'id_pegawai' => $validated['id_pegawai'],
-                'email' => $validated['email']
+                'email' => $validated['email'],
+                'status' => 'pending'
             ]);
 
             DB::commit();
 
             return redirect()->route('login')
-                ->with('success', 'Pendaftaran berhasil! Silahkan login dengan ID Pegawai dan password Anda.');
+                ->with('success', 'Pendaftaran berhasil! Akun Anda menunggu persetujuan admin. Anda akan dapat login setelah akun disetujui.');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();

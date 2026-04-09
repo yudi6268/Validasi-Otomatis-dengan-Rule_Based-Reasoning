@@ -41,6 +41,8 @@ class Perjanjian extends Model
         'tabelA',
         'tabelB',
         'tabelC',
+        'status',
+        'catatan_penolakan',
         'rejected',
         'rejection_reason',
         'pdf_url',
@@ -51,6 +53,7 @@ class Perjanjian extends Model
         'tabelA' => 'array',
         'tabelB' => 'array',
         'tabelC' => 'array',
+        'rejected' => 'boolean',
     ];
 
     public function laporans()

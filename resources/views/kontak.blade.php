@@ -232,16 +232,20 @@
       </div>
 
       <div class="contact-form">
-        <form id="contactForm" action="#" method="POST">
+        <form id="contactForm" action="{{ route('kontak.kirim') }}" method="POST">
           @csrf
-          <input type="text" placeholder="Nama Lengkap" required>
-          <input type="email" placeholder="Email" required>
-          <textarea placeholder="Pesan" required></textarea>
+          <input type="text" name="nama" placeholder="Nama Lengkap" required>
+          <input type="email" name="email" placeholder="Email" required>
+          <textarea name="pesan" placeholder="Pesan" required></textarea>
           <button type="submit">KIRIM PESAN</button>
 
           <div id="successMsg" class="success-message">
             <i class="fa-solid fa-circle-check"></i>
             <span>Pesan Anda telah terkirim. Terima kasih.</span>
+          </div>
+          <div id="errorMsg" class="success-message" style="color: #dc3545;">
+            <i class="fa-solid fa-circle-xmark"></i>
+            <span>Gagal mengirim pesan. Silakan coba lagi.</span>
           </div>
         </form>
       </div>
@@ -253,17 +257,63 @@
   </footer>
 
   <script>
-    // Pesan sukses otomatis hilang
     const contactForm = document.getElementById('contactForm');
     const successMsg = document.getElementById('successMsg');
+    const errorMsg = document.getElementById('errorMsg');
 
-    contactForm.addEventListener('submit', (e) => {
+    contactForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      successMsg.style.display = 'flex';
-      setTimeout(() => {
+      
+      const formData = new FormData(contactForm);
+      const submitBtn = contactForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      
+      // Disable button dan ubah text
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Mengirim...';
+      
+      try {
+        const response = await fetch('{{ route("kontak.kirim") }}', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          successMsg.style.display = 'flex';
+          errorMsg.style.display = 'none';
+          contactForm.reset();
+          
+          setTimeout(() => {
+            successMsg.style.display = 'none';
+          }, 5000);
+        } else {
+          errorMsg.querySelector('span').textContent = result.message || 'Gagal mengirim pesan. Silakan coba lagi.';
+          errorMsg.style.display = 'flex';
+          successMsg.style.display = 'none';
+          
+          setTimeout(() => {
+            errorMsg.style.display = 'none';
+          }, 5000);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        errorMsg.style.display = 'flex';
         successMsg.style.display = 'none';
-      }, 3000);
-      contactForm.reset();
+        
+        setTimeout(() => {
+          errorMsg.style.display = 'none';
+        }, 5000);
+      } finally {
+        // Re-enable button
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
     });
   </script>
 </body>

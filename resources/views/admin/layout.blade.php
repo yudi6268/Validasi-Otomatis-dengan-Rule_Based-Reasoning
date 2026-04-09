@@ -414,8 +414,19 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.index') || request()->routeIs('admin.users.edit') || request()->routeIs('admin.users.create') ? 'active' : '' }}">
                         <i class="fas fa-users"></i> Kelola Pengguna
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('admin.users.pending') }}" class="nav-link {{ request()->routeIs('admin.users.pending') ? 'active' : '' }}">
+                        <i class="fas fa-user-clock"></i> Persetujuan User
+                        @php
+                            $pendingCount = \App\Models\User::where('status', 'pending')->count();
+                        @endphp
+                        @if($pendingCount > 0)
+                            <span class="badge bg-warning text-dark ms-auto">{{ $pendingCount }}</span>
+                        @endif
                     </a>
                 </li>
                 <li class="nav-item">
@@ -428,15 +439,13 @@
                         <i class="fas fa-sitemap"></i> Kelola Program
                     </a>
                 </li>
-                <!-- Menu Kelola Template dihapus -->
-                <!-- Program & Kegiatan menu removed (managed via Supabase) -->
-                <li style="margin: 18px 0 18px 0;"><hr style="border-color: rgba(255,255,255,0.12); margin: 0 18px;"></li>
                 <li class="nav-item">
-                    <a href="{{ route('home') }}" class="nav-link">
-                        <i class="fas fa-home"></i> Ke Dashboard Utama
+                    <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
+                        <i class="fas fa-cog"></i> Pengaturan Tahun
                     </a>
                 </li>
-                <li class="nav-item">
+                
+                <li class="nav-item" style="margin-top: 25px;">
                     <a href="#" onclick="showLogoutModal(); return false;" class="nav-link">
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
