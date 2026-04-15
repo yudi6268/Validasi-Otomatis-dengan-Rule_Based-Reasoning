@@ -83,7 +83,11 @@ class LaporanKinerjaController extends Controller
         try {
             $validated = $request->validate([
                 'triwulan' => 'required|integer|min:1|max:4',
-                'realisasi' => 'nullable|string'
+                'realisasi' => 'nullable|string',
+                'realisasi_rows' => 'nullable|array',
+                'realisasi_rows.*.row' => 'nullable|integer',
+                'realisasi_rows.*.realisasi' => 'nullable|string',
+                'realisasi_rows.*.target' => 'nullable|numeric',
             ]);
 
             $laporan = null;
@@ -143,7 +147,21 @@ class LaporanKinerjaController extends Controller
             $triwulan = $validated['triwulan'];
             $columnName = 'realisasi_tb' . $triwulan;
 
-            $laporan->$columnName = $validated['realisasi'];
+            $realisasiValue = $validated['realisasi'];
+            if (!empty($validated['realisasi_rows']) && is_array($validated['realisasi_rows'])) {
+                $realisasiValue = json_encode([
+                    'text' => $validated['realisasi'],
+                    'rows' => array_map(function ($row) {
+                        return [
+                            'row' => isset($row['row']) ? intval($row['row']) : null,
+                            'realisasi' => $row['realisasi'] ?? '',
+                            'target' => isset($row['target']) ? floatval($row['target']) : null,
+                        ];
+                    }, $validated['realisasi_rows']),
+                ], JSON_UNESCAPED_UNICODE);
+            }
+
+            $laporan->$columnName = $realisasiValue;
             $laporan->save();
 
             return response()->json([

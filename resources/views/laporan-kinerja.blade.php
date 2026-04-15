@@ -448,43 +448,118 @@
 
           @php
             $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true);
+            $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true);
             $activeTriwulan = $triwulanAktif ?? 1;
             $activeTwKey = 'tw' . $activeTriwulan;
           @endphp
           <div style="margin-bottom: 20px;">
             <h6 style="font-weight: 700; color: #1B2A41; margin-bottom: 12px;">Rencana Aksi dari Perjanjian Kinerja</h6>
             @if(!empty($tabelB['sasaran']) && count($tabelB['sasaran']) > 0)
-              <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                  <thead>
-                    <tr>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">No</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">Sasaran</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">Indikator Kinerja</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">Target</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">TW I</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">TW II</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">TW III</th>
-                      <th style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;">TW IV</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @foreach($tabelB['sasaran'] as $index => $sasaran)
+              <div style="margin-bottom: 16px;">
+                <div style="font-weight: 700; color: #000; margin-bottom: 8px;">Tabel Sasaran Kinerja</div>
+                <div style="overflow-x: auto;">
+                  <table class="table-black-header" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
                       <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $index + 1 }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $sasaran ?? '-' }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['indikator'][$index] ?? '-' }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['target'][$index] ?? '-' }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['tw1'][$index] ?? '-' }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['tw2'][$index] ?? '-' }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['tw3'][$index] ?? '-' }}</td>
-                        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['tw4'][$index] ?? '-' }}</td>
+                        <th style="padding: 10px; border: 1px solid #ddd;">No</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Sasaran</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Indikator Kinerja</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Target TW {{ $activeTriwulan }}</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Realisasi</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Persentase</th>
                       </tr>
-                    @endforeach
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      @foreach($tabelB['sasaran'] as $index => $sasaran)
+                        @php
+                          $targetValue = $tabelB[$activeTwKey][$index] ?? '';
+                          $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
+                        @endphp
+                        <tr>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $index + 1 }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $sasaran ?? '-' }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['indikator'][$index] ?? '-' }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $targetValue ?? '-' }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
+                            <input type="number" step="any" class="form-control row-realisasi-input" data-row="kinerja-{{ $index }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" />
+                          </td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-kinerja-{{ $index }}">-</td>
+                        </tr>
+                      @endforeach
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            @else
+            @endif
+
+            @if(!empty($tabelC['programs']) && count($tabelC['programs']) > 0)
+              <div style="margin-bottom: 16px;">
+                <div style="font-weight: 700; color: #000; margin-bottom: 8px;">Tabel Anggaran</div>
+                <div style="overflow-x: auto;">
+                  <table class="table-black-header" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                      <tr>
+                        <th style="padding: 10px; border: 1px solid #ddd;">No</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Program / Kegiatan / Sub Kegiatan</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Anggaran</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Target TW {{ $activeTriwulan }}</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Realisasi</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Persentase</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @foreach($tabelC['programs'] as $program)
+                        @php
+                          $targetValue = $program[$activeTwKey] ?? '';
+                          $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
+                          $programNo = $program['no'] ?? '';
+                        @endphp
+                        <tr style="background: #f7f9fa;">
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $programNo }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">{{ $program['name'] ?? '-' }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ number_format($program['amount'] ?? 0, 0, ',', '.') }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $targetValue ?? '-' }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-{{ $programNo }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" /></td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $programNo }}">-</td>
+                        </tr>
+                        @foreach($program['kegiatan'] ?? [] as $kegiatan)
+                          @php
+                            $targetValue = $kegiatan[$activeTwKey] ?? '';
+                            $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
+                            $kegiatanNo = $kegiatan['no'] ?? '';
+                          @endphp
+                          <tr>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $kegiatanNo }}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 16px;">{{ $kegiatan['name'] ?? '-' }}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ number_format($kegiatan['amount'] ?? 0, 0, ',', '.') }}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $targetValue ?? '-' }}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-{{ $kegiatanNo }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" /></td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $kegiatanNo }}">-</td>
+                          </tr>
+                          @foreach($kegiatan['subKegiatan'] ?? [] as $sub)
+                            @php
+                              $targetValue = $sub[$activeTwKey] ?? '';
+                              $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
+                              $subNo = $sub['no'] ?? '';
+                            @endphp
+                            <tr>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $subNo }}</td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 32px;">{{ $sub['name'] ?? '-' }}</td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ number_format($sub['amount'] ?? 0, 0, ',', '.') }}</td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $targetValue ?? '-' }}</td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-{{ $subNo }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" /></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $subNo }}">-</td>
+                            </tr>
+                          @endforeach
+                        @endforeach
+                      @endforeach
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            @endif
+
+            @if(empty($tabelB['sasaran']) && empty($tabelC['programs']))
               <div style="padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #666;">
                 Tidak ada data rencana aksi yang tersimpan pada perjanjian kinerja ini.
               </div>
@@ -564,27 +639,96 @@
       });
     });
     
+    // Fungsi untuk menghitung persentase otomatis
+    function calculatePercentage(target, realisasi) {
+      if (isNaN(target) || target === 0 || isNaN(realisasi)) {
+        return null;
+      }
+
+      // Jika target rendah lebih baik, gunakan logika terbalik
+      const lowBetter = Math.abs(target) <= 10;
+      if (lowBetter) {
+        return ((target - (realisasi - target)) / target) * 100;
+      }
+      return (realisasi / target) * 100;
+    }
+
+    function updatePercentage(event) {
+      const input = event.target;
+      const target = parseFloat(input.dataset.target || '0');
+      const realisasi = parseFloat(input.value || '0');
+      const percentage = calculatePercentage(target, realisasi);
+      const percentageCell = document.getElementById('percentage-' + input.dataset.row);
+      if (percentageCell) {
+        percentageCell.textContent = percentage === null ? '-' : percentage.toFixed(2) + '%';
+      }
+    }
+
+    function populateRowRealisasi(existingRows) {
+      if (!Array.isArray(existingRows)) return;
+      existingRows.forEach(row => {
+        const input = document.querySelector('.row-realisasi-input[data-row="' + row.row + '"]');
+        if (input && row.realisasi !== undefined) {
+          input.value = row.realisasi;
+          updatePercentage({ target: input });
+        }
+      });
+    }
+
     // Fungsi untuk membuka modal realisasi
     function openRealisasiModal(triwulan) {
+      if (triwulan !== triwulanAktif) {
+        return;
+      }
+
       const modal = document.getElementById('realisasiModal');
-      
       document.getElementById('perjanjianId').value = perjanjianData.id;
       document.getElementById('triwulanEdit').value = triwulan;
       document.getElementById('modalTriwulan').textContent = 'Triwulan ' + triwulan;
       document.getElementById('modalPegawai').textContent = perjanjianData.nama;
       document.getElementById('modalJabatan').textContent = perjanjianData.jabatan;
       document.getElementById('modalAtasan').textContent = perjanjianData.atasan;
-      
+
+      // Clear previous row inputs
+      document.querySelectorAll('.row-realisasi-input').forEach(input => {
+        input.value = '';
+        const percentageCell = document.getElementById('percentage-' + input.dataset.row);
+        if (percentageCell) percentageCell.textContent = '-';
+      });
+
       // Load existing realisasi jika ada
       const triwulanKey = 'realisasi_tb' + triwulan;
-      const existingContent = localStorage.getItem('realisasi_' + perjanjianData.id + '_' + triwulan) || '';
+      const laporanData = laporanRealisasi[perjanjianData.id] || {};
+      const rawContent = laporanData[triwulan] || '';
+      let existingContent = '';
+      let existingRows = [];
+      if (rawContent) {
+        try {
+          const parsed = JSON.parse(rawContent);
+          if (parsed && typeof parsed === 'object') {
+            existingContent = parsed.text || '';
+            existingRows = Array.isArray(parsed.rows) ? parsed.rows : [];
+          } else {
+            existingContent = rawContent;
+          }
+        } catch (err) {
+          existingContent = rawContent;
+        }
+      }
       document.getElementById('realisasiInput').value = existingContent;
-      
+      populateRowRealisasi(existingRows);
+
+      // Attach event listeners for row inputs
+      document.querySelectorAll('.row-realisasi-input').forEach(input => {
+        input.removeEventListener('input', updatePercentage);
+        input.addEventListener('input', updatePercentage);
+      });
+
       // Show modal
       const bsModal = new bootstrap.Modal(modal);
       bsModal.show();
     }
-    
+
     // Form submission
     document.getElementById('realisasiForm').addEventListener('submit', function(e) {
       e.preventDefault();
@@ -597,6 +741,15 @@
         alert('Realisasi minimal harus 50 karakter');
         return;
       }
+
+      const rowRealisasi = [];
+      document.querySelectorAll('.row-realisasi-input').forEach(input => {
+        rowRealisasi.push({
+          row: input.dataset.row || null,
+          realisasi: input.value,
+          target: input.dataset.target ? parseFloat(input.dataset.target) : null,
+        });
+      });
       
       fetch(`/api/realisasi/perjanjian`, {
         method: 'POST',
@@ -607,15 +760,13 @@
         body: JSON.stringify({
           perjanjian_id: perjanjianId,
           triwulan: triwulan,
-          realisasi: realisasi
+          realisasi: realisasi,
+          realisasi_rows: rowRealisasi,
         })
       })
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          // Save to localStorage for display
-          localStorage.setItem('realisasi_' + perjanjianId + '_' + triwulan, realisasi);
-          
           // Close modal
           bootstrap.Modal.getInstance(document.getElementById('realisasiModal')).hide();
           
@@ -624,6 +775,11 @@
           
           // Clear form
           document.getElementById('realisasiInput').value = '';
+          document.querySelectorAll('.row-realisasi-input').forEach(input => {
+            input.value = '';
+            const percentageCell = document.getElementById('percentage-' + input.dataset.row);
+            if (percentageCell) percentageCell.textContent = '-';
+          });
         } else {
           showAlert('Terjadi kesalahan: ' + data.message, 'error');
         }
