@@ -584,7 +584,7 @@
 
 <!-- Footer -->
 <div class="footer">
-    © 2025 RSUD Bangil – Sistem Perjanjian Kinerja
+    © 2026 RSUD Bangil – Sistem Laporan Kinerja
 </div>
 
 <!-- Floating Add Button (for card list view) -->

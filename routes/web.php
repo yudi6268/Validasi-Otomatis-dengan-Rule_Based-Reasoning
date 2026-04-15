@@ -68,9 +68,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Perjanjian & Laporan
     Route::get('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'index'])->name('perjanjian.index');
-    Route::get('/laporan-kinerja', function () {
-        return view('laporan-kinerja');
-    })->name('laporan.kinerja');
+    Route::get('/laporan-kinerja', [App\Http\Controllers\LaporanKinerjaController::class, 'index'])->name('laporan.kinerja');
+    Route::post('/api/realisasi/perjanjian', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.perjanjian');
+    Route::post('/api/realisasi/{laporanId}', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.laporan');
     Route::get('/perjanjian/create', [App\Http\Controllers\PerjanjianController::class, 'create'])->name('perjanjian.create');
     Route::post('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'store'])->name('perjanjian.store');
     Route::post('/perjanjian/save', [App\Http\Controllers\PerjanjianController::class, 'savePerjanjian'])->name('perjanjian.save');
@@ -218,5 +218,9 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     /* ================= SETTINGS ================= */
     Route::get('/settings', [App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
     Route::put('/settings', [App\Http\Controllers\Admin\SettingController::class, 'update'])->name('settings.update');
+    
+    /* ================= TRIWULAN SETTING ================= */
+    Route::get('/triwulan-setting', [App\Http\Controllers\Admin\TriwulanSettingController::class, 'show'])->name('triwulan.setting');
+    Route::post('/triwulan-setting', [App\Http\Controllers\Admin\TriwulanSettingController::class, 'update'])->name('triwulan.setting.update');
 
 });

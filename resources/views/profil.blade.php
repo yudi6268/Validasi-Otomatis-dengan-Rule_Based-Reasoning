@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     </script>
 <footer>
-    © 2025 RSUD Bangil – Sistem Perjanjian Kinerja
+    © 2026 RSUD Bangil – Sistem Laporan Kinerja
 </footer>
 </body>
 </html>

@@ -54,7 +54,7 @@
             </div>
         </main>
         <footer style="background:#fff;text-align:center;font-size:15px;font-weight:700;padding:15px 0;border-top:1px solid #ddd;color:#1B2A41;position:fixed;left:0;bottom:0;width:100vw;z-index:10;">
-            © 2025 RSUD Bangil – Sistem Perjanjian Kinerja
+            © 2026 RSUD Bangil – Sistem Laporan Kinerja
         </footer>
 </body>
 </html>

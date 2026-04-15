@@ -303,7 +303,7 @@
   <!-- MAIN -->
   <main> 
     <div class="welcome-text">Selamat datang di Sistem</div> 
-    <div class="hospital-title">Perjanjian Kinerja RSUD Bangil</div> 
+    <div class="hospital-title">Laporan Kinerja RSUD Bangil</div> 
     <p>Pilih menu di bawah untuk melanjutkan</p>
 
     <div class="menu-container">
@@ -331,7 +331,7 @@
   </main>
 
   <!-- FOOTER -->
-  <footer>© 2025 RSUD Bangil – Sistem Perjanjian Kinerja</footer>
+  <footer>© 2026 RSUD Bangil – Sistem Laporan Kinerja</footer>
 
   @include('components.logout-modal')
 

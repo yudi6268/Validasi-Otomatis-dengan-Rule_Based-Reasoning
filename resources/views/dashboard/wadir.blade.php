@@ -313,7 +313,7 @@
 
   <main>
     <h2 class="welcome-text">Selamat Datang di</h2>
-    <h1 class="hospital-title">SISTEM PERJANJIAN KINERJA RSUD BANGIL</h1>
+    <h1 class="hospital-title">SISTEM LAPORAN KINERJA RSUD BANGIL</h1>
     <p class="role-text">Dashboard Wakil Direktur</p>
 
     <!-- Statistik -->
@@ -350,7 +350,7 @@
   </main>
 
   <footer>
-    © 2025 RSUD Bangil – Sistem Perjanjian Kinerja
+    © 2026 RSUD Bangil – Sistem Laporan Kinerja
   </footer>
 
   @include('components.logout-modal')
