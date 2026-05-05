@@ -71,6 +71,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/laporan-kinerja', [App\Http\Controllers\LaporanKinerjaController::class, 'index'])->name('laporan.kinerja');
     Route::post('/api/realisasi/perjanjian', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.perjanjian');
     Route::post('/api/realisasi/{laporanId}', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.laporan');
+    
+    // Smart Validation API
+    Route::get('/api/laporan/by-perjanjian/{perjanjianId}', [App\Http\Controllers\LaporanKinerjaController::class, 'getLaporanByPerjanjian'])->name('api.laporan.by-perjanjian');
+    Route::post('/api/laporan/{id}/smart-validate', [App\Http\Controllers\LaporanKinerjaController::class, 'smartValidate'])->name('api.laporan.smart-validate');
+    Route::post('/api/laporan/quick-validate', [App\Http\Controllers\LaporanKinerjaController::class, 'quickValidate'])->name('api.laporan.quick-validate');
     Route::get('/perjanjian/create', [App\Http\Controllers\PerjanjianController::class, 'create'])->name('perjanjian.create');
     Route::post('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'store'])->name('perjanjian.store');
     Route::post('/perjanjian/save', [App\Http\Controllers\PerjanjianController::class, 'savePerjanjian'])->name('perjanjian.save');

@@ -30,6 +30,7 @@ class Laporan extends Model
         'bab_rencana',
         'tanggapan_pimpinan',
         'triwulan_aktif',
+        'kesimpulan',
         'realisasi_tb1',
         'realisasi_tb2',
         'realisasi_tb3',

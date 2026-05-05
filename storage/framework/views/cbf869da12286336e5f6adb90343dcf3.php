@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
   <title>Laporan Kinerja - RSUD Bangil</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -526,14 +526,14 @@
 <body>
   <header>
     <div class="logo-container">
-      <img src="{{ asset('images/logo_pemda.png') }}" alt="Logo Pemda">
-      <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo RSUD">
+      <img src="<?php echo e(asset('images/logo_pemda.png')); ?>" alt="Logo Pemda">
+      <img src="<?php echo e(asset('images/logo_rsud.png')); ?>" alt="Logo RSUD">
     </div>
     <nav>
-      <a href="{{ route('home') }}">Beranda</a>
-      <a href="{{ route('panduan') }}">Panduan</a>
-      <a href="{{ route('kontak') }}">Kontak</a>
-      <a href="{{ route('tentang') }}">Tentang</a>
+      <a href="<?php echo e(route('home')); ?>">Beranda</a>
+      <a href="<?php echo e(route('panduan')); ?>">Panduan</a>
+      <a href="<?php echo e(route('kontak')); ?>">Kontak</a>
+      <a href="<?php echo e(route('tentang')); ?>">Tentang</a>
     </nav>
   </header>
 
@@ -543,18 +543,18 @@
       <div class="page-subtitle">Form pengisian realisasi laporan kinerja per triwulan</div>
     </div>
 
-    @if (!$perjanjian || $message)
+    <?php if(!$perjanjian || $message): ?>
       <div class="alert alert-info">
         <i class="fas fa-info-circle"></i>
-        <span>{{ $message ?? 'Tidak ada perjanjian kinerja yang disetujui' }}</span>
+        <span><?php echo e($message ?? 'Tidak ada perjanjian kinerja yang disetujui'); ?></span>
       </div>
       <div style="text-align: center; margin-top: 40px;">
-        <a href="{{ route('perjanjian.index') }}" class="btn btn-primary">
+        <a href="<?php echo e(route('perjanjian.index')); ?>" class="btn btn-primary">
           <i class="fas fa-file-signature"></i>
           Buat Perjanjian Kinerja
         </a>
       </div>
-    @else
+    <?php else: ?>
       <!-- Info Card -->
       <div class="info-card">
         <h5 style="margin-bottom: 16px; color: #00B5A0;">
@@ -564,23 +564,23 @@
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Nama Pegawai</div>
-            <div class="info-value">{{ $perjanjian->pihak1_name ?? '-' }}</div>
+            <div class="info-value"><?php echo e($perjanjian->pihak1_name ?? '-'); ?></div>
           </div>
           <div class="info-item">
             <div class="info-label">NIP</div>
-            <div class="info-value">{{ $perjanjian->pihak1_nip ?? '-' }}</div>
+            <div class="info-value"><?php echo e($perjanjian->pihak1_nip ?? '-'); ?></div>
           </div>
           <div class="info-item">
             <div class="info-label">Jabatan</div>
-            <div class="info-value">{{ $perjanjian->pihak1_jabatan ?? '-' }}</div>
+            <div class="info-value"><?php echo e($perjanjian->pihak1_jabatan ?? '-'); ?></div>
           </div>
           <div class="info-item">
             <div class="info-label">Tahun</div>
-            <div class="info-value">{{ $perjanjian->tahun ?? '-' }}</div>
+            <div class="info-value"><?php echo e($perjanjian->tahun ?? '-'); ?></div>
           </div>
           <div class="info-item">
             <div class="info-label">Atasan Langsung</div>
-            <div class="info-value">{{ $perjanjian->pihak2_name ?? '-' }}</div>
+            <div class="info-value"><?php echo e($perjanjian->pihak2_name ?? '-'); ?></div>
           </div>
         </div>
       </div>
@@ -589,27 +589,27 @@
       <div class="triwulan-tabs">
         <button type="button" class="triwulan-tab-btn" data-triwulan="1" onclick="openRealisasiModal(1)">
           <i class="fas fa-calendar"></i> Triwulan 1 (Jan-Mar)
-          @if ($triwulanAktif == 1)
+          <?php if($triwulanAktif == 1): ?>
             <span class="badge-triwulan badge-active">Aktif</span>
-          @endif
+          <?php endif; ?>
         </button>
         <button type="button" class="triwulan-tab-btn" data-triwulan="2" onclick="openRealisasiModal(2)">
           <i class="fas fa-calendar"></i> Triwulan 2 (Apr-Jun)
-          @if ($triwulanAktif == 2)
+          <?php if($triwulanAktif == 2): ?>
             <span class="badge-triwulan badge-active">Aktif</span>
-          @endif
+          <?php endif; ?>
         </button>
         <button type="button" class="triwulan-tab-btn" data-triwulan="3" onclick="openRealisasiModal(3)">
           <i class="fas fa-calendar"></i> Triwulan 3 (Jul-Sep)
-          @if ($triwulanAktif == 3)
+          <?php if($triwulanAktif == 3): ?>
             <span class="badge-triwulan badge-active">Aktif</span>
-          @endif
+          <?php endif; ?>
         </button>
         <button type="button" class="triwulan-tab-btn" data-triwulan="4" onclick="openRealisasiModal(4)">
           <i class="fas fa-calendar"></i> Triwulan 4 (Okt-Des)
-          @if ($triwulanAktif == 4)
+          <?php if($triwulanAktif == 4): ?>
             <span class="badge-triwulan badge-active">Aktif</span>
-          @endif
+          <?php endif; ?>
         </button>
         <button type="button" class="btn-validate" onclick="runSmartValidation()" id="btnSmartValidate">
           <i class="fas fa-magic"></i> Smart Validation
@@ -657,7 +657,7 @@
           <i class="fas fa-info-circle" style="font-size: 32px; color: #ddd; margin-bottom: 12px;"></i>
           <p>Pilih triwulan di atas untuk mengisi realisasi laporan kinerja</p>
         </div>
-    @endif
+    <?php endif; ?>
   </main>
 
   <!-- Modal Edit Realisasi -->
@@ -695,15 +695,15 @@
             </div>
           </div>
 
-          @php
+          <?php
             $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true);
             $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true);
             $activeTriwulan = $triwulanAktif ?? 1;
             $activeTwKey = 'tw' . $activeTriwulan;
-          @endphp
+          ?>
           <div style="margin-bottom: 20px;">
             <h6 style="font-weight: 700; color: #1B2A41; margin-bottom: 12px;">Rencana Aksi dari Perjanjian Kinerja</h6>
-            @if(!empty($tabelB['sasaran']) && count($tabelB['sasaran']) > 0)
+            <?php if(!empty($tabelB['sasaran']) && count($tabelB['sasaran']) > 0): ?>
               <div style="margin-bottom: 16px;">
                 <div style="font-weight: 700; color: #000; margin-bottom: 8px;">Tabel Sasaran Kinerja</div>
                 <div style="overflow-x: auto;">
@@ -713,35 +713,35 @@
                         <th style="padding: 10px; border: 1px solid #ddd;">No</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Sasaran</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Indikator Kinerja</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">Target TW {{ $activeTriwulan }}</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Target TW <?php echo e($activeTriwulan); ?></th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Realisasi</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Persentase</th>
                       </tr>
                     </thead>
                     <tbody>
-                      @foreach($tabelB['sasaran'] as $index => $sasaran)
-                        @php
+                      <?php $__currentLoopData = $tabelB['sasaran']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $sasaran): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <?php
                           $targetValue = $tabelB[$activeTwKey][$index] ?? '';
                           $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
-                        @endphp
+                        ?>
                         <tr>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $index + 1 }}</td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $sasaran ?? '-' }}</td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $tabelB['indikator'][$index] ?? '-' }}</td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $targetValue ?? '-' }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($index + 1); ?></td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($sasaran ?? '-'); ?></td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($tabelB['indikator'][$index] ?? '-'); ?></td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($targetValue ?? '-'); ?></td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
-                            <input type="number" step="any" class="form-control row-realisasi-input" data-row="kinerja-{{ $index }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" />
+                            <input type="number" step="any" class="form-control row-realisasi-input" data-row="kinerja-<?php echo e($index); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
                           </td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-kinerja-{{ $index }}">-</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-kinerja-<?php echo e($index); ?>">-</td>
                         </tr>
-                      @endforeach
+                      <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </tbody>
                   </table>
                 </div>
               </div>
-            @endif
+            <?php endif; ?>
 
-            @if(!empty($tabelC['programs']) && count($tabelC['programs']) > 0)
+            <?php if(!empty($tabelC['programs']) && count($tabelC['programs']) > 0): ?>
               <div style="margin-bottom: 16px;">
                 <div style="font-weight: 700; color: #000; margin-bottom: 8px;">Tabel Anggaran</div>
                 <div style="overflow-x: auto;">
@@ -750,84 +750,84 @@
                       <tr>
                         <th style="padding: 10px; border: 1px solid #ddd;">No</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Program / Kegiatan / Sub Kegiatan</th>
-                        <th style="padding: 10px; border: 1px solid #ddd;">Target TW {{ $activeTriwulan }}</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Target TW <?php echo e($activeTriwulan); ?></th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Realisasi</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Persentase</th>
                       </tr>
                     </thead>
                     <tbody>
-                      @foreach($tabelC['programs'] as $program)
-                        @php
+                      <?php $__currentLoopData = $tabelC['programs']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $program): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <?php
                           $programNo = $program['no'] ?? '';
                           $targetValue = $program[$activeTwKey] ?? '';
                           $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                           $hasKegiatan = !empty($program['kegiatan'] ?? []);
-                        @endphp
+                        ?>
                         <tr style="background: #f7f9fa;">
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $programNo }}</td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">{{ $program['name'] ?? '-' }}</td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-') }}</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($programNo); ?></td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; font-weight: 700;"><?php echo e($program['name'] ?? '-'); ?></td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e(is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-')); ?></td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
-                            @if($hasKegiatan)
-                              <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-{{ $programNo }}" data-target="{{ $targetValueNormalized }}" value="-" />
-                            @else
-                              <input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-{{ $programNo }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" />
-                            @endif
+                            <?php if($hasKegiatan): ?>
+                              <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-<?php echo e($programNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" value="-" />
+                            <?php else: ?>
+                              <input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($programNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
+                            <?php endif; ?>
                           </td>
-                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $programNo }}">-</td>
+                          <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-<?php echo e($programNo); ?>">-</td>
                         </tr>
-                        @foreach($program['kegiatan'] ?? [] as $kegiatan)
-                          @php
+                        <?php $__currentLoopData = $program['kegiatan'] ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $kegiatan): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                          <?php
                             $kegiatanNo = $kegiatan['no'] ?? '';
                             $targetValue = $kegiatan[$activeTwKey] ?? '';
                             $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                             $hasSubKegiatan = !empty($kegiatan['subKegiatan'] ?? []);
-                          @endphp
+                          ?>
                           <tr>
-                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $kegiatanNo }}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 16px;">{{ $kegiatan['name'] ?? '-' }}</td>
-                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-') }}</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($kegiatanNo); ?></td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 16px;"><?php echo e($kegiatan['name'] ?? '-'); ?></td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e(is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-')); ?></td>
                             <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
-                              @if($hasSubKegiatan)
-                                <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-{{ $kegiatanNo }}" data-target="{{ $targetValueNormalized }}" value="-" />
-                              @else
-                                <input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-{{ $kegiatanNo }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" />
-                              @endif
+                              <?php if($hasSubKegiatan): ?>
+                                <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-<?php echo e($kegiatanNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" value="-" />
+                              <?php else: ?>
+                                <input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($kegiatanNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
+                              <?php endif; ?>
                             </td>
-                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $kegiatanNo }}">-</td>
+                            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-<?php echo e($kegiatanNo); ?>">-</td>
                           </tr>
-                          @foreach($kegiatan['subKegiatan'] ?? [] as $sub)
-                            @php
+                          <?php $__currentLoopData = $kegiatan['subKegiatan'] ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sub): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <?php
                               $subNo = $sub['no'] ?? '';
                               $targetValue = $sub[$activeTwKey] ?? '';
                               $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
-                            @endphp
+                            ?>
                             <tr>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $subNo }}</td>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 32px;">{{ $sub['name'] ?? '-' }}</td>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-') }}</td>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-{{ $subNo }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" /></td>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $subNo }}">-</td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($subNo); ?></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 32px;"><?php echo e($sub['name'] ?? '-'); ?></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e(is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-')); ?></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="number" step="any" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($subNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" /></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-<?php echo e($subNo); ?>">-</td>
                             </tr>
-                          @endforeach
-                        @endforeach
-                      @endforeach
+                          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                      <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </tbody>
                   </table>
                 </div>
               </div>
-            @endif
+            <?php endif; ?>
 
-            @if(empty($tabelB['sasaran']) && empty($tabelC['programs']))
+            <?php if(empty($tabelB['sasaran']) && empty($tabelC['programs'])): ?>
               <div style="padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff; color: #666;">
                 Tidak ada data rencana aksi yang tersimpan pada perjanjian kinerja ini.
               </div>
-            @endif
+            <?php endif; ?>
           </div>
 
           <form id="realisasiForm">
-            @csrf
-            <input type="hidden" id="perjanjianId" name="perjanjian_id" value="{{ $perjanjian ? $perjanjian->id : '' }}">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" id="perjanjianId" name="perjanjian_id" value="<?php echo e($perjanjian ? $perjanjian->id : ''); ?>">
             <input type="hidden" id="triwulanEdit" name="triwulan" value="1">
 
             <div class="mb-3">
@@ -873,7 +873,7 @@
         </div>
         <div class="modal-body">
           <form id="rencanaTindakLanjutForm">
-            @csrf
+            <?php echo csrf_field(); ?>
             <input type="hidden" id="rencanaPerjanjianId" name="perjanjian_id">
             <input type="hidden" id="rencanaTrjulanEdit" name="triwulan">
             
@@ -990,7 +990,7 @@
         </div>
         <div class="modal-body">
           <form id="kesimpulanForm">
-            @csrf
+            <?php echo csrf_field(); ?>
             <input type="hidden" id="kesimpulanPerjanjianId" name="perjanjian_id">
             <input type="hidden" id="kesimpulanTriwulanEdit" name="triwulan">
             
@@ -1037,7 +1037,7 @@
         </div>
         <div class="modal-body">
           <form id="penutupForm">
-            @csrf
+            <?php echo csrf_field(); ?>
             <input type="hidden" id="penutupPerjanjianId" name="perjanjian_id">
             <input type="hidden" id="penutupTriwulanEdit" name="triwulan">
 
@@ -1118,16 +1118,16 @@
 
   <!-- Hidden data container untuk semua realisasi -->
   <div id="realisasiData" style="display: none;">
-    @if (!empty($laporans))
-      @foreach ($laporans as $laporan)
-        <div data-laporan-id="{{ $laporan->id }}">
-          <div data-tb="1" data-content="{{ $laporan->realisasi_tb1 ?? '' }}"></div>
-          <div data-tb="2" data-content="{{ $laporan->realisasi_tb2 ?? '' }}"></div>
-          <div data-tb="3" data-content="{{ $laporan->realisasi_tb3 ?? '' }}"></div>
-          <div data-tb="4" data-content="{{ $laporan->realisasi_tb4 ?? '' }}"></div>
+    <?php if(!empty($laporans)): ?>
+      <?php $__currentLoopData = $laporans; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $laporan): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+        <div data-laporan-id="<?php echo e($laporan->id); ?>">
+          <div data-tb="1" data-content="<?php echo e($laporan->realisasi_tb1 ?? ''); ?>"></div>
+          <div data-tb="2" data-content="<?php echo e($laporan->realisasi_tb2 ?? ''); ?>"></div>
+          <div data-tb="3" data-content="<?php echo e($laporan->realisasi_tb3 ?? ''); ?>"></div>
+          <div data-tb="4" data-content="<?php echo e($laporan->realisasi_tb4 ?? ''); ?>"></div>
         </div>
-      @endforeach
-    @endif
+      <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+    <?php endif; ?>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1219,12 +1219,12 @@
     // Expose function globally for onclick handlers
     window.openRealisasiModal = openRealisasiModal;
 
-    const triwulanAktif = Number({{ $triwulanAktif ?? 1 }});
+    const triwulanAktif = Number(<?php echo e($triwulanAktif ?? 1); ?>);
     const perjanjianData = {
-      id: {{ $perjanjian ? $perjanjian->id : 'null' }},
-      nama: "{{ $perjanjian ? $perjanjian->pihak1_name : '' }}",
-      jabatan: "{{ $perjanjian ? $perjanjian->pihak1_jabatan : '' }}",
-      atasan: "{{ $perjanjian ? $perjanjian->pihak2_name : '' }}",
+      id: <?php echo e($perjanjian ? $perjanjian->id : 'null'); ?>,
+      nama: "<?php echo e($perjanjian ? $perjanjian->pihak1_name : ''); ?>",
+      jabatan: "<?php echo e($perjanjian ? $perjanjian->pihak1_jabatan : ''); ?>",
+      atasan: "<?php echo e($perjanjian ? $perjanjian->pihak2_name : ''); ?>",
     };
     
     // Simpan semua data realisasi dalam object
@@ -1677,7 +1677,7 @@
     // Fungsi untuk generate kesimpulan otomatis
     function generateKesimpulan() {
       const triwulan = triwulanAktif;
-      const tahun = {{ $perjanjian->tahun ?? date('Y') }};
+      const tahun = <?php echo e($perjanjian->tahun ?? date('Y')); ?>;
       const jabatan = perjanjianData.jabatan || 'jabatan terkait';
       
       // Hitung rata-rata kinerja
@@ -2114,3 +2114,4 @@
 
 
 
+<?php /**PATH E:\Kuliah\Semester 7\Magang\Perjanjian Kinerja\resources\views/laporan-kinerja.blade.php ENDPATH**/ ?>

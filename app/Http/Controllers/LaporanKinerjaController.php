@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Perjanjian;
 use App\Models\Laporan;
 use App\Models\Setting;
+use App\Services\SmartValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -53,7 +54,7 @@ class LaporanKinerjaController extends Controller
             ->get();
 
         // Ambil triwulan aktif dari setting admin
-        $triwulanAktif = $this->getTriwulanAktif();
+        $triwulanAktif = (int) $this->getTriwulanAktif();
 
         return view('laporan-kinerja', [
             'perjanjian' => $perjanjianDisetujui,
@@ -73,6 +74,43 @@ class LaporanKinerjaController extends Controller
     }
 
     /**
+     * Get laporan ID by perjanjian ID
+     * Endpoint: GET /api/laporan/by-perjanjian/{perjanjianId}
+     */
+    public function getLaporanByPerjanjian($perjanjianId)
+    {
+        try {
+            $laporan = Laporan::where('perjanjian_id', $perjanjianId)->first();
+            
+            if (!$laporan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Laporan tidak ditemukan'
+                ], 404);
+            }
+            
+            // Verifikasi akses
+            $perjanjian = $laporan->perjanjian;
+            if ($perjanjian->user_id !== auth()->id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mengakses laporan ini'
+                ], 403);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'laporan_id' => $laporan->id
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * API endpoint untuk menyimpan realisasi
      * Support dua mode:
      * 1. Dari perjanjian langsung: POST /api/laporan/perjanjian dengan perjanjian_id
@@ -88,6 +126,8 @@ class LaporanKinerjaController extends Controller
                 'realisasi_rows.*.row' => 'nullable|integer',
                 'realisasi_rows.*.realisasi' => 'nullable|string',
                 'realisasi_rows.*.target' => 'nullable|numeric',
+                'rencana_tindak_lanjut' => 'nullable|string',
+                'kesimpulan' => 'nullable|string',
             ]);
 
             $laporan = null;
@@ -158,10 +198,23 @@ class LaporanKinerjaController extends Controller
                             'target' => isset($row['target']) ? floatval($row['target']) : null,
                         ];
                     }, $validated['realisasi_rows']),
+                    'followup' => $validated['rencana_tindak_lanjut'] ?? '',
+                ], JSON_UNESCAPED_UNICODE);
+            } else {
+                $realisasiValue = json_encode([
+                    'text' => $validated['realisasi'],
+                    'rows' => [],
+                    'followup' => $validated['rencana_tindak_lanjut'] ?? '',
                 ], JSON_UNESCAPED_UNICODE);
             }
 
             $laporan->$columnName = $realisasiValue;
+            
+            // Simpan kesimpulan jika ada
+            if (!empty($validated['kesimpulan'])) {
+                $laporan->kesimpulan = $validated['kesimpulan'];
+            }
+            
             $laporan->save();
 
             return response()->json([
@@ -174,6 +227,75 @@ class LaporanKinerjaController extends Controller
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 400);
+        }
+    }
+
+    /**
+     * Smart Validation - Validasi laporan dengan AI-powered validation
+     * 
+     * Endpoint: POST /api/laporan/{id}/smart-validate
+     */
+    public function smartValidate(Request $request, $id)
+    {
+        try {
+            $laporan = Laporan::findOrFail($id);
+            $perjanjian = $laporan->perjanjian;
+
+            // Verifikasi akses
+            if ($perjanjian->user_id !== auth()->id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mengakses laporan ini'
+                ], 403);
+            }
+
+            // Jalankan smart validation
+            $validationService = new SmartValidationService();
+            $result = $validationService->validateLaporan($laporan);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Validasi selesai',
+                'validation' => $result
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Quick Validation - Validasi cepat tanpa full analysis
+     * 
+     * Endpoint: POST /api/laporan/quick-validate
+     */
+    public function quickValidate(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'uraian_kegiatan' => 'nullable|string',
+                'sasaran' => 'nullable|string',
+                'bobot' => 'nullable|numeric',
+                'realisasi_tb1' => 'nullable|string',
+                'realisasi_tb2' => 'nullable|string',
+                'realisasi_tb3' => 'nullable|string',
+                'realisasi_tb4' => 'nullable|string',
+            ]);
+
+            $validationService = new SmartValidationService();
+            $result = $validationService->quickValidate($validated);
+
+            return response()->json([
+                'success' => true,
+                'validation' => $result
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

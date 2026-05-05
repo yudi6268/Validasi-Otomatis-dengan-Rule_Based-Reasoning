@@ -150,13 +150,13 @@
       <strong>Dikembangkan oleh:</strong><br>
       Tim IT RSUD Bangil<br>
       Versi: 1.0.0<br>
-      Tahun: 2025
+      Tahun: 2026
     </p>
   </div>
 
   <!-- FOOTER -->
   <footer>
-    © 2025 RSUD Bangil | SDM dan Pengembangan RSUD Bangil
+    © 2026 RSUD Bangil | Perencanaan & Pemasaran RSUD Bangil
   </footer>
 
 </body>
