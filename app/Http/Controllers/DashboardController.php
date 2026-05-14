@@ -27,8 +27,8 @@ class DashboardController extends Controller
             return redirect()->route('dashboard.direktur');
         }
         
-        // Wakil Direktur (Umum dan Pelayanan digabung)
-        if ($jabatan === 'Wakil Direktur Umum dan Keuangan' || $jabatan === 'Wakil Direktur Pelayanan') {
+        // Wakil Direktur (Umum, Pelayanan, dan Perencanaan/Keuangan digabung)
+        if ($jabatan === 'Wakil Direktur Umum dan Keuangan' || $jabatan === 'Wakil Direktur Pelayanan' || $jabatan === 'Wakil Direktur Perencanaan dan Keuangan') {
             return redirect()->route('dashboard.wadir');
         }
         
@@ -89,6 +89,9 @@ class DashboardController extends Controller
     }
 
     /**
+     * Dashboard untuk Wadir
+     */
+    public function wadir()
     {
         $user = Auth::user();
         

@@ -69,15 +69,36 @@ class LoginController extends Controller
                         ->with('success', 'Selamat datang di Admin Panel, ' . $user->nama);
                 }
                 
-                // Cek jabatan untuk Direktur
+                // Cek jabatan untuk redirect yang sesuai
                 $jabatan = $user->jabatan;
+                
+                // Direktur ke dashboard direktur
                 if ($jabatan === 'Direktur') {
                     return redirect()->route('dashboard.direktur')
                         ->with('success', 'Selamat datang, ' . $user->nama);
                 }
                 
-                // Semua user lainnya (Wadir, Kabag, Kabid, Katimker/Staf) ke home
-                // Mereka akan akses dashboard dari tombol "BUKA" di home
+                // Wakil Direktur ke dashboard wadir
+                if (in_array($jabatan, ['Wakil Direktur Umum dan Keuangan', 'Wakil Direktur Pelayanan', 'Wakil Direktur Perencanaan dan Keuangan'])) {
+                    return redirect()->route('dashboard.wadir')
+                        ->with('success', 'Selamat datang, ' . $user->nama);
+                }
+                
+                // Kabag/Kabid ke dashboard kabag.kabid
+                if (strpos($jabatan, 'Kabag') !== false || strpos($jabatan, 'Kepala Bagian') !== false ||
+                    strpos($jabatan, 'Kabid') !== false || strpos($jabatan, 'Kepala Bidang') !== false) {
+                    return redirect()->route('dashboard.kabag.kabid')
+                        ->with('success', 'Selamat datang, ' . $user->nama);
+                }
+                
+                // Katimker/Staf ke dashboard katimker.staf
+                if (strpos($jabatan, 'Kasi') !== false || strpos($jabatan, 'Kepala Seksi') !== false || 
+                    strpos($jabatan, 'Katimker') !== false || strpos($jabatan, 'Staf') !== false) {
+                    return redirect()->route('dashboard.katimker.staf')
+                        ->with('success', 'Selamat datang, ' . $user->nama);
+                }
+                
+                // Default ke home untuk staff dan lainnya
                 return redirect()->route('home')
                     ->with('success', 'Selamat datang, ' . $user->nama);
             }

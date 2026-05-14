@@ -657,7 +657,7 @@
         </div>
     </div>
 
-    @include('components.logout-modal')
+    
 
     <script>
         // Profile menu toggle
@@ -742,3 +742,4 @@
 
 </body>
 </html>
+

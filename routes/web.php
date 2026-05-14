@@ -54,8 +54,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/dashboard/direktur/perjanjian/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectPerjanjian'])->name('direktur.perjanjian.reject');
     });
 
-    // Dashboard Wadir (Umum dan Pelayanan digabung)
-    Route::middleware(['check.jabatan:Wakil Direktur Umum dan Keuangan,Wakil Direktur Pelayanan'])->group(function () {
+    // Dashboard Wadir (Umum, Pelayanan, dan Perencanaan/Keuangan digabung)
+    Route::middleware(['check.jabatan:Wakil Direktur Umum dan Keuangan,Wakil Direktur Pelayanan,Wakil Direktur Perencanaan dan Keuangan'])->group(function () {
         Route::get('/dashboard/wadir', [DashboardController::class, 'wadir'])->name('dashboard.wadir');
     });
 

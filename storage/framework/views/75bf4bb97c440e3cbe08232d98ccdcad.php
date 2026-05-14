@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Beranda - RSUD Bangil</title>
+  <title>Dashboard Wadir - RSUD Bangil</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -17,7 +17,6 @@
       min-height: 100vh;
     }
 
-    /* HEADER */
     header {
       background: #fff;
       display: flex;
@@ -37,7 +36,6 @@
       height: 60px;
     }
 
-    /* NAV DITENGAH */
     nav {
       position: absolute;
       left: 50%;
@@ -83,7 +81,6 @@
       transform: scale(1.1);
     }
 
-    /* DROPDOWN PROFILE */
     .profile-menu {
       position: absolute;
       top: 75px;
@@ -118,7 +115,6 @@
       to {opacity: 1; transform: translateY(0);}
     }
 
-    /* MAIN CONTENT */
     main {
       flex: 1;
       text-align: center;
@@ -139,7 +135,59 @@
       -webkit-text-fill-color: transparent; 
       text-shadow: 0 0 10px rgba(0,153,112,0.25); 
       margin-top: -5px; 
-      margin-bottom: 20px; 
+      margin-bottom: 10px; 
+    }
+
+    .role-text {
+      font-size: 18px;
+      color: #5F6F81;
+      font-weight: 600;
+      margin-bottom: 30px;
+    }
+
+    .stats-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: #FFFFFF;
+      width: 200px;
+      padding: 25px 20px;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      transition: 0.3s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 16px rgba(0,181,160,0.15);
+    }
+
+    .stat-card i {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card.total i { color: #00B5A0; }
+    .stat-card.approved i { color: #00B050; }
+    .stat-card.waiting i { color: #FFA500; }
+    .stat-card.rejected i { color: #FF4444; }
+
+    .stat-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #5F6F81;
+      margin: 8px 0;
+    }
+
+    .stat-card .number {
+      font-size: 32px;
+      font-weight: 800;
+      color: #1B2A41;
     }
 
     .menu-container {
@@ -150,65 +198,36 @@
       margin-top: 30px; 
     }
 
-    /* DESAIN CARD SESUAI REFERENSI KAMU */
-    .card {
+    .menu-item {
       background: #FFFFFF;
-      width: 400px;  
-      padding: 35px 30px;
-      border-radius: 18px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-      text-align: center;
-      transition: 0.3s;
-    }
-
-    .card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 8px 20px rgba(0,181,160,0.15);
-    }
-
-    .card i {
-      font-size: 42px;
-      background: #00B5A0;
-      color: #fff;
-      padding: 16px;
+      width: 180px;
+      padding: 30px 20px;
       border-radius: 14px;
-      margin-bottom: 18px;
-    }
-
-    .card h3 {
-      font-size: 22px;
-      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      transition: 0.3s;
+      text-align: center;
+      text-decoration: none;
       color: #1B2A41;
-      margin: 0 0 8px 0;
     }
 
-    .card p {
-      font-size: 14px;
-      font-weight: 500;
-      color: #5F6F81;
-      margin: 0 0 22px 0;
-      line-height: 1.6;
+    .menu-item:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 6px 20px rgba(0,181,160,0.2);
+      cursor: pointer;
     }
 
-    .card button {
-      width: 100%;
-      background: #00B5A0;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 12px;
+    .menu-item i {
+      font-size: 48px;
+      margin-bottom: 15px;
+      color: #00B5A0;
+    }
+
+    .menu-item p {
+      margin: 0;
       font-size: 16px;
       font-weight: 600;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-    
-    .card button:hover {
-      background: #008F7E;
-      box-shadow: 0 4px 12px rgba(0,181,160,0.3);
     }
 
-    /* FOOTER */
     footer {
       background: #fff;
       text-align: center;
@@ -268,95 +287,97 @@
       color: #fff;
     }
     #noBtn:hover {
-      background: #00B5A0;
+      background: #008F7E;
     }
-
   </style>
 </head>
-
 <body>
-
-  <!-- HEADER -->
   <header>
     <div class="logo-container">
-      <img src="<?php echo e(asset('images/logo_pemda.png')); ?>" alt="Logo Pemda">
-      <img src="<?php echo e(asset('images/logo_rsud.png')); ?>" alt="Logo RSUD">
+      <img src="<?php echo e(asset('images/logo_rsud2.png')); ?>" alt="Logo Rumah Sakit" />
     </div>
-
     <nav>
-      <a href="<?php echo e(route('panduan')); ?>">Panduan</a>
-      <a href="<?php echo e(route('kontak')); ?>">Kontak</a>
-      <a href="<?php echo e(route('tentang')); ?>">Tentang</a>
+      <a href="<?php echo e(route('home')); ?>">Home</a>
+      <a href="<?php echo e(url('/tentang')); ?>">Tentang</a>
     </nav>
-
     <div class="icons">
-      <i id="profileIcon" class="fa-solid fa-user"></i>
-      <i id="logoutIcon" class="fa-solid fa-right-from-bracket"></i>
-
+      <i class="fa-solid fa-user" onclick="toggleMenu()"></i>
       <div id="profileMenu" class="profile-menu">
-        <a href="<?php echo e(route('profil')); ?>"><i class="fa-solid fa-user"></i>Profil Saya</a>
-        <a href="<?php echo e(route('settings')); ?>"><i class="fa-solid fa-gear"></i>Settings</a>
+        <a href="<?php echo e(route('profile')); ?>"><i class="fa-solid fa-user-pen"></i> Profil</a>
+        <a href="#" id="logoutLink">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
       </div>
     </div>
   </header>
 
-  <!-- MAIN -->
-  <main> 
-    <div class="welcome-text">Selamat datang di Sistem</div> 
-    <div class="hospital-title">Laporan Kinerja RSUD Bangil</div> 
-    <p>Pilih menu di bawah untuk melanjutkan</p>
+  <main>
+    <h2 class="welcome-text">Selamat Datang di</h2>
+    <h1 class="hospital-title">SISTEM LAPORAN KINERJA RSUD BANGIL</h1>
+    <p class="role-text">Dashboard Wakil Direktur</p>
 
+    <!-- Statistik -->
+    <div class="stats-container">
+      <div class="stat-card total">
+        <i class="fa-solid fa-file-contract"></i>
+        <h4>Total Perjanjian</h4>
+        <div class="number"><?php echo e($totalPerjanjian); ?></div>
+      </div>
+      <div class="stat-card approved">
+        <i class="fa-solid fa-circle-check"></i>
+        <h4>Disetujui</h4>
+        <div class="number"><?php echo e($perjanjianApproved); ?></div>
+      </div>
+      <div class="stat-card waiting">
+        <i class="fa-solid fa-clock"></i>
+        <h4>Menunggu</h4>
+        <div class="number"><?php echo e($perjanjianWaiting); ?></div>
+      </div>
+      <div class="stat-card rejected">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <h4>Ditolak</h4>
+        <div class="number"><?php echo e($perjanjianRejected); ?></div>
+      </div>
+    </div>
+
+    <!-- Menu Akses -->
     <div class="menu-container">
-
-      <!-- CARD 1 -->
-      <div class="card">
-        <i class="fa-solid fa-file-signature"></i>
-        <h3>Perjanjian Kinerja</h3>
-        <p>Kelola dan lihat dokumen perjanjian kinerja</p>
-        <a href="<?php echo e(route('perjanjian.index')); ?>">
-          <button>Buka</button>
-        </a>
-      </div>
-
-      <!-- CARD 2 -->
-      <div class="card">
-        <i class="fa-solid fa-chart-line"></i>
-        <h3>Laporan Kinerja</h3>
-        <p>Kelola Laporan Kinerja</p>
-        <a href="<?php echo e(route('laporan.kinerja')); ?>">
-          <button>Buka</button>
-        </a>
-      </div>
+      <a href="<?php echo e(route('perjanjian.index')); ?>" class="menu-item">
+        <i class="fa-solid fa-file-contract"></i>
+        <p>Perjanjian Kinerja</p>
+      </a>
     </div>
   </main>
 
-  <!-- FOOTER -->
-  <footer>© 2026 RSUD Bangil – Sistem Laporan Kinerja</footer>
+  <footer>
+    © 2026 RSUD Bangil – Sistem Laporan Kinerja
+  </footer>
 
   <?php echo $__env->make('components.logout-modal', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 
   <script>
-    const profileIcon = document.getElementById('profileIcon');
-    const profileMenu = document.getElementById('profileMenu');
-    const logoutIcon = document.getElementById('logoutIcon');
-
-    if (profileIcon && profileMenu) {
-      profileIcon.addEventListener('click', () => {
-        profileMenu.style.display = profileMenu.style.display === 'flex' ? 'none' : 'flex';
-      });
-      document.addEventListener('click', (e) => {
-        if (!profileIcon.contains(e.target) && !profileMenu.contains(e.target)) {
-          profileMenu.style.display = 'none';
-        }
-      });
+    function toggleMenu() {
+      const menu = document.getElementById('profileMenu');
+      menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
     }
+
+    document.addEventListener('click', function(event) {
+      const menu = document.getElementById('profileMenu');
+      const icon = event.target.closest('.fa-user');
+      if (!icon && menu.style.display === 'flex') {
+        menu.style.display = 'none';
+      }
+    });
+
     // Pastikan tombol logout memanggil showLogoutModal()
-    if (logoutIcon) {
-      logoutIcon.addEventListener('click', function(e) {
+    const logoutLink = document.getElementById('logoutLink');
+    if (logoutLink) {
+      logoutLink.addEventListener('click', function(e) {
         e.preventDefault();
         showLogoutModal();
       });
     }
   </script>
 </body>
-</html><?php /**PATH E:\Kuliah\Semester 7\Magang\Perjanjian Kinerja\resources\views/home.blade.php ENDPATH**/ ?>
+</html>
+<?php /**PATH E:\Kuliah\Semester 7\Magang\Perjanjian Kinerja\resources\views/dashboard/wadir.blade.php ENDPATH**/ ?>
