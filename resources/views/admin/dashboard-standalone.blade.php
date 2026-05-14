@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Pimpinan - RSUD Bangil</title>
+    <title>Dashboard Admin - RSUD Bangil</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
@@ -118,62 +118,6 @@
             color: #00B5A0;
         }
 
-        /* SIDEBAR */
-        .dashboard-container {
-            display: flex;
-            flex: 1;
-            gap: 0;
-        }
-
-        .sidebar {
-            width: 260px;
-            background: #fff;
-            padding: 25px 20px;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
-        }
-
-        .sidebar h3 {
-            font-size: 13px;
-            font-weight: 700;
-            color: #999;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .sidebar-menu {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .sidebar-menu a {
-            padding: 12px 15px;
-            background: #f9f9f9;
-            border-radius: 8px;
-            text-decoration: none;
-            color: #333;
-            font-weight: 600;
-            font-size: 14px;
-            border-left: 4px solid transparent;
-            transition: 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .sidebar-menu a i {
-            color: #00B5A0;
-            width: 18px;
-        }
-
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
-            background: #E6F6F2;
-            border-left-color: #00B5A0;
-            color: #00B5A0;
-        }
-
         /* MAIN CONTENT */
         .main-content {
             flex: 1;
@@ -196,52 +140,48 @@
             font-size: 14px;
         }
 
-        /* SEARCH AND FILTER */
-        .search-filter-area {
-            background: #fff;
-            padding: 20px 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .search-box {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            background: #f9f9f9;
+        /* ALERT */
+        .alert-box {
+            background: #FFF3CD;
+            border-left: 5px solid #FFC107;
+            padding: 15px 20px;
             border-radius: 8px;
-            padding: 0 15px;
-            border: 1px solid #e0e0e0;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
-        .search-box input {
+        .alert-box i {
+            color: #FF9800;
+            font-size: 20px;
+        }
+
+        .alert-box-content {
             flex: 1;
-            border: none;
-            background: transparent;
-            padding: 10px 0;
-            font-size: 14px;
-            outline: none;
         }
 
-        .search-box i {
-            color: #999;
+        .alert-box-content strong {
+            color: #333;
         }
 
-        /* STATS CARDS */
+        .alert-box a {
+            color: #00B5A0;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* STATS GRID */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
         .stat-card {
             background: #fff;
-            padding: 20px;
+            padding: 25px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             border-top: 5px solid;
@@ -255,45 +195,91 @@
             box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         }
 
-        .stat-card.blue {
-            border-top-color: #4C9CF0;
-        }
-
         .stat-card.green {
             border-top-color: #00B5A0;
+            background: linear-gradient(135deg, #E6F6F2 0%, #fff 100%);
         }
 
-        .stat-card.yellow {
-            border-top-color: #F5E94E;
+        .stat-card.blue {
+            border-top-color: #1E88E5;
+            background: linear-gradient(135deg, #E3F2FD 0%, #fff 100%);
+        }
+
+        .stat-card.orange {
+            border-top-color: #FF9800;
+            background: linear-gradient(135deg, #FFF3E0 0%, #fff 100%);
+        }
+
+        .stat-card.purple {
+            border-top-color: #9C27B0;
+            background: linear-gradient(135deg, #F3E5F5 0%, #fff 100%);
         }
 
         .stat-card.red {
-            border-top-color: #FF2E2E;
+            border-top-color: #FF5722;
+            background: linear-gradient(135deg, #FBE9E7 0%, #fff 100%);
         }
 
-        .stat-card.active {
-            background: #E6F6F2;
-            border-top-color: #00B5A0;
+        .stat-card.indigo {
+            border-top-color: #3F51B5;
+            background: linear-gradient(135deg, #E8EAF6 0%, #fff 100%);
+        }
+
+        .stat-card .icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            font-size: 24px;
+            color: white;
+        }
+
+        .stat-card.green .icon {
+            background: #00B5A0;
+        }
+
+        .stat-card.blue .icon {
+            background: #1E88E5;
+        }
+
+        .stat-card.orange .icon {
+            background: #FF9800;
+        }
+
+        .stat-card.purple .icon {
+            background: #9C27B0;
+        }
+
+        .stat-card.red .icon {
+            background: #FF5722;
+        }
+
+        .stat-card.indigo .icon {
+            background: #3F51B5;
         }
 
         .stat-card .label {
-            font-size: 12px;
+            font-size: 13px;
             color: #999;
             font-weight: 600;
             margin-bottom: 8px;
         }
 
         .stat-card .number {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 800;
             color: #1B2A41;
         }
 
-        /* TABLE */
+        /* TABLE SECTION */
         .section {
             background: #fff;
             border-radius: 12px;
             padding: 25px;
+            margin-bottom: 25px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
 
@@ -352,52 +338,14 @@
             background: #f9f9f9;
         }
 
-        .status-badge {
+        .badge {
             display: inline-block;
             padding: 5px 12px;
             border-radius: 5px;
             font-size: 12px;
             font-weight: 600;
-        }
-
-        .status-badge.waiting {
-            background: #4C9CF0;
-            color: white;
-        }
-
-        .status-badge.approved {
-            background: #F5E94E;
-            color: #222;
-        }
-
-        .status-badge.rejected {
-            background: #FF2E2E;
-            color: white;
-        }
-
-        .btn-action {
             background: #00B5A0;
             color: white;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: 0.3s;
-            margin-right: 5px;
-        }
-
-        .btn-action:hover {
-            background: #008F7E;
-        }
-
-        .btn-action.reject {
-            background: #FF2E2E;
-        }
-
-        .btn-action.reject:hover {
-            background: #cc2424;
         }
 
         /* FOOTER */
@@ -480,26 +428,27 @@
 
         /* RESPONSIVE */
         @media (max-width: 1024px) {
-            .sidebar {
-                width: 200px;
-            }
             .main-content {
                 padding: 20px 25px;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
         @media (max-width: 768px) {
-            .dashboard-container {
-                flex-direction: column;
+            header {
+                padding: 12px 20px;
             }
-            .sidebar {
-                width: 100%;
+            nav {
+                gap: 12px;
+                font-size: 12px;
             }
-            .search-filter-area {
-                flex-direction: column;
+            .main-content {
+                padding: 15px;
             }
             .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -512,7 +461,7 @@
         <div class="logo-container">
             <img src="{{ asset('images/logo_pemda.png') }}" alt="Logo Pemda">
             <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo RSUD">
-            <span class="header-title">Dashboard Pimpinan</span>
+            <span class="header-title">Dashboard Admin</span>
         </div>
 
         <nav>
@@ -532,112 +481,136 @@
         </div>
     </header>
 
-    <!-- MAIN DASHBOARD -->
-    <div class="dashboard-container">
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
         
-        <!-- SIDEBAR MENU -->
-        <aside class="sidebar">
-            <h3>Menu</h3>
-            <div class="sidebar-menu">
-                <a href="{{ route('dashboard.direktur') }}" class="active">
-                    <i class="fas fa-file-contract"></i>
-                    Perjanjian Kinerja
-                </a>
-                <a href="{{ route('direktur.laporan') }}">
-                    <i class="fas fa-chart-line"></i>
-                    Laporan Kinerja
-                </a>
-            </div>
-        </aside>
+        <!-- PAGE HEADER -->
+        <div class="page-header">
+            <h1>Dashboard Admin</h1>
+            <p>Kelola sistem, pengguna, program, dan aktivitas keseluruhan</p>
+        </div>
 
-        <!-- MAIN CONTENT -->
-        <main class="main-content">
-            
-            <!-- PAGE HEADER -->
-            <div class="page-header">
-                <h1>Selamat Datang, {{ auth()->user()->nama }}</h1>
-                <p>Kelola dan Review perjanjian serta laporan kinerja tim Anda</p>
-            </div>
-
-            <!-- SEARCH AND FILTER -->
-            <div class="search-filter-area">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Cari nama pegawai atau tanggal...">
+        <!-- ALERT PENDING USERS -->
+        @php
+            $pendingUsers = \App\Models\User::where('status', 'pending')->count();
+        @endphp
+        @if($pendingUsers > 0)
+            <div class="alert-box">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="alert-box-content">
+                    <strong>Perhatian!</strong> Ada <strong>{{ $pendingUsers }}</strong> pengguna baru yang menunggu persetujuan.
+                    <a href="{{ route('admin.users.pending') }}">Lihat sekarang →</a>
                 </div>
             </div>
+        @endif
 
-            <!-- STATS CARDS -->
-            <div class="stats-grid">
-                <div class="stat-card green active" data-filter="all">
-                    <div class="label">Total Perjanjian</div>
-                    <div class="number">{{ $counts['all'] ?? 0 }}</div>
-                </div>
-                <div class="stat-card yellow" data-filter="setuju">
-                    <div class="label">Disetujui</div>
-                    <div class="number">{{ $counts['approved'] ?? 0 }}</div>
-                </div>
-                <div class="stat-card blue" data-filter="menunggu">
-                    <div class="label">Menunggu Approval</div>
-                    <div class="number">{{ $counts['waiting'] ?? 0 }}</div>
-                </div>
-                <div class="stat-card red" data-filter="tolak">
-                    <div class="label">Ditolak</div>
-                    <div class="number">{{ $counts['rejected'] ?? 0 }}</div>
-                </div>
+        <!-- STATS GRID -->
+        <div class="stats-grid">
+            <div class="stat-card green">
+                <div class="icon"><i class="fas fa-users"></i></div>
+                <div class="label">Total Pengguna</div>
+                <div class="number">{{ $totalUsers ?? 0 }}</div>
             </div>
+            <div class="stat-card blue">
+                <div class="icon"><i class="fas fa-file-contract"></i></div>
+                <div class="label">Total Perjanjian</div>
+                <div class="number">{{ $totalPerjanjian ?? 0 }}</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="icon"><i class="fas fa-briefcase"></i></div>
+                <div class="label">Total Jabatan</div>
+                <div class="number">{{ $jabatanStats->count() ?? 0 }}</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="icon"><i class="fas fa-folder-open"></i></div>
+                <div class="label">Total Program</div>
+                <div class="number">{{ $totalPrograms ?? 0 }}</div>
+            </div>
+            <div class="stat-card red">
+                <div class="icon"><i class="fas fa-tasks"></i></div>
+                <div class="label">Total Kegiatan</div>
+                <div class="number">{{ $totalKegiatan ?? 0 }}</div>
+            </div>
+            <div class="stat-card indigo">
+                <div class="icon"><i class="fas fa-list-ul"></i></div>
+                <div class="label">Total Sub-Kegiatan</div>
+                <div class="number">{{ $totalSubKegiatan ?? 0 }}</div>
+            </div>
+        </div>
 
-            <!-- PERJANJIAN TABLE -->
-            <div class="section">
-                <div class="section-title">
-                    <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Data Perjanjian Kinerja</h2>
-                    <a href="{{ route('direktur.perjanjian.list') }}">Lihat Semua</a>
-                </div>
-                <table>
-                    <thead>
+        <!-- USERS TABLE -->
+        <div class="section">
+            <div class="section-title">
+                <h2><i class="fas fa-users" style="color: #00B5A0; margin-right: 10px;"></i>Daftar Pengguna</h2>
+                <a href="{{ route('admin.users.index') }}">Lihat Semua</a>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama</th>
+                        <th>Jabatan</th>
+                        <th>Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($users ?? [] as $i => $user)
                         <tr>
-                            <th>No</th>
-                            <th>Nama Pegawai</th>
-                            <th>Tanggal</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
+                            <td>{{ $i + 1 }}</td>
+                            <td><strong>{{ $user->nama }}</strong></td>
+                            <td>{{ $user->jabatan ?? '-' }}</td>
+                            <td><span class="badge">{{ $user->role }}</span></td>
                         </tr>
-                    </thead>
-                    <tbody id="dataTable">
-                        @forelse($perjanjians ?? [] as $i => $perjanjian)
-                            <tr>
-                                <td>{{ $i + 1 }}</td>
-                                <td><strong>{{ $perjanjian->pihak1_name ?? '-' }}</strong></td>
-                                <td>{{ $perjanjian->created_at?->format('d/m/Y') ?? '-' }}</td>
-                                <td>
-                                    @if($perjanjian->rejected === true)
-                                        <span class="status-badge rejected">Ditolak</span>
-                                    @elseif(!empty($perjanjian->pihak2_signature))
-                                        <span class="status-badge approved">Disetujui</span>
-                                    @else
-                                        <span class="status-badge waiting">Menunggu</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <a href="{{ route('direktur.perjanjian.show', $perjanjian->id) }}">
-                                        <button class="btn-action">Review</button>
-                                    </a>
-                                    <a href="{{ route('direktur.perjanjian.print', $perjanjian->id) }}" target="_blank">
-                                        <button class="btn-action">Cetak</button>
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" style="text-align: center; padding: 30px;">Belum ada data perjanjian kinerja</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                    @empty
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 30px;">Belum ada data pengguna</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-        </main>
-    </div>
+        <!-- PERJANJIAN TABLE -->
+        <div class="section">
+            <div class="section-title">
+                <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Perjanjian Kinerja Terbaru</h2>
+                <a href="{{ route('admin.dashboard') }}">Lihat Semua</a>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Pegawai</th>
+                        <th>Tanggal</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($recentPerjanjian ?? [] as $i => $perjanjian)
+                        <tr>
+                            <td>{{ $i + 1 }}</td>
+                            <td><strong>{{ $perjanjian->pihak1_name ?? '-' }}</strong></td>
+                            <td>{{ $perjanjian->created_at?->format('d/m/Y') ?? '-' }}</td>
+                            <td>
+                                @if($perjanjian->rejected === true)
+                                    <span class="badge" style="background: #FF2E2E;">Ditolak</span>
+                                @elseif(!empty($perjanjian->pihak2_signature))
+                                    <span class="badge" style="background: #28a745;">Disetujui</span>
+                                @else
+                                    <span class="badge" style="background: #4C9CF0;">Menunggu</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 30px;">Belum ada data perjanjian</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+    </main>
 
     <!-- FOOTER -->
     <footer>© 2026 RSUD Bangil – Sistem Laporan Kinerja</footer>
@@ -656,8 +629,6 @@
             </div>
         </div>
     </div>
-
-    @include('components.logout-modal')
 
     <script>
         // Profile menu toggle
@@ -696,48 +667,6 @@
                 logoutModal.style.display = 'none';
             }
         });
-
-        // Search and filter
-        const searchInput = document.getElementById('searchInput');
-        const statCards = document.querySelectorAll('.stat-card');
-        const dataTable = document.getElementById('dataTable');
-        let activeFilter = 'all';
-
-        statCards.forEach(card => {
-            card.addEventListener('click', () => {
-                statCards.forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-                activeFilter = card.dataset.filter;
-                filterTable();
-            });
-        });
-
-        searchInput.addEventListener('keyup', filterTable);
-
-        function filterTable() {
-            const keyword = searchInput.value.toLowerCase();
-            const rows = dataTable.querySelectorAll('tr');
-
-            rows.forEach(row => {
-                const statusEl = row.querySelector('.status-badge');
-                const rowText = row.innerText.toLowerCase();
-
-                let statusMatch = true;
-                if (activeFilter !== 'all' && statusEl) {
-                    const statusClass = statusEl.className;
-                    const statusMap = {
-                        'menunggu': statusClass.includes('waiting'),
-                        'setuju': statusClass.includes('approved'),
-                        'tolak': statusClass.includes('rejected')
-                    };
-                    statusMatch = statusMap[activeFilter] || false;
-                }
-
-                const searchMatch = rowText.includes(keyword);
-
-                row.style.display = (statusMatch && searchMatch) ? '' : 'none';
-            });
-        }
     </script>
 
 </body>

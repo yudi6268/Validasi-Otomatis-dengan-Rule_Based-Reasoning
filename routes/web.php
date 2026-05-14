@@ -34,11 +34,12 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->route('admin.dashboard');
         }
 
-        return view('home');
+        return redirect()->route('home');
     })->name('home');
 
     // Dashboard controller untuk redirect otomatis
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/home', [DashboardController::class, 'home'])->name('home');
 
     // Dashboard direktur - hanya untuk Direktur
     Route::middleware(['check.jabatan:Direktur'])->group(function () {

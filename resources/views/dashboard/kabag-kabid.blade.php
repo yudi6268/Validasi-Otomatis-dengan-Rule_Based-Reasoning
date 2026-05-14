@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Pimpinan - RSUD Bangil</title>
+    <title>Dashboard Kepala Bagian/Bidang - RSUD Bangil</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
@@ -196,58 +196,21 @@
             font-size: 14px;
         }
 
-        /* SEARCH AND FILTER */
-        .search-filter-area {
-            background: #fff;
-            padding: 20px 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .search-box {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            background: #f9f9f9;
-            border-radius: 8px;
-            padding: 0 15px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .search-box input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            padding: 10px 0;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .search-box i {
-            color: #999;
-        }
-
-        /* STATS CARDS */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
         .stat-card {
             background: #fff;
-            padding: 20px;
+            padding: 25px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            border-top: 5px solid;
-            text-align: center;
-            cursor: pointer;
+            border-left: 5px solid;
             transition: 0.3s;
+            cursor: pointer;
         }
 
         .stat-card:hover {
@@ -256,44 +219,47 @@
         }
 
         .stat-card.blue {
-            border-top-color: #4C9CF0;
+            border-left-color: #4C9CF0;
         }
 
         .stat-card.green {
-            border-top-color: #00B5A0;
+            border-left-color: #00B5A0;
         }
 
         .stat-card.yellow {
-            border-top-color: #F5E94E;
+            border-left-color: #F5E94E;
         }
 
         .stat-card.red {
-            border-top-color: #FF2E2E;
-        }
-
-        .stat-card.active {
-            background: #E6F6F2;
-            border-top-color: #00B5A0;
+            border-left-color: #FF2E2E;
         }
 
         .stat-card .label {
-            font-size: 12px;
+            font-size: 13px;
             color: #999;
             font-weight: 600;
             margin-bottom: 8px;
+            text-transform: uppercase;
         }
 
         .stat-card .number {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 800;
             color: #1B2A41;
         }
 
-        /* TABLE */
+        .stat-card .sublabel {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+        }
+
+        /* TABLE & LISTS */
         .section {
             background: #fff;
             border-radius: 12px;
             padding: 25px;
+            margin-bottom: 25px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
 
@@ -366,8 +332,8 @@
         }
 
         .status-badge.approved {
-            background: #F5E94E;
-            color: #222;
+            background: #28a745;
+            color: white;
         }
 
         .status-badge.rejected {
@@ -379,25 +345,16 @@
             background: #00B5A0;
             color: white;
             border: none;
-            padding: 6px 14px;
+            padding: 6px 12px;
             border-radius: 5px;
             cursor: pointer;
             font-size: 12px;
             font-weight: 600;
             transition: 0.3s;
-            margin-right: 5px;
         }
 
         .btn-action:hover {
             background: #008F7E;
-        }
-
-        .btn-action.reject {
-            background: #FF2E2E;
-        }
-
-        .btn-action.reject:hover {
-            background: #cc2424;
         }
 
         /* FOOTER */
@@ -410,7 +367,6 @@
             border-top: 1px solid #e0e0e0;
         }
 
-        /* LOGOUT MODAL */
         .logout-modal {
             display: none;
             position: fixed;
@@ -478,7 +434,6 @@
             background: #d0d0d0;
         }
 
-        /* RESPONSIVE */
         @media (max-width: 1024px) {
             .sidebar {
                 width: 200px;
@@ -494,9 +449,7 @@
             }
             .sidebar {
                 width: 100%;
-            }
-            .search-filter-area {
-                flex-direction: column;
+                padding: 15px;
             }
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -512,7 +465,7 @@
         <div class="logo-container">
             <img src="{{ asset('images/logo_pemda.png') }}" alt="Logo Pemda">
             <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo RSUD">
-            <span class="header-title">Dashboard Pimpinan</span>
+            <span class="header-title">Dashboard Kepala Bagian/Bidang</span>
         </div>
 
         <nav>
@@ -539,11 +492,11 @@
         <aside class="sidebar">
             <h3>Menu</h3>
             <div class="sidebar-menu">
-                <a href="{{ route('dashboard.direktur') }}" class="active">
+                <a href="{{ route('perjanjian.index') }}" class="active">
                     <i class="fas fa-file-contract"></i>
                     Perjanjian Kinerja
                 </a>
-                <a href="{{ route('direktur.laporan') }}">
+                <a href="{{ route('laporan.kinerja') }}">
                     <i class="fas fa-chart-line"></i>
                     Laporan Kinerja
                 </a>
@@ -556,82 +509,53 @@
             <!-- PAGE HEADER -->
             <div class="page-header">
                 <h1>Selamat Datang, {{ auth()->user()->nama }}</h1>
-                <p>Kelola dan Review perjanjian serta laporan kinerja tim Anda</p>
-            </div>
-
-            <!-- SEARCH AND FILTER -->
-            <div class="search-filter-area">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Cari nama pegawai atau tanggal...">
-                </div>
+                <p>Kelola perjanjian dan laporan kinerja departemen Anda</p>
             </div>
 
             <!-- STATS CARDS -->
             <div class="stats-grid">
-                <div class="stat-card green active" data-filter="all">
-                    <div class="label">Total Perjanjian</div>
-                    <div class="number">{{ $counts['all'] ?? 0 }}</div>
+                <div class="stat-card blue">
+                    <div class="label">Perjanjian Kinerja</div>
+                    <div class="number">{{ $totalPerjanjian ?? 0 }}</div>
+                    <div class="sublabel">Total Dokumen</div>
                 </div>
-                <div class="stat-card yellow" data-filter="setuju">
-                    <div class="label">Disetujui</div>
-                    <div class="number">{{ $counts['approved'] ?? 0 }}</div>
+                <div class="stat-card green">
+                    <div class="label">Sudah Disetujui</div>
+                    <div class="number">{{ $perjanjianApproved ?? 0 }}</div>
+                    <div class="sublabel">Perjanjian</div>
                 </div>
-                <div class="stat-card blue" data-filter="menunggu">
+                <div class="stat-card yellow">
                     <div class="label">Menunggu Approval</div>
-                    <div class="number">{{ $counts['waiting'] ?? 0 }}</div>
+                    <div class="number">{{ $perjanjianWaiting ?? 0 }}</div>
+                    <div class="sublabel">Perjanjian</div>
                 </div>
-                <div class="stat-card red" data-filter="tolak">
+                <div class="stat-card red">
                     <div class="label">Ditolak</div>
-                    <div class="number">{{ $counts['rejected'] ?? 0 }}</div>
+                    <div class="number">{{ $perjanjianRejected ?? 0 }}</div>
+                    <div class="sublabel">Perjanjian</div>
                 </div>
             </div>
 
-            <!-- PERJANJIAN TABLE -->
+            <!-- PERJANJIAN SECTION -->
             <div class="section">
                 <div class="section-title">
-                    <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Data Perjanjian Kinerja</h2>
-                    <a href="{{ route('direktur.perjanjian.list') }}">Lihat Semua</a>
+                    <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Perjanjian Kinerja</h2>
+                    <a href="{{ route('perjanjian.index') }}">Lihat Semua</a>
                 </div>
                 <table>
                     <thead>
                         <tr>
                             <th>No</th>
-                            <th>Nama Pegawai</th>
-                            <th>Tanggal</th>
+                            <th>Periode</th>
                             <th>Status</th>
+                            <th>Tgl. Dibuat</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody id="dataTable">
-                        @forelse($perjanjians ?? [] as $i => $perjanjian)
-                            <tr>
-                                <td>{{ $i + 1 }}</td>
-                                <td><strong>{{ $perjanjian->pihak1_name ?? '-' }}</strong></td>
-                                <td>{{ $perjanjian->created_at?->format('d/m/Y') ?? '-' }}</td>
-                                <td>
-                                    @if($perjanjian->rejected === true)
-                                        <span class="status-badge rejected">Ditolak</span>
-                                    @elseif(!empty($perjanjian->pihak2_signature))
-                                        <span class="status-badge approved">Disetujui</span>
-                                    @else
-                                        <span class="status-badge waiting">Menunggu</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <a href="{{ route('direktur.perjanjian.show', $perjanjian->id) }}">
-                                        <button class="btn-action">Review</button>
-                                    </a>
-                                    <a href="{{ route('direktur.perjanjian.print', $perjanjian->id) }}" target="_blank">
-                                        <button class="btn-action">Cetak</button>
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" style="text-align: center; padding: 30px;">Belum ada data perjanjian kinerja</td>
-                            </tr>
-                        @endforelse
+                    <tbody>
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 30px;">Belum ada perjanjian kinerja</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -657,10 +581,7 @@
         </div>
     </div>
 
-    @include('components.logout-modal')
-
     <script>
-        // Profile menu toggle
         const profileIcon = document.getElementById('profileIcon');
         const profileMenu = document.getElementById('profileMenu');
         const logoutIcon = document.getElementById('logoutIcon');
@@ -678,7 +599,6 @@
             });
         }
 
-        // Logout functionality
         if (logoutIcon) {
             logoutIcon.addEventListener('click', () => {
                 logoutModal.style.display = 'flex';
@@ -696,48 +616,6 @@
                 logoutModal.style.display = 'none';
             }
         });
-
-        // Search and filter
-        const searchInput = document.getElementById('searchInput');
-        const statCards = document.querySelectorAll('.stat-card');
-        const dataTable = document.getElementById('dataTable');
-        let activeFilter = 'all';
-
-        statCards.forEach(card => {
-            card.addEventListener('click', () => {
-                statCards.forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-                activeFilter = card.dataset.filter;
-                filterTable();
-            });
-        });
-
-        searchInput.addEventListener('keyup', filterTable);
-
-        function filterTable() {
-            const keyword = searchInput.value.toLowerCase();
-            const rows = dataTable.querySelectorAll('tr');
-
-            rows.forEach(row => {
-                const statusEl = row.querySelector('.status-badge');
-                const rowText = row.innerText.toLowerCase();
-
-                let statusMatch = true;
-                if (activeFilter !== 'all' && statusEl) {
-                    const statusClass = statusEl.className;
-                    const statusMap = {
-                        'menunggu': statusClass.includes('waiting'),
-                        'setuju': statusClass.includes('approved'),
-                        'tolak': statusClass.includes('rejected')
-                    };
-                    statusMatch = statusMap[activeFilter] || false;
-                }
-
-                const searchMatch = rowText.includes(keyword);
-
-                row.style.display = (statusMatch && searchMatch) ? '' : 'none';
-            });
-        }
     </script>
 
 </body>

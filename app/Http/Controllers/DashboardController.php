@@ -48,9 +48,47 @@ class DashboardController extends Controller
     }
     
     /**
-     * Dashboard untuk Wakil Direktur (Umum dan Pelayanan digabung)
+     * Halaman home untuk staff
      */
-    public function wadir()
+    public function home()
+    {
+        $user = Auth::user();
+        
+        // Statistik perjanjian yang dibuat oleh user
+        $totalPerjanjian = Perjanjian::where('user_id', $user->id)->count();
+        $perjanjianApproved = Perjanjian::where('user_id', $user->id)
+            ->whereNotNull('pihak2_signature')
+            ->where(function($q) {
+                $q->whereNull('rejected')
+                  ->orWhere('rejected', false)
+                  ->orWhere('rejected', 0)
+                  ->orWhere('rejected', '0');
+            })
+            ->count();
+        $perjanjianWaiting = Perjanjian::where('user_id', $user->id)
+            ->whereNull('pihak2_signature')
+            ->where(function($q) {
+                $q->whereNull('rejected')
+                  ->orWhere('rejected', false)
+                  ->orWhere('rejected', 0)
+                  ->orWhere('rejected', '0');
+            })
+            ->count();
+        $perjanjianRejected = Perjanjian::where('user_id', $user->id)
+            ->where(function($q){
+                $q->where('rejected', true)
+                  ->orWhere('rejected', 1)
+                  ->orWhere('rejected', '1');
+            })
+            ->count();
+        
+        // Get recent perjanjians for the user
+        $perjanjians = Perjanjian::where('user_id', $user->id)->latest()->take(5)->get();
+        
+        return view('home', compact('totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians'));
+    }
+
+    /**
     {
         $user = Auth::user();
         

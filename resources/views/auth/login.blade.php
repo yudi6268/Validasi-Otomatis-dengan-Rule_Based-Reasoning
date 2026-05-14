@@ -3,234 +3,374 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Akun</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <title>Login - Validasi LapKin SAKIP RSUD Bangil</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            background-color: #E9F8F8;
+            background: linear-gradient(135deg, #e7fbf3 0%, #e4f4f0 100%);
             font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            padding: 20px;
         }
 
-        .login-container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-            width: 380px;
+        .page-wrapper {
+            width: 100%;
+            max-width: 980px;
+        }
+
+        .card {
+            display: grid;
+            grid-template-columns: 1.05fr 1fr;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.14);
+            background: rgba(255,255,255,0.98);
+        }
+
+        .hero-panel,
+        .form-panel {
+            padding: 60px 45px;
+        }
+
+        .hero-panel {
+            background: linear-gradient(180deg, #ecf8f6 0%, #e3f3ee 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             text-align: center;
+            gap: 28px;
         }
 
-        .login-container img {
-            height: 60px;
-            margin: 0 10px;
+        .hero-panel .brand {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid rgba(0, 181, 160, 0.16);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 18px 36px rgba(0, 0, 0, 0.08);
         }
 
-        h2 {
-            color: #006633;
-            font-weight: 600;
-            margin-top: 15px;
-            margin-bottom: 30px;
+        .hero-panel .brand img {
+            width: 110px;
+            height: auto;
+        }
+
+        .hero-panel h1 {
+            font-size: 30px;
+            font-weight: 800;
+            color: #007b60;
+            line-height: 1.05;
+        }
+
+        .hero-panel p {
+            color: #4e6b63;
+            font-size: 15px;
+            line-height: 1.8;
+            max-width: 320px;
+        }
+
+        .form-panel h2 {
+            color: #0f4d3d;
+            font-size: 30px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .form-panel .subtitle {
+            color: #6b7c78;
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.7;
         }
 
         .input-group {
+            margin-bottom: 20px;
             text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1.5px solid #dde6e3;
+            font-size: 14px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #00b39d;
+            box-shadow: 0 0 0 4px rgba(0, 179, 157, 0.12);
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: #8b9a92;
+            font-size: 18px;
+            padding: 6px;
+        }
+
+        .toggle-password:hover {
+            color: #009970;
+        }
+
+        .helper-text {
+            margin-top: 8px;
+            color: #7a8d86;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 15px 16px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #009970, #00b39d);
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 22px rgba(0, 155, 124, 0.24);
+        }
+
+        .form-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 4px;
             margin-bottom: 20px;
         }
 
-        label {
+        .form-checkbox input {
+            width: 16px;
+            height: 16px;
+            accent-color: #009970;
+        }
+
+        .form-checkbox label {
+            color: #4d6f63;
             font-size: 13px;
             font-weight: 600;
-            color: #333;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            margin-top: 5px;
-            font-size: 14px;
-        }
-
-        button {
-            width: 100%;
-            background-color: #009970;
-            border: none;
-            color: white;
-            padding: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        button:hover {
-            background-color: #007a59;
         }
 
         .links {
-            margin-top: 15px;
             display: flex;
             justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 14px;
         }
 
         .links a {
-            font-size: 13px;
             color: #009970;
             text-decoration: none;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
+            transition: color 0.2s;
         }
 
         .links a:hover {
+            color: #007b60;
             text-decoration: underline;
         }
 
         .alert-box {
-            padding: 14px 16px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            line-height: 1.5;
-            border-left: 5px solid;
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 22px;
             display: flex;
-            gap: 12px;
             align-items: flex-start;
+            gap: 12px;
+            font-size: 13px;
+            line-height: 1.7;
         }
 
         .alert-success {
-            background-color: #d4edda;
+            background: #e7f8ec;
             color: #155724;
-            border-left-color: #28a745;
+            border-left: 5px solid #28a745;
         }
 
         .alert-error {
-            background-color: #f8d7da;
+            background: #f8e6e9;
             color: #721c24;
-            border-left-color: #dc3545;
+            border-left: 5px solid #dc3545;
         }
 
         .alert-box i {
             margin-top: 2px;
-            font-size: 16px;
+            font-size: 18px;
         }
 
-        .alert-content {
-            text-align: left;
+        .alert-box ul {
+            margin: 0;
+            padding-left: 18px;
         }
 
-        .alert-content strong {
-            display: block;
-            margin-bottom: 4px;
+        @media (max-width: 920px) {
+            .card {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-panel,
+            .form-panel {
+                padding: 40px 30px;
+            }
         }
 
-        .alert-content small {
-            display: block;
-            margin-top: 6px;
-            opacity: 0.9;
+        @media (max-width: 650px) {
+            .hero-panel {
+                display: none;
+            }
+
+            .form-panel {
+                padding: 30px 20px;
+            }
+
+            .links {
+                flex-direction: column;
+            }
+
+            .links a {
+                text-align: center;
+            }
         }
     </style>
 </head>
 <body>
+    <div class="page-wrapper">
+        <div class="card">
+            <div class="hero-panel">
+                <div class="brand">
+                    <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo RSUD Bangil">
+                </div>
+                <h1>Validasi LapKin SAKIP RSUD Bangil</h1>
+                <p>Validasi Otomatis LapKin SAKIP RSUD Bangil Menggunakan Rule-Based Reasoning.</p>
+            </div>
 
-    <div class="login-container">
-        <div class="logos">
-            <img src="{{ asset('images/logo_pemda.png') }}" alt="Logo pemda">
-            <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo rsud">
+            <div class="form-panel">
+                <h2>Selamat Datang!</h2>
+                <p class="subtitle">Masuk menggunakan ID Pegawai dan kata sandi Anda untuk melanjutkan.</p>
+
+                @if(session('success'))
+                    <div class="alert-box alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="alert-content">
+                            <strong>Sukses!</strong>
+                            {{ session('success') }}
+                        </div>
+                    </div>
+                @endif
+
+                @if($errors->any())
+                    <div class="alert-box alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <div class="alert-content">
+                            <strong>Terjadi kesalahan</strong>
+                            <ul>
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('login.post') }}">
+                    @csrf
+
+                    <div class="input-group">
+                        <label for="user_id">ID Pegawai</label>
+                        <input id="user_id" type="text" name="user_id" placeholder="Contoh: RS01, ADM001" value="{{ old('user_id') }}" required autocomplete="username" />
+                        <div class="helper-text">
+                            <i class="fas fa-info-circle"></i> Gunakan ID Pegawai Anda, bukan email.
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <div class="password-wrapper">
+                            <input id="password" type="password" name="password" placeholder="Masukkan password" required autocomplete="current-password" />
+                            <button type="button" class="toggle-password" id="toggleLoginPassword" tabindex="-1">
+                                <i class="fas fa-eye" id="iconLoginPassword"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-checkbox">
+                        <input id="remember" type="checkbox" name="remember" {{ old('remember') ? 'checked' : '' }} />
+                        <label for="remember">Ingat saya</label>
+                    </div>
+
+                    <button type="submit">Masuk</button>
+
+                    <div class="links">
+                        <a href="{{ route('forgot.form') }}">Lupa Password?</a>
+                        <a href="{{ route('register.form') }}">Buat Akun</a>
+                    </div>
+                </form>
+            </div>
         </div>
-        <h2>Masuk ke Akun Anda</h2>
-
-        @if(session('success'))
-            <div class="alert-box alert-success">
-                <i class="fas fa-check-circle"></i>
-                <div class="alert-content">
-                    <strong>Sukses!</strong>
-                    {{ session('success') }}
-                </div>
-            </div>
-        @endif
-
-        @if($errors->has('login'))
-            <div class="alert-box alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <div class="alert-content">
-                    <strong>Login Gagal!</strong>
-                    {{ $errors->first('login') }}
-                    <small>
-                        <i class="fas fa-lightbulb"></i> 
-                        Periksa kembali ID Pegawai dan Password Anda.
-                    </small>
-                </div>
-            </div>
-        @endif
-
-        @if($errors->has('user_id'))
-            <div class="alert-box alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <div class="alert-content">
-                    <strong>Data Tidak Lengkap!</strong>
-                    {{ $errors->first('user_id') }}
-                </div>
-            </div>
-        @endif
-
-        @if($errors->has('password'))
-            <div class="alert-box alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <div class="alert-content">
-                    <strong>Data Tidak Lengkap!</strong>
-                    {{ $errors->first('password') }}
-                </div>
-            </div>
-        @endif
-
-        <form method="POST" action="{{ route('login.post') }}">
-    @csrf
-    <div class="input-group">
-        <label>ID PEGAWAI (bukan email)</label>
-        <input type="text" name="user_id" placeholder="Contoh: RS01, ADM001" required style="width:100%;box-sizing:border-box;">
-        <small style="color: #666; display: block; margin-top: 5px;">💡 Gunakan ID Pegawai Anda, bukan email</small>
     </div>
 
-    <div class="input-group">
-        <label>PASSWORD</label>
-        <div style="display:flex;align-items:center;position:relative;width:100%;max-width:100%;">
-            <input type="password" name="password" id="loginPasswordInput" placeholder="Masukkan Password" required style="width:100%;box-sizing:border-box;padding-right:38px;min-width:0;">
-            <button type="button" id="toggleLoginPassword" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:transparent;padding:0;margin:0;outline:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
-                <i class="fas fa-eye" id="iconLoginPassword" style="font-size:1.1rem;color:#888;"></i>
-            </button>
-        </div>
-    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('password');
+            const toggleButton = document.getElementById('toggleLoginPassword');
+            const icon = document.getElementById('iconLoginPassword');
 
-    <button type="submit">MASUK</button>
-
-    <div class="links">
-        <a href="/register">Daftar Akun</a>
-        <a href="/forgot-password">Lupa Password?</a>
-    </div>
-        </form>
-    </div>
+            if (toggleButton) {
+                toggleButton.addEventListener('click', function() {
+                    const isPassword = passwordInput.type === 'password';
+                    passwordInput.type = isPassword ? 'text' : 'password';
+                    icon.classList.toggle('fa-eye');
+                    icon.classList.toggle('fa-eye-slash');
+                });
+            }
+        });
+    </script>
 </body>
 </html>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const loginPasswordInput = document.getElementById('loginPasswordInput');
-        const toggleLoginPassword = document.getElementById('toggleLoginPassword');
-        const iconLoginPassword = document.getElementById('iconLoginPassword');
-        if(toggleLoginPassword) {
-            toggleLoginPassword.addEventListener('click', function() {
-                const type = loginPasswordInput.type === 'password' ? 'text' : 'password';
-                loginPasswordInput.type = type;
-                iconLoginPassword.classList.toggle('fa-eye');
-                iconLoginPassword.classList.toggle('fa-eye-slash');
-            });
-        }
-    });
-</script>
