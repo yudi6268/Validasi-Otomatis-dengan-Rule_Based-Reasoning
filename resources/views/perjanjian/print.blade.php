@@ -1274,7 +1274,23 @@
         if (in_array($statusQuery, ['ditolak', 'disetujui', 'menunggu'], true)) {
             $status = $statusQuery;
         }
+
+        $backUrl = route('perjanjian.index');
+        if (request()->get('from') === 'dashboard_wadir_perjanjian') {
+            $backUrl = route('dashboard.wadir', ['panel' => 'perjanjian']);
+        }
     @endphp
+
+    @if(empty($for_pdf))
+        <div style="position:fixed;top:18px;left:18px;z-index:1300;">
+            <a href="{{ $backUrl }}"
+                style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#ffffff;color:#009970;text-decoration:none;font-size:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);border:1px solid #d7e3df;"
+                title="Kembali"
+                aria-label="Kembali">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            </a>
+        </div>
+    @endif
 
     {{-- Header with title for user --}}
     @if(!$isDirektur)
@@ -2457,14 +2473,14 @@
     {{-- Footer for user preview --}}
     @if(!$isDirektur)
         <div class="footer-fixed">
-            © {{ date('Y') }} RSUD Bangil – Sistem Perjanjian Kinerja
+            © {{ date('Y') }} © 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil
         </div>
     @endif
 
     {{-- Footer for direktur preview --}}
     @if($isDirektur)
         <div class="footer-fixed">
-            © {{ date('Y') }} RSUD Bangil – Sistem Perjanjian Kinerja
+            © {{ date('Y') }} © 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil
         </div>
     @endif
 

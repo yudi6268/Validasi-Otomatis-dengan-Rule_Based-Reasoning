@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Perjanjian;
 use App\Models\Laporan;
 use App\Models\Notification;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use App\Services\SupabaseService;
@@ -170,6 +171,27 @@ class DirekturDashboardController extends Controller
 
         $perjanjians = $query->paginate(10);
         
+        // Build monthly summary (Jan..Dec) for chart: approved vs rejected
+        $months = [];
+        $approvedSeries = array_fill(0, 12, 0);
+        $rejectedSeries = array_fill(0, 12, 0);
+        for ($m = 1; $m <= 12; $m++) {
+            $months[] = \Carbon\Carbon::create(null, $m, 1)->translatedFormat('M');
+        }
+        foreach ($allData as $item) {
+            $monthIndex = (int) (\Carbon\Carbon::parse($item->created_at)->format('n')) - 1;
+            if ($this->isRejectedValue($item->rejected)) {
+                $rejectedSeries[$monthIndex]++;
+            } elseif (!empty($item->pihak2_signature)) {
+                $approvedSeries[$monthIndex]++;
+            }
+        }
+        $monthly = [
+            'labels' => $months,
+            'approved' => $approvedSeries,
+            'rejected' => $rejectedSeries,
+        ];
+
         // Ambil aktivitas/notifikasi (perjanjian yang sudah di-approve atau reject)
         $notifications = Perjanjian::where(function($q) use ($user) {
                     $q->where('pihak2_name', $user->nama)
@@ -200,7 +222,7 @@ class DirekturDashboardController extends Controller
                     ];
                 });
         
-        return view('dashboard.direktur', compact('perjanjians', 'notifications', 'counts'));
+        return view('dashboard.direktur', compact('perjanjians', 'notifications', 'counts', 'monthly'));
     }
 
     public function laporanKinerja(Request $request)
@@ -244,8 +266,12 @@ class DirekturDashboardController extends Controller
                                 'time' => $item->updated_at->diffForHumans(),
                             ];
                         });
+
+        $perjanjian = Perjanjian::whereIn('id', $perjanjianIds)->orderBy('updated_at', 'desc')->first();
+        $triwulanAktif = Setting::where('key', 'triwulan_aktif')->value('value') ?? 1;
+        $message = null;
         
-        return view('dashboard.laporan-kinerja', compact('laporans', 'notifications'));
+        return view('laporan-kinerja', compact('perjanjian', 'laporans', 'triwulanAktif', 'message', 'notifications'));
     }
 
     public function approvePerjanjian(Request $request, $id)

@@ -158,7 +158,7 @@
             {{-- Action Buttons --}}
             <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px; padding-top:20px; border-top:2px solid #e0e0e0;">
                 <button type="button" onclick="closeTargetModal()" 
-                        style="padding:12px 30px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; transition:all 0.3s;">
+                        style="padding:12px 30px; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; transition:all 0.3s;">
                     ✖ Batal
                 </button>
                 <button type="button" id="btnSimpanTarget" onclick="saveTargetModal()" 

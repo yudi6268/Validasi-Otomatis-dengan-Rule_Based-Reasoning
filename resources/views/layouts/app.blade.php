@@ -148,9 +148,7 @@
   </main>
 
   {{-- ================= FOOTER ================= --}}
-  <footer>
-    © 2025 RSUD Bangil | Sistem Perjanjian Kinerja
-  </footer>
+  <footer style="margin-top:40px;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
 
   @include('components.logout-modal')
 

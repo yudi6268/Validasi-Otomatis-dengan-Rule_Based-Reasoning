@@ -35,7 +35,7 @@ Route::middleware(['auth'])->group(function () {
         }
 
         return redirect()->route('home');
-    })->name('home');
+    })->name('root');
 
     // Dashboard controller untuk redirect otomatis
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -70,6 +70,9 @@ Route::middleware(['auth'])->group(function () {
     // Perjanjian & Laporan
     Route::get('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'index'])->name('perjanjian.index');
     Route::get('/laporan-kinerja', [App\Http\Controllers\LaporanKinerjaController::class, 'index'])->name('laporan.kinerja');
+    Route::get('/laporan-kinerja/wadir', [App\Http\Controllers\LaporanKinerjaController::class, 'wadirIndex'])->name('laporan.wadir.index');
+    Route::get('/laporan/{id}/pdf/preview', [App\Http\Controllers\LaporanKinerjaController::class, 'pdfPreview'])->name('laporan.pdf.preview');
+    Route::delete('/laporan/{id}', [App\Http\Controllers\LaporanKinerjaController::class, 'destroy'])->name('laporan.destroy');
     Route::post('/api/realisasi/perjanjian', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.perjanjian');
     Route::post('/api/realisasi/{laporanId}', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.laporan');
     

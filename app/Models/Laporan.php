@@ -9,6 +9,7 @@ class Laporan extends Model
     protected $table = 'laporans';
 
     protected $fillable = [
+        'user_id',
         'perjanjian_id',
         'periode',
         'tahun',
@@ -17,8 +18,10 @@ class Laporan extends Model
         'bobot',
         'sumber_data',
         'pihak1_name',
+        'pihak1_jabatan',
         'pihak1_signature',
         'pihak2_name',
+        'pihak2_jabatan',
         'pihak2_signature',
         'jabatan',
         'tabelA',

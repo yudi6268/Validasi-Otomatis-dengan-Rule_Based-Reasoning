@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Laporan;
 use App\Models\Perjanjian;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Smart Validation Service
@@ -24,36 +25,41 @@ class SmartValidationService
      * @param Laporan $laporan
      * @return array
      */
-    public function validateLaporan(Laporan $laporan): array
+    public function validateLaporan(Laporan $laporan, ?int $activeTriwulan = null): array
     {
         $issues = [];
         $warnings = [];
         $suggestions = [];
         $score = 100;
 
+        $activeTriwulan = (int) ($activeTriwulan ?? $laporan->triwulan_aktif ?? 1);
+        if ($activeTriwulan < 1 || $activeTriwulan > 4) {
+            $activeTriwulan = 1;
+        }
+
         // 1. Validasi kelengkapan dasar
-        $basicCheck = $this->validateBasicCompleteness($laporan);
+        $basicCheck = $this->validateBasicCompleteness($laporan, $activeTriwulan);
         $issues = array_merge($issues, $basicCheck['issues']);
         $warnings = array_merge($warnings, $basicCheck['warnings']);
         $suggestions = array_merge($suggestions, $basicCheck['suggestions']);
         $score -= $basicCheck['scoreDeduction'];
 
         // 2. Validasi konsistensi target-realisasi
-        $consistencyCheck = $this->validateTargetRealisasiConsistency($laporan);
+        $consistencyCheck = $this->validateTargetRealisasiConsistency($laporan, $activeTriwulan);
         $issues = array_merge($issues, $consistencyCheck['issues']);
         $warnings = array_merge($warnings, $consistencyCheck['warnings']);
         $suggestions = array_merge($suggestions, $consistencyCheck['suggestions']);
         $score -= $consistencyCheck['scoreDeduction'];
 
         // 3. Deteksi anomali
-        $anomalyCheck = $this->detectAnomalies($laporan);
+        $anomalyCheck = $this->detectAnomalies($laporan, $activeTriwulan);
         $issues = array_merge($issues, $anomalyCheck['issues']);
         $warnings = array_merge($warnings, $anomalyCheck['warnings']);
         $suggestions = array_merge($suggestions, $anomalyCheck['suggestions']);
         $score -= $anomalyCheck['scoreDeduction'];
 
         // 4. Validasi timeline
-        $timelineCheck = $this->validateTimeline($laporan);
+        $timelineCheck = $this->validateTimeline($laporan, $activeTriwulan);
         $warnings = array_merge($warnings, $timelineCheck['warnings']);
         $suggestions = array_merge($suggestions, $timelineCheck['suggestions']);
         $score -= $timelineCheck['scoreDeduction'];
@@ -75,7 +81,7 @@ class SmartValidationService
     /**
      * Validasi kelengkapan dasar laporan
      */
-    private function validateBasicCompleteness(Laporan $laporan): array
+    private function validateBasicCompleteness(Laporan $laporan, int $activeTriwulan): array
     {
         $issues = [];
         $warnings = [];
@@ -143,65 +149,67 @@ class SmartValidationService
             ];
         }
 
-        // Cek kelengkapan triwulan
-        $triwulanFields = ['realisasi_tb1', 'realisasi_tb2', 'realisasi_tb3', 'realisasi_tb4'];
-        $filledTriwulan = 0;
-        
-        foreach ($triwulanFields as $field) {
-            $value = $laporan->$field;
-            if (!empty($value)) {
-                $filledTriwulan++;
-            }
-        }
-
-        if ($filledTriwulan === 0) {
+        // Cek kelengkapan triwulan aktif saja
+        $activeField = 'realisasi_tb' . $activeTriwulan;
+        if (empty($laporan->$activeField)) {
             $issues[] = [
                 'type' => 'incomplete_data',
                 'field' => 'triwulan',
-                'message' => 'Belum ada realisasi triwulan yang diisi',
+                'message' => 'Realisasi Triwulan ' . $activeTriwulan . ' belum diisi',
                 'severity' => 'high',
-                'fix' => 'Isi realisasi untuk minimal satu triwulan'
+                'fix' => 'Isi realisasi Triwulan aktif terlebih dahulu'
             ];
             $scoreDeduction += 20;
-        } elseif ($filledTriwulan < 4) {
-            $warnings[] = [
-                'type' => 'incomplete_data',
-                'field' => 'triwulan',
-                'message' => "Hanya $filledTriwulan dari 4 triwulan yang sudah diisi",
-                'severity' => 'medium',
-                'fix' => 'Lengkapi realisasi untuk triwulan yang belum diisi'
-            ];
-            $scoreDeduction += 5 * (4 - $filledTriwulan);
-            $suggestions[] = [
-                'type' => 'completion',
-                'message' => 'Lengkapi semua triwulan untuk evaluasi kinerja yang komprehensif'
-            ];
         }
 
-        // Cek kelengkapan bab laporan
-        $babFields = [
-            'bab_pelaksanaan' => 'Pelaksanaan',
-            'bab_capaian' => 'Capaian',
-            'bab_kendala' => 'Kendala',
-            'bab_rencana' => 'Rencana Tindak Lanjut'
-        ];
+        // Cek kelengkapan BAB I-III sesuai alur laporan saat ini.
+        $isBabILengkap = !empty($laporan->uraian_kegiatan)
+            || !empty($laporan->bab_pelaksanaan)
+            || !empty($laporan->bab_capaian);
 
-        $filledBabs = 0;
-        foreach ($babFields as $field => $name) {
-            if (!empty($laporan->$field)) {
-                $filledBabs++;
+        $isBabIILengkap = !empty($laporan->rencana_tindak_lanjut)
+            || !empty($laporan->bab_rencana)
+            || !empty($laporan->bab_kendala);
+
+        // Jika kolom kesimpulan tidak tersedia pada skema aktif, BAB III tidak dianggap missing.
+        $hasKesimpulanColumn = $this->hasLaporanColumn('kesimpulan');
+        $isBabIIILengkap = !$hasKesimpulanColumn || !empty($laporan->kesimpulan);
+
+        // Fallback: pada beberapa skema lama, penutup tidak tersimpan di kolom kesimpulan,
+        // tetapi alur C dan D sudah lengkap pada triwulan aktif.
+        if (!$isBabIIILengkap && $isBabILengkap && $isBabIILengkap) {
+            $activeField = 'realisasi_tb' . $activeTriwulan;
+            $activeValue = $laporan->$activeField;
+            if (!empty($activeValue)) {
+                $decoded = is_string($activeValue) ? json_decode($activeValue, true) : $activeValue;
+                if (is_array($decoded) && !empty($decoded['text']) && !empty($decoded['followup'])) {
+                    $isBabIIILengkap = true;
+                }
             }
         }
 
-        if ($filledBabs < 4) {
+        $sectionChecks = [
+            'BAB I' => $isBabILengkap,
+            'BAB II' => $isBabIILengkap,
+            'BAB III. Penutup' => $isBabIIILengkap,
+        ];
+
+        $missingSections = [];
+        foreach ($sectionChecks as $sectionName => $isFilled) {
+            if (!$isFilled) {
+                $missingSections[] = $sectionName;
+            }
+        }
+
+        if (!empty($missingSections)) {
             $warnings[] = [
                 'type' => 'incomplete_data',
-                'field' => 'bab_laporan',
-                'message' => "Hanya $filledBabs dari 4 bab laporan yang lengkap",
+                'field' => 'bagian_laporan',
+                'message' => 'Beberapa bagian laporan belum lengkap',
                 'severity' => 'medium',
-                'fix' => 'Lengkapi semua bab laporan: ' . implode(', ', array_values($babFields))
+                'fix' => 'Lengkapi bagian berikut: ' . implode(', ', $missingSections)
             ];
-            $scoreDeduction += 5 * (4 - $filledBabs);
+            $scoreDeduction += 5 * count($missingSections);
         }
 
         return [
@@ -215,7 +223,7 @@ class SmartValidationService
     /**
      * Validasi konsistensi antara target dan realisasi
      */
-    private function validateTargetRealisasiConsistency(Laporan $laporan): array
+    private function validateTargetRealisasiConsistency(Laporan $laporan, int $activeTriwulan): array
     {
         $issues = [];
         $warnings = [];
@@ -232,13 +240,13 @@ class SmartValidationService
             ];
         }
 
-        // Ambil target dari tabelA perjanjian
-        $tabelA = $perjanjian->tabelA;
-        if (empty($tabelA) || !is_array($tabelA)) {
+        // Validasi keberadaan target dari perjanjian (tabel B/C) atau dari metadata row target.
+        if (!$this->hasTargetReference($laporan, $perjanjian, $activeTriwulan)) {
             $warnings[] = [
                 'type' => 'no_reference',
                 'message' => 'Tidak ada data target dari perjanjian kinerja',
                 'severity' => 'low',
+                'fix' => 'Pastikan target pada perjanjian kinerja (triwulanan/tahunan) telah tersimpan dengan benar.'
             ];
             return [
                 'issues' => $issues,
@@ -248,8 +256,8 @@ class SmartValidationService
             ];
         }
 
-        // Cek setiap triwulan
-        for ($i = 1; $i <= 4; $i++) {
+        // Cek triwulan aktif saja
+        for ($i = $activeTriwulan; $i <= $activeTriwulan; $i++) {
             $realisasiField = 'realisasi_tb' . $i;
             $realisasi = $laporan->$realisasiField;
 
@@ -327,7 +335,7 @@ class SmartValidationService
         $totalTarget = 0;
         $totalRealisasi = 0;
         
-        $triwulanFields = ['realisasi_tb1', 'realisasi_tb2', 'realisasi_tb3', 'realisasi_tb4'];
+        $triwulanFields = ['realisasi_tb' . $activeTriwulan];
         foreach ($triwulanFields as $field) {
             $realisasi = $laporan->$field;
             if (!empty($realisasi) && is_array($realisasi = is_string($realisasi) ? json_decode($realisasi, true) : $realisasi)) {
@@ -348,17 +356,17 @@ class SmartValidationService
             if ($overallPercentage < 50) {
                 $suggestions[] = [
                     'type' => 'attention',
-                    'message' => "Total pencapaian keseluruhan: " . round($overallPercentage, 1) . "% - Perlu perhatian serius"
+                    'message' => "Pencapaian Triwulan $activeTriwulan: " . round($overallPercentage, 1) . "% - Perlu perhatian serius"
                 ];
             } elseif ($overallPercentage < 75) {
                 $suggestions[] = [
                     'type' => 'improvement',
-                    'message' => "Total pencapaian keseluruhan: " . round($overallPercentage, 1) . "% - Perlu peningkatan"
+                    'message' => "Pencapaian Triwulan $activeTriwulan: " . round($overallPercentage, 1) . "% - Perlu peningkatan"
                 ];
             } elseif ($overallPercentage >= 100) {
                 $suggestions[] = [
                     'type' => 'achievement',
-                    'message' => "Total pencapaian keseluruhan: " . round($overallPercentage, 1) . "% - Target tercapai! 🎉"
+                    'message' => "Pencapaian Triwulan $activeTriwulan: " . round($overallPercentage, 1) . "% - Target tercapai! 🎉"
                 ];
             }
         }
@@ -374,7 +382,7 @@ class SmartValidationService
     /**
      * Deteksi anomali dalam data
      */
-    private function detectAnomalies(Laporan $laporan): array
+    private function detectAnomalies(Laporan $laporan, int $activeTriwulan): array
     {
         $issues = [];
         $warnings = [];
@@ -383,7 +391,7 @@ class SmartValidationService
 
         // Deteksi: pola realisasi yang tidak masuk akal
         $triwulanValues = [];
-        for ($i = 1; $i <= 4; $i++) {
+        for ($i = $activeTriwulan; $i <= $activeTriwulan; $i++) {
             $field = 'realisasi_tb' . $i;
             $value = $laporan->$field;
             
@@ -465,7 +473,7 @@ class SmartValidationService
     /**
      * Validasi timeline pelaporan
      */
-    private function validateTimeline(Laporan $laporan): array
+    private function validateTimeline(Laporan $laporan, int $activeTriwulan): array
     {
         $warnings = [];
         $suggestions = [];
@@ -490,37 +498,89 @@ class SmartValidationService
             }
         }
 
-        // Saran berdasarkan waktu
-        $now = now();
-        $bulan = (int) $now->format('m');
-        
-        if ($bulan >= 1 && $bulan <= 3) {
-            $suggestions[] = [
-                'type' => 'timing',
-                'message' => 'Saat ini Triwulan 1 - pastikan realisasi sudah diisi'
-            ];
-        } elseif ($bulan >= 4 && $bulan <= 6) {
-            $suggestions[] = [
-                'type' => 'timing',
-                'message' => 'Saat ini Triwulan 2 - evaluasi pencapaian Triwulan 1'
-            ];
-        } elseif ($bulan >= 7 && $bulan <= 9) {
-            $suggestions[] = [
-                'type' => 'timing',
-                'message' => 'Saat ini Triwulan 3 - pertengahan tahun, evaluasi progres'
-            ];
-        } else {
-            $suggestions[] = [
-                'type' => 'timing',
-                'message' => 'Saat ini Triwulan 4 - siapkan laporan akhir tahun'
-            ];
-        }
-
-        return [
+               return [
             'warnings' => $warnings,
             'suggestions' => $suggestions,
             'scoreDeduction' => $scoreDeduction,
         ];
+    }
+
+    private function hasLaporanColumn(string $column): bool
+    {
+        try {
+            $connection = (new Laporan())->getConnection();
+            return $connection->getSchemaBuilder()->hasColumn('laporans', $column);
+        } catch (\Throwable $e) {
+            // Fallback to default schema facade if connection-specific lookup fails.
+            return Schema::hasColumn('laporans', $column);
+        }
+    }
+
+    private function hasTargetReference(Laporan $laporan, Perjanjian $perjanjian, int $activeTriwulan): bool
+    {
+        $activeField = 'realisasi_tb' . $activeTriwulan;
+        $realisasi = $laporan->$activeField;
+        if (!empty($realisasi)) {
+            $decoded = is_string($realisasi) ? json_decode($realisasi, true) : $realisasi;
+            if (is_array($decoded)) {
+                foreach (($decoded['rows'] ?? []) as $row) {
+                    if (isset($row['target']) && is_numeric($row['target']) && floatval($row['target']) > 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        $twKey = 'tw' . $activeTriwulan;
+        $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode((string) ($perjanjian->tabelB ?? '[]'), true);
+        if (is_array($tabelB) && !empty($tabelB[$twKey]) && is_array($tabelB[$twKey])) {
+            foreach ($tabelB[$twKey] as $target) {
+                if (is_numeric($target) && floatval($target) > 0) {
+                    return true;
+                }
+                if (is_string($target) && trim($target) !== '' && trim($target) !== '0') {
+                    return true;
+                }
+            }
+        }
+
+        $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode((string) ($perjanjian->tabelC ?? '[]'), true);
+        if (is_array($tabelC)) {
+            foreach (($tabelC['programs'] ?? []) as $program) {
+                if ($this->hasPositiveTargetInNode($program, $twKey)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function hasPositiveTargetInNode(array $node, string $twKey): bool
+    {
+        if (array_key_exists($twKey, $node)) {
+            $value = $node[$twKey];
+            if (is_numeric($value) && floatval($value) > 0) {
+                return true;
+            }
+            if (is_string($value) && trim($value) !== '' && trim($value) !== '0') {
+                return true;
+            }
+        }
+
+        foreach (($node['kegiatan'] ?? []) as $kegiatan) {
+            if ($this->hasPositiveTargetInNode((array) $kegiatan, $twKey)) {
+                return true;
+            }
+        }
+
+        foreach (($node['subKegiatan'] ?? []) as $sub) {
+            if ($this->hasPositiveTargetInNode((array) $sub, $twKey)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

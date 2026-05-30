@@ -3,7 +3,7 @@
 @section('title', 'Edit Perjanjian')
 
 @section('back')
-<a href="{{ route('perjanjian.index') }}" style="text-decoration:none; color:#009970; font-size:20px;">
+<a href="{{ route('perjanjian.index') }}" target="_self" style="text-decoration:none; color:#009970; font-size:20px;">
     <i class="fa-solid fa-arrow-left"></i>
 </a>
 @endsection
@@ -62,19 +62,12 @@
 
     table td input {
         width: 95%;           
-        border: 1px solid #ddd;
+        border: none;
         text-align: left;     
-        background: #fff;
+        background: transparent;
         font-size: 12px;
         box-sizing: border-box;
         padding: 4px;
-        border-radius: 3px;
-    }
-
-    table td input:focus {
-        outline: none;
-        border-color: #009970;
-        background: #f0fff4;
     }
 
     table td textarea {
@@ -88,32 +81,16 @@
         font-size: 12px;
         overflow: hidden;
         font-family: inherit;
-        border: 1px solid #ddd;
-        background: #fff;
-        border-radius: 3px;
-    }
-
-    table td textarea:focus {
-        outline: none;
-        border-color: #009970;
-        background: #f0fff4;
     }
 
     table td input[type="number"] {
         width: 95%;
-        border: 1px solid #ddd;
+        border: none;
         text-align: center;
-        background: #fff;
+        background: transparent;
         font-size: 12px;
         box-sizing: border-box;
         padding: 4px;
-        border-radius: 3px;
-    }
-
-    table td input[type="number"]:focus {
-        outline: none;
-        border-color: #009970;
-        background: #f0fff4;
     }
 
     .table-action-btn {
@@ -129,12 +106,45 @@
         opacity: 0.7;
     }
 
+    .indicator-toggle-wrap {
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        margin-bottom: 4px;
+    }
+
+    .indicator-mini-btn {
+        border: none;
+        border-radius: 4px;
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        opacity: 0.35;
+    }
+
+    .indicator-mini-btn.active {
+        opacity: 1;
+    }
+
+    .indicator-plus { background: #009970; }
+    .indicator-minus { background: #dc3545; }
+
     .delete-btn {
         color: #dc3545;
     }
 
     .add-btn {
         color: #009970;
+    }
+
+    /* Sembunyikan kolom AKSI pada tabel lanjutan (tanpa menyentuh kolom TW IV) */
+    #tabel2 thead tr:first-child th:last-child,
+    #tabel2 tbody td:last-child,
+    #tabel3 tfoot td:last-child {
+        display: none;
     }
 
     table thead th {
@@ -447,7 +457,7 @@ window.addAutoKegiatan = function(parentNo, kegiatanNo, kegiatanData) {
             </select>
         </td>
         <td><input type="text" name="kegiatan_anggaran[]" value="0" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan"></td>
-        <td><textarea name="kegiatan_ket[]" onkeyup="if(window.autoExpand) window.autoExpand(this)"></textarea></td>
+        <td><textarea name="kegiatan_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;"></textarea></td>
         <td>
             <button type="button" class="table-action-btn add-btn" onclick="if(window.addSubRow) window.addSubRow('${kegiatanNo}')" title="Tambah Sub Kegiatan">➕</button>
             <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -492,7 +502,13 @@ window.addAutoSubKegiatan = function(parentNo, subNo, subKegiatanData) {
             </select>
         </td>
         <td><input type="text" name="subkegiatan_anggaran[]" value="0" style="text-align:right" oninput="if(window.formatRupiah) window.formatRupiah(this); if(window.calculateHierarchicalTotal) window.calculateHierarchicalTotal(); if(window.syncProgramToTabelD) window.syncProgramToTabelD();"></td>
-        <td><textarea name="subkegiatan_ket[]" onkeyup="if(window.autoExpand) window.autoExpand(this)"></textarea></td>
+        <td>
+            <select name="subkegiatan_ket[]" style="width:95%; padding:6px;" onchange="if(window.updateHierarchicalKet) window.updateHierarchicalKet(); if(window.syncProgramToTabelD) window.syncProgramToTabelD();">
+                <option value="">-- Pilih --</option>
+                <option value="APBD">APBD</option>
+                <option value="BLUD">BLUD</option>
+            </select>
+        </td>
         <td>
             <button type="button" class="table-action-btn delete-btn" onclick="if(window.deleteRow) window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
         </td>
@@ -557,7 +573,7 @@ window.addProgram = function() {
             </select>
         </td>
         <td><input type="text" name="program_anggaran[]" value="0" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari kegiatan" /></td>
-        <td><textarea name="program_ket[]" onkeyup="window.autoExpand(this);"></textarea></td>
+        <td><textarea name="program_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;"></textarea></td>
         <td>
             <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${newProgramNo}', 'kegiatan')" title="Tambah Kegiatan">➕</button>
             <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -656,6 +672,14 @@ window.addSubRow = function(parentNo, dataLevel) {
     const inputStyle = dataLevel === 'kegiatan' ? 'font-style:italic;' : '';
     const paddingLeft = '5px';
 
+    const ketCellHtml = dataLevel === 'kegiatan'
+        ? `<textarea name="${dataLevel}_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;"></textarea>`
+        : `<select name="${dataLevel}_ket[]" style="width:95%; padding:6px;" onchange="window.updateHierarchicalKet(); window.syncProgramToTabelD();">
+                <option value="">-- Pilih --</option>
+                <option value="APBD">APBD</option>
+                <option value="BLUD">BLUD</option>
+           </select>`;
+
     tr.innerHTML = `
         <td class="no-col">${newNo}</td>
         <td>
@@ -667,7 +691,7 @@ window.addSubRow = function(parentNo, dataLevel) {
             </select>
         </td>
         <td><input type="text" name="${dataLevel}_anggaran[]" value="0" ${dataLevel === 'kegiatan' ? 'readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan"' : 'style="text-align:right" oninput="window.formatRupiah(this); window.calculateHierarchicalTotal(); window.syncProgramToTabelD();"'}></td>
-        <td><textarea name="${dataLevel}_ket[]" onkeyup="window.autoExpand(this)"></textarea></td>
+        <td>${ketCellHtml}</td>
         <td>
             ${dataLevel === 'kegiatan' ? `<button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${newNo}', 'subkegiatan')" title="Tambah Sub Kegiatan">➕</button>` : ''}
             <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -800,6 +824,16 @@ window.addRow = function(tableId) {
     newRow.querySelectorAll("input, textarea").forEach(el => {
         el.value = "";
     });
+
+    if (tableId === 'tabelA') {
+        const hiddenType = newRow.querySelector('input[name="a_indicator_type[]"]');
+        if (hiddenType) hiddenType.value = 'positif';
+
+        const plusBtn = newRow.querySelector('.indicator-plus');
+        const minusBtn = newRow.querySelector('.indicator-minus');
+        if (plusBtn) plusBtn.classList.add('active');
+        if (minusBtn) minusBtn.classList.remove('active');
+    }
     
     // Kembalikan nilai dropdown ke pilihan yang sama - dengan force set selected
     if (tableId === 'tabel3' && savedDropdownValue) {
@@ -861,6 +895,26 @@ window.deleteRowTabelA = function(btn) {
     }
 }
 console.log('✓ window.deleteRowTabelA defined');
+
+window.setIndicatorType = function(btn, type) {
+    const row = btn.closest('tr');
+    if (!row) return;
+
+    const hiddenType = row.querySelector('input[name="a_indicator_type[]"]');
+    if (hiddenType) hiddenType.value = type;
+
+    const plusBtn = row.querySelector('.indicator-plus');
+    const minusBtn = row.querySelector('.indicator-minus');
+    if (plusBtn) plusBtn.classList.toggle('active', type === 'positif');
+    if (minusBtn) minusBtn.classList.toggle('active', type === 'negatif');
+
+    if (typeof window.syncTabelAAll === 'function') {
+        window.syncTabelAAll();
+    } else if (typeof window.syncTabelAToC === 'function') {
+        window.syncTabelAToC();
+    }
+}
+console.log('✓ window.setIndicatorType defined');
 
 // Auto Expand Textarea
 window.autoExpand = function(textarea) {
@@ -979,8 +1033,10 @@ window.syncTabelAToC = function() {
         const tw2Input = row.querySelector('textarea[name="c_tw2[]"]');
         const tw3Input = row.querySelector('textarea[name="c_tw3[]"]');
         const tw4Input = row.querySelector('textarea[name="c_tw4[]"]');
+        const indicatorTypeInput = row.querySelector('input[name="c_indicator_type[]"]');
         
         existingData.push({
+            indicatorType: indicatorTypeInput ? indicatorTypeInput.value : 'positif',
             tw1: tw1Input ? tw1Input.value : '',
             tw2: tw2Input ? tw2Input.value : '',
             tw3: tw3Input ? tw3Input.value : '',
@@ -1006,10 +1062,12 @@ window.syncTabelAToC = function() {
     rowsA.forEach((rowA, index) => {
         const sasaranInput = rowA.querySelector('textarea[name="a_sasaran[]"]');
         const indikatorInput = rowA.querySelector('textarea[name="a_indikator[]"]');
+        const indicatorTypeInput = rowA.querySelector('input[name="a_indicator_type[]"]');
         const targetInput = rowA.querySelector('textarea[name="a_target[]"]');
         
         const sasaran = sasaranInput ? sasaranInput.value : '';
         const indikator = indikatorInput ? indikatorInput.value : '';
+        const indicatorType = indicatorTypeInput ? indicatorTypeInput.value : 'positif';
         const target = targetInput ? targetInput.value : '';
         
         // Ambil data Target Triwulan yang sudah ada (jika ada)
@@ -1017,12 +1075,16 @@ window.syncTabelAToC = function() {
         const tw2 = existingData[index]?.tw2 || '';
         const tw3 = existingData[index]?.tw3 || '';
         const tw4 = existingData[index]?.tw4 || '';
+        const existingIndicatorType = existingData[index]?.indicatorType || indicatorType;
         
         const newRow = document.createElement('tr');
         newRow.innerHTML = `
             <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${sasaran}</textarea></td>
             <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${indikator}</textarea></td>
-            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${target}</textarea></td>
+            <td style="width: 12%;">
+                <input type="hidden" name="c_indicator_type[]" value="${existingIndicatorType}">
+                <textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${target}</textarea>
+            </td>
             <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw1}</textarea></td>
             <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw2}</textarea></td>
             <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw3}</textarea></td>
@@ -1064,9 +1126,7 @@ console.log('window.testAddRow:', typeof window.testAddRow);
 <form action="{{ route('perjanjian.update', $perjanjian->id) }}" method="POST">
 @method('PUT')
 @csrf
-
-    {{-- ERROR MESSAGES --}}
-    @if(session('error'))
+    <input type="hidden" name="from" value="{{ request('from', 'dashboard_wadir_perjanjian') }}">
         <div style="background: #fee; border: 1px solid #fcc; color: #c00; padding: 15px; margin-bottom: 20px; border-radius: 6px;">
             <strong>Error:</strong> {{ session('error') }}
         </div>
@@ -1266,17 +1326,18 @@ console.log('window.testAddRow:', typeof window.testAddRow);
 <table id="tabelA">
     <thead>
         <tr>
-            <th style="width: 40px;">NO</th>
-            <th style="flex: 1; min-width: 300px;">SASARAN</th>
-            <th style="min-width: 150px;">INDIKATOR KINERJA</th>
-            <th style="width: 60px; max-width: 60px;">SATUAN</th>
-            <th style="width: 10ch; max-width: 10ch; min-width: 10ch;">TARGET</th>
+            <th>NO</th>
+            <th>SASARAN</th>
+            <th>INDIKATOR KINERJA</th>
+            <th style="width: 70px;">SATUAN</th>
+            <th style="width: 90px;">TARGET</th>
             <th style="width: 60px;">AKSI</th>
         </tr>
     </thead>
     <tbody>
         @if(!empty($tabelA['sasaran']) && count($tabelA['sasaran']) > 0)
             @foreach($tabelA['sasaran'] as $index => $sasaran)
+                @php $indicatorType = old('a_indicator_type.' . $index, $tabelA['indicator_type'][$index] ?? 'positif'); @endphp
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td><textarea name="a_sasaran[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();">{{ old('a_sasaran.' . $index, $sasaran) }}</textarea></td>
@@ -1284,6 +1345,11 @@ console.log('window.testAddRow:', typeof window.testAddRow);
                     <td><textarea name="a_satuan[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('a_satuan.' . $index, $tabelA['satuan'][$index] ?? '') }}</textarea></td>
                     <td><textarea name="a_target[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();">{{ old('a_target.' . $index, $tabelA['target'][$index] ?? '') }}</textarea></td>
                     <td>
+                        <input type="hidden" name="a_indicator_type[]" value="{{ $indicatorType }}">
+                        <div class="indicator-toggle-wrap">
+                            <button type="button" class="indicator-mini-btn indicator-plus {{ $indicatorType === 'positif' ? 'active' : '' }}" title="Indikator Positif" onclick="window.setIndicatorType(this, 'positif')">+</button>
+                            <button type="button" class="indicator-mini-btn indicator-minus {{ $indicatorType === 'negatif' ? 'active' : '' }}" title="Indikator Negatif" onclick="window.setIndicatorType(this, 'negatif')">-</button>
+                        </div>
                         <button type="button" class= "table-action-btn delete-btn" onclick="window.deleteRowTabelA(this)" title="hapus">🗑</button>
                         <button type="button" class="table-action-btn add-btn" onclick="window.addRow('tabelA')" title="Tambah">➕</button>
                     </td>
@@ -1297,6 +1363,11 @@ console.log('window.testAddRow:', typeof window.testAddRow);
                 <td><textarea name="a_satuan[]" onkeyup="if(window.autoExpand)window.autoExpand(this)"></textarea></td>
                 <td><textarea name="a_target[]" onkeyup="if(window.autoExpand)window.autoExpand(this);if(window.syncTabelAAll)window.syncTabelAAll();"></textarea></td>
                 <td>
+                    <input type="hidden" name="a_indicator_type[]" value="positif">
+                    <div class="indicator-toggle-wrap">
+                        <button type="button" class="indicator-mini-btn indicator-plus active" title="Indikator Positif" onclick="window.setIndicatorType(this, 'positif')">+</button>
+                        <button type="button" class="indicator-mini-btn indicator-minus" title="Indikator Negatif" onclick="window.setIndicatorType(this, 'negatif')">-</button>
+                    </div>
                     <button type="button" class= "table-action-btn delete-btn" onclick="window.deleteRowTabelA(this)" title="hapus">🗑</button>
                     <button type="button" class="table-action-btn add-btn" onclick="window.addRow('tabelA')" title="Tambah">➕</button>
                 </td>
@@ -1306,12 +1377,6 @@ console.log('window.testAddRow:', typeof window.testAddRow);
 </table>
 
 {{-- TABEL PROGRAM & ANGGARAN (DINAMIS) --}}
-<h3 style="margin-top: 30px; margin-bottom: 15px; color: #009970; font-weight: 600; border-bottom: 2px solid #009970; padding-bottom: 8px;">
-    📊 TABEL PROGRAM & ANGGARAN (Edit disini untuk mengubah program, kegiatan, dan anggaran)
-</h3>
-<p style="color: #666; margin-bottom: 15px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
-    💡 <strong>Petunjuk:</strong> Klik pada kolom Nama Program/Kegiatan atau Anggaran untuk mengedit. Perubahan akan otomatis tersimpan saat Anda menyimpan form.
-</p>
 <div style="overflow-x:auto;">
 <table id="tabelProgram"
     style="width:100%; min-width:900px; border-collapse:collapse; table-layout:fixed;">
@@ -1319,9 +1384,9 @@ console.log('window.testAddRow:', typeof window.testAddRow);
     <thead>
         <tr style="background:#f2f2f2;">
             <th style="width:40px; border:1px solid #000;">NO</th>
-            <th style="flex: 1; min-width: 450px; border:1px solid #000;">PROGRAM</th>
+            <th style="min-width:300px; border:1px solid #000;">PROGRAM</th>
             <th style="width:160px; border:1px solid #000;">ANGGARAN (Rp)</th>
-            <th style="width:10ch; max-width:10ch; border:1px solid #000;">KET</th>
+            <th style="width:100px; border:1px solid #000;">KET</th>
             <th style="width:70px; border:1px solid #000;">AKSI</th>
         </tr>
     </thead>
@@ -1659,7 +1724,7 @@ function renderExistingBudgetData(tabelC) {
                 </select>
             </td>
             <td><input type="text" name="program_anggaran[]" value="${programAmount.toLocaleString('id-ID')}" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari kegiatan" /></td>
-            <td><textarea name="program_ket[]" onkeyup="window.autoExpand(this)">${programSource}</textarea></td>
+            <td><textarea name="program_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;">${programSource}</textarea></td>
             <td>
                 <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${programCounter}', 'kegiatan')" title="Tambah Kegiatan">➕</button>
                 <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -1701,7 +1766,7 @@ function renderExistingBudgetData(tabelC) {
                     <td>
                         <input type="text" name="kegiatan_anggaran[]" value="${kegiatanAmount.toLocaleString('id-ID')}" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan">
                     </td>
-                    <td><textarea name="kegiatan_ket[]" onkeyup="window.autoExpand(this)">${kegiatanSource}</textarea></td>
+                    <td><textarea name="kegiatan_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;">${kegiatanSource}</textarea></td>
                     <td>
                         <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${kegiatanNo}', 'subkegiatan')" title="Tambah Sub Kegiatan">➕</button>
                         <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -1723,6 +1788,8 @@ function renderExistingBudgetData(tabelC) {
                         const subKegiatanName = subKegiatan.name || subKegiatan.nama || subKegiatan.subkegiatan || '';
                         const subKegiatanAmount = parseInt((subKegiatan.amount || '0').toString().replace(/[^\d]/g,'')) || 0;
                         const subKegiatanSource = subKegiatan.source || subKegiatan.keterangan || subKegiatan.ket || '';
+                        const selectedApbd = subKegiatanSource === 'APBD' ? 'selected' : '';
+                        const selectedBlud = subKegiatanSource === 'BLUD' ? 'selected' : '';
                         
                         // Build sub kegiatan dropdown options with selected value
                         let subKegiatanOptions = '<option value="">-- Pilih Sub Kegiatan --</option>';
@@ -1744,7 +1811,13 @@ function renderExistingBudgetData(tabelC) {
                                 <input type="text" name="subkegiatan_anggaran[]" value="${subKegiatanAmount.toLocaleString('id-ID')}" style="text-align:right" onkeypress="return /[0-9]/.test(event.key)"
                                     oninput="window.forceNumericAnggaran(this);">
                             </td>
-                            <td><textarea name="subkegiatan_ket[]" onkeyup="window.autoExpand(this)">${subKegiatanSource}</textarea></td>
+                            <td>
+                                <select name="subkegiatan_ket[]" style="width:95%; padding:6px;" onchange="window.updateHierarchicalKet(); window.syncProgramToTabelD();">
+                                    <option value="">-- Pilih --</option>
+                                    <option value="APBD" ${selectedApbd}>APBD</option>
+                                    <option value="BLUD" ${selectedBlud}>BLUD</option>
+                                </select>
+                            </td>
                             <td>
                                 <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
                             </td>
@@ -1801,6 +1874,56 @@ function renderExistingBudgetData(tabelC) {
 
     // Fungsi deleteRow sudah didefinisikan di atas (window.deleteRow di baris ~754)
     // Tidak perlu definisi ulang di sini
+
+        // Roll-up KET: sub-kegiatan -> kegiatan -> program (paritas dengan create)
+        window.updateHierarchicalKet = function() {
+            const tbody = document.querySelector('#tabelProgramBody');
+            if (!tbody) return;
+
+            const allRows = Array.from(tbody.querySelectorAll('tr'));
+
+            function mergeKet(values) {
+                const cleaned = values.filter(v => !!v && (v === 'APBD' || v === 'BLUD'));
+                const unique = [...new Set(cleaned)];
+                if (unique.length === 0) return '';
+                if (unique.length === 1) return unique[0];
+                return 'APBD/BLUD';
+            }
+
+            // Step 1: kegiatan dari sub-kegiatan
+            allRows.forEach(row => {
+                if (row.dataset.level !== 'kegiatan') return;
+                const kegiatanNo = row.querySelector('.no-col')?.textContent?.trim();
+                if (!kegiatanNo) return;
+
+                const childSubRows = allRows.filter(r => r.dataset.parent === kegiatanNo && r.dataset.level === 'subkegiatan');
+                const ketValues = childSubRows.map(sub => sub.querySelector('select[name="subkegiatan_ket[]"]')?.value || '');
+                const merged = mergeKet(ketValues);
+
+                const kegiatanKetInput = row.querySelector('textarea[name="kegiatan_ket[]"]');
+                if (kegiatanKetInput) {
+                    kegiatanKetInput.value = merged;
+                    if (window.autoExpand) window.autoExpand(kegiatanKetInput);
+                }
+            });
+
+            // Step 2: program dari kegiatan
+            allRows.forEach(row => {
+                if (!row.classList.contains('program-row')) return;
+                const programNo = row.querySelector('.no-col')?.textContent?.trim();
+                if (!programNo) return;
+
+                const childKegiatanRows = allRows.filter(r => r.dataset.parent === programNo && r.dataset.level === 'kegiatan');
+                const ketValues = childKegiatanRows.map(keg => keg.querySelector('textarea[name="kegiatan_ket[]"]')?.value || '');
+                const merged = mergeKet(ketValues);
+
+                const programKetInput = row.querySelector('textarea[name="program_ket[]"]');
+                if (programKetInput) {
+                    programKetInput.value = merged;
+                    if (window.autoExpand) window.autoExpand(programKetInput);
+                }
+            });
+        }
 
     // Fungsi hitung total hanya dari program utama
     // Fungsi hierarchical auto-calculate
@@ -1874,6 +1997,9 @@ function renderExistingBudgetData(tabelC) {
         if (totalElement) {
             totalElement.textContent = grandTotal.toLocaleString('id-ID');
         }
+
+        // Selalu sinkronkan KET otomatis setelah perhitungan anggaran
+        if (window.updateHierarchicalKet) window.updateHierarchicalKet();
     };
     
     // Backward compatibility
@@ -1894,8 +2020,8 @@ function renderExistingBudgetData(tabelC) {
         if (!input) return;
         const digits = (input.value || '').toString().replace(/[^\d]/g,'');
         input.value = digits ? parseInt(digits, 10).toLocaleString('id-ID') : '';
-        // Hanya panggil calculateHierarchicalTotal, syncProgramToTabelD dipanggil dari tempat lain
         if (window.calculateHierarchicalTotal) window.calculateHierarchicalTotal();
+        if (window.syncProgramToTabelD) window.syncProgramToTabelD();
     }
 
     // Attach listener ke semua input anggaran (program, kegiatan, subkegiatan)
@@ -1916,11 +2042,13 @@ function renderExistingBudgetData(tabelC) {
                 console.log('Input event on anggaran:', inp.value);
                 window.forceNumericAnggaran(inp);
                 if (window.calculateTotal) window.calculateTotal();
+                if (window.syncProgramToTabelD) window.syncProgramToTabelD();
             });
             
             inp.addEventListener('change', () => {
                 console.log('Change event on anggaran:', inp.value);
                 if (window.calculateTotal) window.calculateTotal();
+                if (window.syncProgramToTabelD) window.syncProgramToTabelD();
             });
             
             // Sanitize nilai awal dan hitung total
@@ -1929,6 +2057,7 @@ function renderExistingBudgetData(tabelC) {
         
         // Hitung total setelah binding
         if (window.calculateTotal) window.calculateTotal();
+        if (window.syncProgramToTabelD) window.syncProgramToTabelD();
     }
 
     // Jalankan saat load awal - tapi jangan langsung, tunggu DOMContentLoaded
@@ -1962,15 +2091,12 @@ function renderExistingBudgetData(tabelC) {
     </script>
 
 {{-- TABEL C --}}
-<h3 style="margin-top: 30px; margin-bottom: 15px; color: #009970; font-weight: 600; border-bottom: 2px solid #009970; padding-bottom: 8px;">
-    📅 RENCANA AKSI DENGAN TARGET TRIWULAN
-</h3>
 <table id="tabel2" style="table-layout: fixed;">
     <thead>
         <tr>
             <th rowspan="2" style="width: 25%;">SASARAN</th>
             <th rowspan="2" style="width: 20%;">Indikator Kinerja</th>
-            <th rowspan="2" style="width: 10ch; max-width:10ch;">Target</th>
+            <th rowspan="2" style="width: 12%;">Target</th>
             <th colspan="4" style="width: 40%;">Target Triwulan</th>
             <th rowspan="2" style="width: 60px;">AKSI</th>
         </tr>
@@ -1987,7 +2113,10 @@ function renderExistingBudgetData(tabelC) {
                 <tr>
                     <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_sasaran.' . $index, $sasaran) }}</textarea></td>
                     <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_indikator.' . $index, $tabelB['indikator'][$index] ?? '') }}</textarea></td>
-                    <td style="width: 10ch; max-width:10ch;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_target.' . $index, $tabelB['target'][$index] ?? '') }}</textarea></td>
+                    <td style="width: 12%;">
+                        <input type="hidden" name="c_indicator_type[]" value="{{ old('c_indicator_type.' . $index, $tabelB['indicator_type'][$index] ?? 'positif') }}">
+                        <textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_target.' . $index, $tabelB['target'][$index] ?? '') }}</textarea>
+                    </td>
                     <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw1.' . $index, $tabelB['tw1'][$index] ?? '') }}</textarea></td>
                     <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw2.' . $index, $tabelB['tw2'][$index] ?? '') }}</textarea></td>
                     <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">{{ old('c_tw3.' . $index, $tabelB['tw3'][$index] ?? '') }}</textarea></td>
@@ -2003,10 +2132,6 @@ function renderExistingBudgetData(tabelC) {
 </table>
 
 {{-- TABEL D: HIERARCHICAL BUDGET (PROGRAM) --}}
-<h3 style="margin-top: 30px; margin-bottom: 10px; color: #009970; font-weight: 600; border-bottom: 2px solid #009970; padding-bottom: 8px;">
-    💰 RENCANA ANGGARAN DAN TARGET PER TRIWULAN
-</h3>
-
 {{-- Info Box --}}
 <div style="background:linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding:15px 20px; border-radius:8px; margin:20px 0; border-left:4px solid #00B5A0; box-shadow:0 2px 8px rgba(0,181,160,0.1);">
     <div style="display:flex; align-items:center; gap:12px;">
@@ -2015,7 +2140,7 @@ function renderExistingBudgetData(tabelC) {
             <strong style="color:#00B5A0; font-size:14px;">Panduan Pengisian Target Triwulan:</strong>
             <ul style="margin:8px 0 0 20px; font-size:12px; color:#555; line-height:1.6;">
                 <li>Kolom <strong>Target Triwulan</strong> tidak dapat diisi manual</li>
-                <li>Untuk <strong>Sub-Kegiatan</strong>: Klik tombol <span style="background:#00B5A0; color:white; padding:2px 6px; border-radius:3px; font-size:11px;">🎯 Atur</span> untuk mengisi target per bulan</li>
+                <li>Target triwulan pada sub-kegiatan diatur otomatis sesuai konfigurasi target yang sudah diinput</li>
                 <li>Target <strong>Kegiatan</strong> dan <strong>Program</strong> akan otomatis menjumlah dari sub-kegiatan di bawahnya</li>
             </ul>
         </div>
@@ -2182,6 +2307,7 @@ window.syncProgramToTabelD = function() {
 
         const key = `${isProgram ? 'program' : 'sub'}-${no}`;
         const tw = existingTW[key] || {};
+        const isSubKegiatan = row.dataset.level === 'subkegiatan' || (no && no.split('.').length === 3);
 
         const tr = document.createElement('tr');
         tr.dataset.key = key;
@@ -2199,25 +2325,25 @@ window.syncProgramToTabelD = function() {
             <td style="border:1px solid #000;">
                 <input class="tw1" type="text" value="${tw.tw1 || ''}"
                     readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
-                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
+                    title="${isSubKegiatan ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000;">
                 <input class="tw2" type="text" value="${tw.tw2 || ''}"
                     readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
-                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
+                    title="${isSubKegiatan ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000;">
                 <input class="tw3" type="text" value="${tw.tw3 || ''}"
                     readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
-                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
+                    title="${isSubKegiatan ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000;">
                 <input class="tw4" type="text" value="${tw.tw4 || ''}"
                     readonly style="background:#f0f0f0; cursor:not-allowed; text-align:right;"
-                    title="${row.dataset.level === 'subkegiatan' ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
+                    title="${isSubKegiatan ? 'Klik tombol Atur untuk mengisi target' : 'Total otomatis dari sub-kegiatan'}">
             </td>
             <td style="border:1px solid #000; text-align:center;">
-                ${row.dataset.level === 'subkegiatan' ? 
+                ${isSubKegiatan ? 
                     `<button type="button" onclick="openTargetModal('${no}', '${nama}', ${anggaran}, '${key}')" 
                             style="background:#00B5A0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;"
                             title="Atur Target per Bulan">
@@ -2508,13 +2634,15 @@ function openTargetModal(no, nama, pagu, key) {
             document.getElementById('bln12').value = val4.toLocaleString('id-ID');
         }
     }
+
+    const initialMode = row?.dataset.inputMode === 'prosentase' ? 'prosentase' : 'nominal';
     
     // Open modal first
     document.getElementById('targetModal').style.display = 'block';
     
     // Initialize mode and calculate with a small delay to ensure DOM is ready
     setTimeout(() => {
-        switchInputMode('nominal');
+        switchInputMode(initialMode);
         calculateModalTotal();
     }, 100);
 }
@@ -2528,10 +2656,12 @@ function closeTargetModal() {
 }
 
 function switchInputMode(mode) {
+    const previousMode = currentModalData.inputMode;
     currentModalData.inputMode = mode;
     
     const btnNominal = document.getElementById('btnNominal');
     const btnProsentase = document.getElementById('btnProsentase');
+    const pagu = currentModalData.pagu;
     
     if (mode === 'nominal') {
         btnNominal.style.background = '#00B5A0';
@@ -2551,17 +2681,26 @@ function switchInputMode(mode) {
         if (!input) continue;
         
         const rawValue = input.value.replace(/[^\d]/g, '');
+        const numericValue = parseInt(rawValue) || 0;
         
         if (mode === 'nominal') {
             input.placeholder = '0';
-            // Reformat as rupiah
             if (rawValue) {
-                input.value = parseInt(rawValue).toLocaleString('id-ID');
+                if (previousMode === 'prosentase' && pagu > 0) {
+                    input.value = Math.round((numericValue / 100) * pagu).toLocaleString('id-ID');
+                } else {
+                    input.value = numericValue.toLocaleString('id-ID');
+                }
             }
         } else {
             input.placeholder = '0%';
-            // Show as plain number for percentage
-            input.value = rawValue;
+            if (rawValue) {
+                if (previousMode === 'nominal' && pagu > 0) {
+                    input.value = Math.round((numericValue / pagu) * 100).toString();
+                } else {
+                    input.value = rawValue;
+                }
+            }
         }
     }
     
@@ -2762,6 +2901,7 @@ function saveTargetModal() {
         if (tw2Input) tw2Input.value = Math.round(tw2).toLocaleString('id-ID');
         if (tw3Input) tw3Input.value = Math.round(tw3).toLocaleString('id-ID');
         if (tw4Input) tw4Input.value = Math.round(tw4).toLocaleString('id-ID');
+        row.dataset.inputMode = mode;
         
         // Hitung hierarchical total (sub -> kegiatan -> program)
         hitungHierarchicalTW();
@@ -2908,12 +3048,14 @@ function syncTabelAToC() {
         const tw2Input = row.querySelector('textarea[name="c_tw2[]"]');
         const tw3Input = row.querySelector('textarea[name="c_tw3[]"]');
         const tw4Input = row.querySelector('textarea[name="c_tw4[]"]');
+        const indicatorTypeInput = row.querySelector('input[name="c_indicator_type[]"]');
         
         existingSasaran.push(sasaranInput ? sasaranInput.value : '');
         existingIndikator.push(indikatorInput ? indikatorInput.value : '');
         existingTarget.push(targetInput ? targetInput.value : '');
         
         existingData.push({
+            indicatorType: indicatorTypeInput ? indicatorTypeInput.value : 'positif',
             tw1: tw1Input ? tw1Input.value : '',
             tw2: tw2Input ? tw2Input.value : '',
             tw3: tw3Input ? tw3Input.value : '',
@@ -2941,10 +3083,12 @@ function syncTabelAToC() {
     rowsA.forEach((rowA, index) => {
         const sasaranInput = rowA.querySelector('textarea[name="a_sasaran[]"]');
         const indikatorInput = rowA.querySelector('textarea[name="a_indikator[]"]');
+        const indicatorTypeInput = rowA.querySelector('input[name="a_indicator_type[]"]');
         const targetInput = rowA.querySelector('textarea[name="a_target[]"]');
         
         const sasaran = sasaranInput ? sasaranInput.value : '';
         const indikator = indikatorInput ? indikatorInput.value : '';
+        const indicatorType = indicatorTypeInput ? indicatorTypeInput.value : 'positif';
         const target = targetInput ? targetInput.value : '';
         
         // Ambil data Target Triwulan yang sudah ada (jika ada)
@@ -2952,12 +3096,16 @@ function syncTabelAToC() {
         const tw2 = existingData[index]?.tw2 || '';
         const tw3 = existingData[index]?.tw3 || '';
         const tw4 = existingData[index]?.tw4 || '';
+        const existingIndicatorType = existingData[index]?.indicatorType || indicatorType;
         
         const newRow = document.createElement('tr');
         newRow.innerHTML = `
             <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${sasaran}</textarea></td>
             <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${indikator}</textarea></td>
-            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${target}</textarea></td>
+            <td style="width: 12%;">
+                <input type="hidden" name="c_indicator_type[]" value="${existingIndicatorType}">
+                <textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="if(window.autoExpand)window.autoExpand(this)">${target}</textarea>
+            </td>
             <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw1}</textarea></td>
             <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw2}</textarea></td>
             <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="if(window.autoExpand)window.autoExpand(this)">${tw3}</textarea></td>
@@ -3263,7 +3411,8 @@ function getHierarchicalBudgetStructure() {
         const amount = (anggaranInput?.value || '0').replace(/[^\d]/g, '');
         
         // Keterangan (source) - jika ada
-        const ket = '';
+        const ketSelect = row.querySelector('select[name="subkegiatan_ket[]"]');
+        const ket = ketSelect ? ketSelect.value : '';
         
         // Ambil TW data dari tabel keempat
         const twData = twDataMap[no] || { tw1: '', tw2: '', tw3: '', tw4: '' };

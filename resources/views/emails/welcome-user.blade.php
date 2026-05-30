@@ -165,8 +165,8 @@
             <p>Email ini dikirim secara otomatis oleh sistem.<br>
             Jika Anda memiliki pertanyaan, silakan hubungi Administrator.</p>
             <p style="margin-top: 10px;">
-                <strong>Sistem Perjanjian Kinerja RSUD</strong><br>
-                © {{ date('Y') }} RSUD Bangil. All rights reserved.
+                <strong>| Validasi Otomatis Laporan Kinerja RSUD Bangil</strong><br>
+               © 2026 RSUD Bangil
             </p>
         </div>
     </div>

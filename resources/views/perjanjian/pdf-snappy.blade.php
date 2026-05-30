@@ -19,9 +19,7 @@
             box-sizing: border-box;
         }
 
-        < !-- FOR PDF: Set page margins and size -->
-
-            /* FOR PDF: Set page margins and size */
+        /* FOR PDF: Set page margins and size */
         @if(!empty($for_pdf) && $for_pdf)
             @page {
                 width: 215.9mm; /* F4 / Folio Portrait */
@@ -2475,14 +2473,14 @@
     {{-- Footer for user preview --}}
     @if(!$isDirektur)
         <div class="footer-fixed">
-            © {{ date('Y') }} RSUD Bangil – Sistem Perjanjian Kinerja
+            © {{ date('Y') }} © 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil
         </div>
     @endif
 
     {{-- Footer for direktur preview --}}
     @if($isDirektur)
         <div class="footer-fixed">
-            © {{ date('Y') }} RSUD Bangil – Sistem Perjanjian Kinerja
+            © {{ date('Y') }} © 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil
         </div>
     @endif
 

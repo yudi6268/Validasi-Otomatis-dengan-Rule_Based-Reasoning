@@ -11,11 +11,19 @@ use App\Models\Kegiatan;
 use App\Models\SubKegiatan;
 use App\Models\Setting;
 use App\Helpers\PdfHelper;
+use App\Services\SupabaseService;
+use Illuminate\Support\Facades\Log;
 
 
 
 class PerjanjianController extends Controller
 {
+    protected $supabase;
+
+    public function __construct(SupabaseService $supabase)
+    {
+        $this->supabase = $supabase;
+    }
 
     // ==============================
     // SUBMIT PENOLAKAN PERJANJIAN
@@ -174,6 +182,7 @@ class PerjanjianController extends Controller
                     'pihak2_name' => $item->pihak2_name,
                     'jabatan' => $item->jabatan,
                     'created_at' => optional($item->created_at)->format('d M Y'),
+                    'agreement_date' => optional($item->agreement_date)->format('d M Y'),
                     'status' => $frontendStatus,
                     'approved' => ($frontendStatus === 'approved'),
                     'pihak2_signature' => $item->pihak2_signature,
@@ -206,17 +215,31 @@ class PerjanjianController extends Controller
         ];
 
         foreach ($items as $item) {
-            $status = $item->status ?? 'menunggu';
-            
+            $status = strtolower((string) ($item->status ?? ''));
+
+            // Prioritas status faktual dari kolom legacy agar data lama/sinkronisasi tetap akurat.
+            if (!empty($item->rejected) && (string) $item->rejected !== '0') {
+                $status = 'ditolak';
+            } elseif (!empty($item->pihak2_signature)) {
+                $status = 'disetujui';
+            } elseif ($status === '') {
+                $status = !empty($item->pihak2_name) ? 'draft' : 'draft';
+            }
+
             // Map dari status database ke count keys
             $statusMap = [
-                'menunggu' => 'waiting',
-                'disetujui' => 'approved',
-                'ditolak' => 'rejected',
+                'sent' => 'sent',
                 'draft' => 'sent',
+                'terkirim' => 'sent',
+                'menunggu' => 'waiting',
+                'waiting' => 'waiting',
+                'disetujui' => 'approved',
+                'approved' => 'approved',
+                'ditolak' => 'rejected',
+                'rejected' => 'rejected',
             ];
-            
-            $countKey = $statusMap[$status] ?? 'waiting';
+
+            $countKey = $statusMap[$status] ?? 'sent';
             
             if (isset($counts[$countKey])) {
                 $counts[$countKey]++;
@@ -479,6 +502,7 @@ class PerjanjianController extends Controller
             'tabelA' => json_encode([
                 'sasaran'   => $request->a_sasaran ?? [],
                 'indikator' => $request->a_indikator ?? [],
+                'indicator_type' => $request->a_indicator_type ?? [],
                 'satuan'    => $request->a_satuan ?? [],
                 'target'    => $request->a_target ?? [],
             ]),
@@ -487,6 +511,7 @@ class PerjanjianController extends Controller
             'tabelB' => json_encode([
                 'sasaran'  => $request->c_sasaran ?? [],
                 'indikator'=> $request->c_indikator ?? [],
+                'indicator_type' => $request->c_indicator_type ?? [],
                 'target'   => $request->c_target ?? [],
                 'tw1'      => $request->c_tw1 ?? [],
                 'tw2'      => $request->c_tw2 ?? [],
@@ -498,7 +523,46 @@ class PerjanjianController extends Controller
             'tabelC' => $tabelC,
         ]);
 
-        return redirect()->route('perjanjian.index')->with('success', 'Data perjanjian berhasil disimpan!');
+        // Try to mirror the new record to Supabase for consistent reads
+        try {
+            $payload = [
+                'local_id' => $save->id,
+                'tahun' => $save->tahun,
+                'nomor_perjanjian' => $save->nomor_perjanjian,
+                'user_id' => $save->user_id,
+                'pihak1_name' => $save->pihak1_name,
+                'pihak1_jabatan' => $save->pihak1_jabatan,
+                'pihak1_pangkat' => $save->pihak1_pangkat,
+                'pihak1_nip' => $save->pihak1_nip,
+                'pihak1_ttd' => $save->pihak1_ttd,
+                'pihak2_name' => $save->pihak2_name,
+                'pihak2_jabatan' => $save->pihak2_jabatan,
+                'pihak2_pangkat' => $save->pihak2_pangkat,
+                'pihak2_nip' => $save->pihak2_nip,
+                'location' => $save->location,
+                'agreement_date' => $save->agreement_date,
+                'jabatan' => $save->jabatan,
+                'tabelA' => $save->tabelA,
+                'tabelB' => $save->tabelB,
+                'tabelC' => $save->tabelC,
+                'status' => $save->status ?? 'menunggu',
+            ];
+
+            $res = $this->supabase->insert('perjanjians', [$payload]);
+            if (empty($res['success'])) {
+                Log::warning('Supabase insert failed for perjanjian local_id=' . $save->id . ': ' . ($res['error'] ?? 'unknown'));
+            } else {
+                Log::info('Supabase insert succeeded for perjanjian local_id=' . $save->id);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Supabase insert exception for perjanjian local_id=' . $save->id . ': ' . $e->getMessage());
+        }
+
+        $dashboardRoute = (auth()->check() && auth()->user()->isWadir())
+            ? route('dashboard.wadir')
+            : route('home', ['section' => 'dashboard']);
+
+        return redirect($dashboardRoute)->with('success', 'Data perjanjian berhasil disimpan!');
     }
 
 
@@ -509,18 +573,12 @@ class PerjanjianController extends Controller
     {
         $perjanjian = Perjanjian::findOrFail($id);
         $user = auth()->user();
-        
-        // Validasi akses
-        if ($user && $user->role !== 'admin') {
-            // User biasa hanya bisa edit perjanjian mereka sendiri
-            if ($perjanjian->user_id != $user->id) {
-                return redirect()->route('perjanjian.index')->with('error', 'Anda tidak memiliki akses untuk mengedit perjanjian ini.');
-            }
-        }
-        
-        // Hanya direktur/pimpinan yang boleh edit
-        if (!$user || !(stripos($user->jabatan, 'direktur') !== false || stripos($user->jabatan, 'pimpinan') !== false)) {
-            return redirect()->route('perjanjian.index')->with('error', 'Hanya Direktur/Pimpinan yang dapat mengedit perjanjian.');
+
+        $isOwner = $user && (int) $perjanjian->user_id === (int) $user->id;
+        $isAdmin = $user && $user->role === 'admin';
+
+        if (!$user || (!$isAdmin && !$isOwner)) {
+            return redirect()->route('perjanjian.index')->with('error', 'Anda tidak memiliki akses untuk mengedit perjanjian ini.');
         }
         // Cek apakah perjanjian masih bisa diedit
         if (!empty($perjanjian->pihak2_signature)) {
@@ -561,18 +619,12 @@ class PerjanjianController extends Controller
     {
         $perjanjian = Perjanjian::findOrFail($id);
         $user = auth()->user();
-        
-        // Validasi akses
-        if ($user && $user->role !== 'admin') {
-            // User biasa hanya bisa update perjanjian mereka sendiri
-            if ($perjanjian->user_id != $user->id) {
-                return back()->with('error', 'Anda tidak memiliki akses untuk mengubah perjanjian ini.');
-            }
-        }
-        
-        // Hanya direktur/pimpinan yang boleh update
-        if (!$user || !(stripos($user->jabatan, 'direktur') !== false || stripos($user->jabatan, 'pimpinan') !== false)) {
-            return back()->with('error', 'Hanya Direktur/Pimpinan yang dapat mengubah perjanjian.');
+
+        $isOwner = $user && (int) $perjanjian->user_id === (int) $user->id;
+        $isAdmin = $user && $user->role === 'admin';
+
+        if (!$user || (!$isAdmin && !$isOwner)) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk mengubah perjanjian ini.');
         }
         // Cek apakah perjanjian masih bisa diedit
         if (!empty($perjanjian->pihak2_signature)) {
@@ -624,6 +676,7 @@ class PerjanjianController extends Controller
             'jabatan_pelaksana' => $request->jabatan_pelaksana,
             'tugas_pelaksana'   => $request->tugas_pelaksana,
             'fungsi_pelaksana'  => $request->fungsi_pelaksana,
+            'pihak1_ttd'        => auth()->user()->tanda_tangan,
             
             // Reset status ke menunggu jika sebelumnya ditolak (kolom baru)
             'status'            => $statusBaru,
@@ -636,6 +689,7 @@ class PerjanjianController extends Controller
             'tabelA' => json_encode([
                 'sasaran'   => $request->a_sasaran ?? [],
                 'indikator' => $request->a_indikator ?? [],
+                'indicator_type' => $request->a_indicator_type ?? [],
                 'satuan'    => $request->a_satuan ?? [],
                 'target'    => $request->a_target ?? [],
             ]),
@@ -643,6 +697,7 @@ class PerjanjianController extends Controller
             'tabelB' => json_encode([
                 'sasaran'   => $request->c_sasaran ?? [],
                 'indikator' => $request->c_indikator ?? [],
+                'indicator_type' => $request->c_indicator_type ?? [],
                 'target'    => $request->c_target ?? [],
                 'tw1'       => $request->c_tw1 ?? [],
                 'tw2'       => $request->c_tw2 ?? [],
@@ -662,6 +717,39 @@ class PerjanjianController extends Controller
         if ($statusLama === 'ditolak') {
             \Log::info("✓ Status berhasil diubah dari 'ditolak' ke '{$perjanjian->status}'");
         }
+
+        // Mirror update to Supabase (use nomor_perjanjian as stable key)
+        try {
+            $payload = [
+                'pihak2_name' => $perjanjian->pihak2_name,
+                'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                'pihak2_nip' => $perjanjian->pihak2_nip,
+                'location' => $perjanjian->location,
+                'agreement_date' => $perjanjian->agreement_date,
+                'jabatan' => $perjanjian->jabatan,
+                'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                'status' => $perjanjian->status,
+                'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                'rejected' => $perjanjian->rejected,
+                'rejection_reason' => $perjanjian->rejection_reason,
+                'tabelA' => $perjanjian->tabelA,
+                'tabelB' => $perjanjian->tabelB,
+                'tabelC' => $perjanjian->tabelC,
+            ];
+
+            $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+            $res = $this->supabase->update('perjanjians', $filters, $payload);
+            if (empty($res['success'])) {
+                Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ': ' . ($res['error'] ?? 'unknown'));
+            } else {
+                Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ': ' . $e->getMessage());
+        }
         
         // Return JSON when requested via fetch/AJAX
         if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
@@ -678,9 +766,13 @@ class PerjanjianController extends Controller
             $successMessage .= ' Status perjanjian dikembalikan ke menunggu persetujuan.';
         }
 
-        return redirect()->route('perjanjian.index')
-            ->with('success', $successMessage);
-    }
+        $backSource = $request->input('from', 'dashboard_wadir_perjanjian');
+
+        return redirect()->route('perjanjian.index', [
+                'status' => 'waiting',
+                'from' => $backSource,
+            ])
+            ->with('success', $successMessage);    }
 
 
     // ==============================
@@ -765,12 +857,14 @@ class PerjanjianController extends Controller
                 'tabelA' => json_encode([
                     'sasaran'   => $request->a_sasaran ?? [],
                     'indikator' => $request->a_indikator ?? [],
+                    'indicator_type' => $request->a_indicator_type ?? [],
                     'satuan'    => $request->a_satuan ?? [],
                     'target'    => $request->a_target ?? [],
                 ]),
                 'tabelB' => json_encode([
                     'sasaran'   => $request->c_sasaran ?? [],
                     'indikator' => $request->c_indikator ?? [],
+                    'indicator_type' => $request->c_indicator_type ?? [],
                     'target'    => $request->c_target ?? [],
                     'tw1'       => $request->c_tw1 ?? [],
                     'tw2'       => $request->c_tw2 ?? [],
@@ -780,11 +874,46 @@ class PerjanjianController extends Controller
                 'tabelC' => $tabelC,
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Data perjanjian berhasil disimpan ke Supabase!',
-                'id' => $save->id
-            ]);
+                // Mirror to Supabase
+                try {
+                    $payload = [
+                        'local_id' => $save->id,
+                        'tahun' => $save->tahun,
+                        'nomor_perjanjian' => $save->nomor_perjanjian,
+                        'user_id' => $save->user_id,
+                        'pihak1_name' => $save->pihak1_name,
+                        'pihak1_jabatan' => $save->pihak1_jabatan,
+                        'pihak1_pangkat' => $save->pihak1_pangkat,
+                        'pihak1_nip' => $save->pihak1_nip,
+                        'pihak1_ttd' => $save->pihak1_ttd,
+                        'pihak2_name' => $save->pihak2_name,
+                        'pihak2_jabatan' => $save->pihak2_jabatan,
+                        'pihak2_pangkat' => $save->pihak2_pangkat,
+                        'pihak2_nip' => $save->pihak2_nip,
+                        'location' => $save->location,
+                        'agreement_date' => $save->agreement_date,
+                        'jabatan' => $save->jabatan,
+                        'tabelA' => $save->tabelA,
+                        'tabelB' => $save->tabelB,
+                        'tabelC' => $save->tabelC,
+                        'status' => $save->status ?? 'menunggu',
+                    ];
+
+                    $res = $this->supabase->insert('perjanjians', [$payload]);
+                    if (empty($res['success'])) {
+                        Log::warning('Supabase insert failed for perjanjian local_id=' . $save->id . ': ' . ($res['error'] ?? 'unknown'));
+                    } else {
+                        Log::info('Supabase insert succeeded for perjanjian local_id=' . $save->id);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Supabase insert exception for perjanjian local_id=' . $save->id . ': ' . $e->getMessage());
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data perjanjian berhasil disimpan ke Supabase!',
+                    'id' => $save->id
+                ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -803,15 +932,22 @@ class PerjanjianController extends Controller
             
             $perjanjian = Perjanjian::findOrFail($id);
             $user = auth()->user();
-            
-            // Validasi akses: hanya pembuat perjanjian atau admin yang bisa hapus
-            if ($user && $user->role !== 'admin') {
-                if ($perjanjian->user_id != $user->id) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Anda tidak memiliki akses untuk menghapus perjanjian ini'
-                    ], 403);
-                }
+
+            $isOwner = $user && (int) $perjanjian->user_id === (int) $user->id;
+            $isAdmin = $user && $user->role === 'admin';
+
+            if (!$user || (!$isAdmin && !$isOwner)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki akses untuk menghapus perjanjian ini'
+                ], 403);
+            }
+
+            if (!empty($perjanjian->pihak2_signature)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Perjanjian yang sudah disetujui tidak dapat dihapus'
+                ], 422);
             }
             
             \Log::info("Perjanjian found, deleting...");

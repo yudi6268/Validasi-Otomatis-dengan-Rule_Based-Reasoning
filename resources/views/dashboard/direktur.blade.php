@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Dashboard Pimpinan - RSUD Bangil</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -19,6 +20,8 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
         }
 
         /* HEADER */
@@ -123,13 +126,15 @@
             display: flex;
             flex: 1;
             gap: 0;
+            min-height: calc(100vh - 136px);
         }
 
         .sidebar {
             width: 260px;
             background: #fff;
-            padding: 25px 20px;
+            padding: 22px 18px;
             box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            overflow: auto;
         }
 
         .sidebar h3 {
@@ -177,12 +182,12 @@
         /* MAIN CONTENT */
         .main-content {
             flex: 1;
-            padding: 30px 40px;
+            padding: 20px 24px;
             overflow-y: auto;
         }
 
         .page-header {
-            margin-bottom: 30px;
+            margin-bottom: 18px;
         }
 
         .page-header h1 {
@@ -199,9 +204,9 @@
         /* SEARCH AND FILTER */
         .search-filter-area {
             background: #fff;
-            padding: 20px 25px;
+            padding: 14px 18px;
             border-radius: 12px;
-            margin-bottom: 25px;
+            margin-bottom: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             display: flex;
             gap: 15px;
@@ -235,13 +240,13 @@
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
         .stat-card {
             background: #fff;
-            padding: 20px;
+            padding: 16px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             border-top: 5px solid;
@@ -293,7 +298,7 @@
         .section {
             background: #fff;
             border-radius: 12px;
-            padding: 25px;
+            padding: 18px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
 
@@ -478,6 +483,88 @@
             background: #d0d0d0;
         }
 
+        .action-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+            width: min(950px, 95%);
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-small {
+            width: min(520px, 95%);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 22px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #1B2A41;
+        }
+
+        .modal-close {
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            color: #888;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 18px 22px;
+            overflow: auto;
+            flex: 1;
+            min-height: 300px;
+        }
+
+        .modal-body iframe {
+            width: 100%;
+            min-height: 65vh;
+            border-radius: 12px;
+        }
+
+        .modal-body textarea {
+            width: 100%;
+            min-height: 160px;
+            border: 1px solid #d9d9d9;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 14px;
+            resize: vertical;
+            color: #333;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 22px 22px;
+        }
+
+        .modal-actions .btn-action {
+            min-width: 120px;
+        }
+
         /* RESPONSIVE */
         @media (max-width: 1024px) {
             .sidebar {
@@ -521,126 +608,161 @@
             <a href="{{ route('tentang') }}">Tentang</a>
         </nav>
 
-        <div class="icons">
-            <i id="profileIcon" class="fas fa-user"></i>
-            <i id="logoutIcon" class="fas fa-right-from-bracket"></i>
-
-            <div id="profileMenu" class="profile-menu">
-                <a href="{{ route('profil') }}"><i class="fas fa-user"></i> Profil Saya</a>
-                <a href="{{ route('settings') }}"><i class="fas fa-gear"></i> Pengaturan</a>
-            </div>
-        </div>
+        <div></div>
     </header>
+
+    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display:none;">
+        @csrf
+    </form>
 
     <!-- MAIN DASHBOARD -->
     <div class="dashboard-container">
         
         <!-- SIDEBAR MENU -->
-        <aside class="sidebar">
-            <h3>Menu</h3>
-            <div class="sidebar-menu">
-                <a href="{{ route('dashboard.direktur') }}" class="active">
-                    <i class="fas fa-file-contract"></i>
-                    Perjanjian Kinerja
-                </a>
-                <a href="{{ route('direktur.laporan') }}">
-                    <i class="fas fa-chart-line"></i>
-                    Laporan Kinerja
-                </a>
-            </div>
-        </aside>
+        @include('dashboard.partials.pimpinan-sidebar')
 
         <!-- MAIN CONTENT -->
         <main class="main-content">
-            
-            <!-- PAGE HEADER -->
-            <div class="page-header">
-                <h1>Selamat Datang, {{ auth()->user()->nama }}</h1>
-                <p>Kelola dan Review perjanjian serta laporan kinerja tim Anda</p>
-            </div>
+            @php $panel = request()->query('panel'); @endphp
 
-            <!-- SEARCH AND FILTER -->
-            <div class="search-filter-area">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Cari nama pegawai atau tanggal...">
+            @if ($panel === 'profil')
+                <div class="page-header">
+                    <h1>Profil</h1>
+                    <p>Informasi akun pimpinan dalam panel dashboard yang sama.</p>
                 </div>
-            </div>
 
-            <!-- STATS CARDS -->
-            <div class="stats-grid">
-                <div class="stat-card green active" data-filter="all">
-                    <div class="label">Total Perjanjian</div>
-                    <div class="number">{{ $counts['all'] ?? 0 }}</div>
+                @include('dashboard.partials.profile-panel', [
+                    'title' => 'Profil Pimpinan',
+                    'description' => 'Profil ditampilkan langsung di dalam dashboard pimpinan agar tidak perlu membuka halaman terpisah.'
+                ])
+            @else
+                <!-- PAGE HEADER -->
+                <div class="page-header">
+                    <h1>Selamat Datang, {{ auth()->user()->nama }}</h1>
+                    <p>Kelola dan Review Laporan Kinerja</p>
                 </div>
-                <div class="stat-card yellow" data-filter="setuju">
-                    <div class="label">Disetujui</div>
-                    <div class="number">{{ $counts['approved'] ?? 0 }}</div>
-                </div>
-                <div class="stat-card blue" data-filter="menunggu">
-                    <div class="label">Menunggu Approval</div>
-                    <div class="number">{{ $counts['waiting'] ?? 0 }}</div>
-                </div>
-                <div class="stat-card red" data-filter="tolak">
-                    <div class="label">Ditolak</div>
-                    <div class="number">{{ $counts['rejected'] ?? 0 }}</div>
-                </div>
-            </div>
 
-            <!-- PERJANJIAN TABLE -->
-            <div class="section">
-                <div class="section-title">
-                    <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Data Perjanjian Kinerja</h2>
-                    <a href="{{ route('direktur.perjanjian.list') }}">Lihat Semua</a>
+                <!-- SEARCH AND FILTER -->
+                <div class="search-filter-area">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Cari nama pegawai atau tanggal...">
+                    </div>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Nama Pegawai</th>
-                            <th>Tanggal</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dataTable">
-                        @forelse($perjanjians ?? [] as $i => $perjanjian)
+
+                <!-- STATS CARDS -->
+                <div class="stats-grid">
+                    <div class="stat-card green active" data-filter="all">
+                        <div class="label">Total Perjanjian</div>
+                        <div class="number">{{ $counts['all'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card yellow" data-filter="setuju">
+                        <div class="label">Disetujui</div>
+                        <div class="number">{{ $counts['approved'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card blue" data-filter="menunggu">
+                        <div class="label">Menunggu Approval</div>
+                        <div class="number">{{ $counts['waiting'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card red" data-filter="tolak">
+                        <div class="label">Ditolak</div>
+                        <div class="number">{{ $counts['rejected'] ?? 0 }}</div>
+                    </div>
+                </div>
+
+                <!-- PERJANJIAN TABLE -->
+                <div class="section">
+                    <div class="section-title">
+                        <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Menunggu Review</h2>
+                        <a href="{{ route('direktur.perjanjian.list') }}">Lihat Semua</a>
+                    </div>
+                    <table>
+                        <thead>
                             <tr>
-                                <td>{{ $i + 1 }}</td>
-                                <td><strong>{{ $perjanjian->pihak1_name ?? '-' }}</strong></td>
-                                <td>{{ $perjanjian->created_at?->format('d/m/Y') ?? '-' }}</td>
-                                <td>
-                                    @if($perjanjian->rejected === true)
-                                        <span class="status-badge rejected">Ditolak</span>
-                                    @elseif(!empty($perjanjian->pihak2_signature))
-                                        <span class="status-badge approved">Disetujui</span>
-                                    @else
-                                        <span class="status-badge waiting">Menunggu</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <a href="{{ route('direktur.perjanjian.show', $perjanjian->id) }}">
-                                        <button class="btn-action">Review</button>
-                                    </a>
-                                    <a href="{{ route('direktur.perjanjian.print', $perjanjian->id) }}" target="_blank">
-                                        <button class="btn-action">Cetak</button>
-                                    </a>
-                                </td>
+                                <th>No</th>
+                                <th>Jenis Dokumen</th>
+                                <th>Unit Kerja</th>
+                                <th>Periode</th>
+                                <th>Diunggah Oleh</th>
+                                <th>Aksi</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" style="text-align: center; padding: 30px;">Belum ada data perjanjian kinerja</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody id="dataTable">
+                            @forelse($perjanjians ?? [] as $i => $perjanjian)
+                                <tr>
+                                    <td>{{ ($perjanjians->currentPage() - 1) * $perjanjians->perPage() + $loop->iteration }}</td>
+                                    <td>{{ $perjanjian->jenis ?? ($perjanjian->jenis_perjanjian ?? 'Perjanjian Kinerja') }}</td>
+                                    <td>{{ $perjanjian->pihak1_jabatan ?? '-' }}</td>
+                                    <td>{{ $perjanjian->periode ?? $perjanjian->created_at?->format('Y') ?? '-' }}</td>
+                                    <td>{{ $perjanjian->pihak1_name ?? '-' }}</td>
+                                    <td>
+                                        <button type="button" class="btn-action" onclick="showPreview({{ $perjanjian->id }})">Review</button>
+                                        <button type="button" class="btn-action reject" onclick="showRejectModal({{ $perjanjian->id }})">Tolak</button>
+                                        <a href="{{ route('direktur.perjanjian.print', $perjanjian->id) }}" target="_blank">
+                                            <button type="button" class="btn-action">Cetak</button>
+                                        </a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 30px;">Belum ada data perjanjian kinerja</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+                        {{ $perjanjians->links() }}
+                    </div>
+                </div>
 
+                <div class="section" style="margin-top:16px;">
+                    <div class="section-title">
+                        <h2>Ringkasan Persetujuan (Tahun ini)</h2>
+                        <a href="#">Lihat Semua</a>
+                    </div>
+                    <canvas id="approvalChart" height="96"></canvas>
+                </div>
+            @endif
         </main>
     </div>
 
     <!-- FOOTER -->
-    <footer>© 2026 RSUD Bangil – Sistem Laporan Kinerja</footer>
+    <footer style="margin-top:0;background:#fff;text-align:center;font-size:12px;font-weight:700;line-height:1.4;padding:10px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
+
+    <!-- PREVIEW MODAL -->
+    <div id="previewModal" class="action-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Preview Perjanjian</h3>
+                <button type="button" class="modal-close" onclick="closePreview()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <iframe id="previewIframe" src="" frameborder="0"></iframe>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-action" onclick="approvePerjanjian(currentPreviewId)">Setujui</button>
+                <button type="button" class="btn-action reject" onclick="closePreview()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REJECT MODAL -->
+    <div id="rejectModal" class="action-modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Tolak Perjanjian</h3>
+                <button type="button" class="modal-close" onclick="closeReject()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Silakan isi alasan penolakan sebelum mengirim.</p>
+                <textarea id="rejectionReason" placeholder="Tulis alasan penolakan minimal 10 karakter..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-action reject" onclick="submitReject()">Kirim Penolakan</button>
+                <button type="button" class="btn-action" onclick="closeReject()">Batal</button>
+            </div>
+        </div>
+    </div>
 
     <!-- LOGOUT MODAL -->
     <div id="logoutModal" class="logout-modal">
@@ -660,29 +782,13 @@
     
 
     <script>
-        // Profile menu toggle
-        const profileIcon = document.getElementById('profileIcon');
-        const profileMenu = document.getElementById('profileMenu');
-        const logoutIcon = document.getElementById('logoutIcon');
         const logoutModal = document.getElementById('logoutModal');
         const cancelLogout = document.getElementById('cancelLogout');
 
-        if (profileIcon && profileMenu) {
-            profileIcon.addEventListener('click', () => {
-                profileMenu.style.display = profileMenu.style.display === 'flex' ? 'none' : 'flex';
-            });
-            document.addEventListener('click', (e) => {
-                if (!profileIcon.contains(e.target) && !profileMenu.contains(e.target)) {
-                    profileMenu.style.display = 'none';
-                }
-            });
-        }
-
-        // Logout functionality
-        if (logoutIcon) {
-            logoutIcon.addEventListener('click', () => {
+        function showLogoutModal() {
+            if (logoutModal) {
                 logoutModal.style.display = 'flex';
-            });
+            }
         }
 
         if (cancelLogout) {
@@ -691,11 +797,13 @@
             });
         }
 
-        logoutModal.addEventListener('click', (e) => {
-            if (e.target === logoutModal) {
-                logoutModal.style.display = 'none';
-            }
-        });
+        if (logoutModal) {
+            logoutModal.addEventListener('click', (e) => {
+                if (e.target === logoutModal) {
+                    logoutModal.style.display = 'none';
+                }
+            });
+        }
 
         // Search and filter
         const searchInput = document.getElementById('searchInput');
@@ -712,32 +820,158 @@
             });
         });
 
-        searchInput.addEventListener('keyup', filterTable);
+        if (searchInput) searchInput.addEventListener('keyup', filterTable);
 
         function filterTable() {
-            const keyword = searchInput.value.toLowerCase();
-            const rows = dataTable.querySelectorAll('tr');
+            const keyword = (searchInput?.value || '').toLowerCase();
+            const rows = dataTable ? dataTable.querySelectorAll('tr') : [];
 
             rows.forEach(row => {
-                const statusEl = row.querySelector('.status-badge');
                 const rowText = row.innerText.toLowerCase();
 
-                let statusMatch = true;
-                if (activeFilter !== 'all' && statusEl) {
-                    const statusClass = statusEl.className;
-                    const statusMap = {
-                        'menunggu': statusClass.includes('waiting'),
-                        'setuju': statusClass.includes('approved'),
-                        'tolak': statusClass.includes('rejected')
-                    };
-                    statusMatch = statusMap[activeFilter] || false;
-                }
-
+                // simple search only (status filter handled by backend via stat cards)
                 const searchMatch = rowText.includes(keyword);
-
-                row.style.display = (statusMatch && searchMatch) ? '' : 'none';
+                row.style.display = searchMatch ? '' : 'none';
             });
         }
+
+        const previewModal = document.getElementById('previewModal');
+        const rejectModal = document.getElementById('rejectModal');
+        const previewIframe = document.getElementById('previewIframe');
+        const rejectionReason = document.getElementById('rejectionReason');
+        let currentPreviewId = null;
+        let currentRejectId = null;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const reviewBaseUrl = '{{ url('/dashboard/direktur/perjanjian') }}';
+
+        function showPreview(id) {
+            currentPreviewId = id;
+            previewIframe.src = `${reviewBaseUrl}/${id}`;
+            previewModal.style.display = 'flex';
+        }
+
+        function closePreview() {
+            previewModal.style.display = 'none';
+            previewIframe.src = '';
+            currentPreviewId = null;
+        }
+
+        function approvePerjanjian(id) {
+            if (!id) return;
+            if (!confirm('Yakin ingin menyetujui perjanjian ini?')) return;
+            fetch(`${reviewBaseUrl}/${id}/approve`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                }
+            }).then(async r => {
+                const res = await r.json();
+                alert(res.message || 'Operasi selesai');
+                if (res.success) {
+                    closePreview();
+                    window.location.reload();
+                }
+            }).catch(err => {
+                alert('Terjadi kesalahan: ' + err.message);
+            });
+        }
+
+        function showRejectModal(id) {
+            currentRejectId = id;
+            rejectionReason.value = '';
+            rejectModal.style.display = 'flex';
+        }
+
+        function closeReject() {
+            rejectModal.style.display = 'none';
+            rejectionReason.value = '';
+            currentRejectId = null;
+        }
+
+        function submitReject() {
+            if (!currentRejectId) return;
+            const reason = rejectionReason.value.trim();
+            if (reason.length < 10) {
+                alert('Alasan penolakan minimal 10 karakter.');
+                return;
+            }
+            fetch(`${reviewBaseUrl}/${currentRejectId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ rejection_reason: reason })
+            }).then(async r => {
+                const res = await r.json();
+                alert(res.message || 'Operasi selesai');
+                if (res.success) {
+                    closeReject();
+                    window.location.reload();
+                }
+            }).catch(err => {
+                alert('Terjadi kesalahan: ' + err.message);
+            });
+        }
+
+        // Close modals when clicking outside content
+        if (previewModal) {
+            previewModal.addEventListener('click', (event) => {
+                if (event.target === previewModal) closePreview();
+            });
+        }
+        if (rejectModal) {
+            rejectModal.addEventListener('click', (event) => {
+                if (event.target === rejectModal) closeReject();
+            });
+        }
+
+        // Chart.js render
+        (function() {
+            const ctx = document.getElementById('approvalChart');
+            if (!ctx) return;
+            const labels = {!! json_encode($monthly['labels'] ?? []) !!};
+            const approved = {!! json_encode($monthly['approved'] ?? []) !!};
+            const rejected = {!! json_encode($monthly['rejected'] ?? []) !!};
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.onload = () => {
+                new Chart(ctx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Disetujui',
+                                data: approved,
+                                borderColor: '#00B5A0',
+                                backgroundColor: 'rgba(0,181,144,0.08)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Ditolak',
+                                data: rejected,
+                                borderColor: '#FF2E2E',
+                                backgroundColor: 'rgba(255,46,46,0.08)',
+                                tension: 0.3,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'top' }
+                        }
+                    }
+                });
+            };
+            document.head.appendChild(script);
+        })();
     </script>
 
 </body>

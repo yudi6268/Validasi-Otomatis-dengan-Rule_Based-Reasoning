@@ -18,8 +18,10 @@ class AdminController extends Controller
     /**
      * Display admin dashboard
      */
-    public function index()
+    public function index(Request $request)
     {
+        $activeSection = $request->query('section', 'dashboard');
+
         // Get statistics
         $totalUsers = User::count();
         $totalPerjanjian = Perjanjian::count();
@@ -132,6 +134,7 @@ class AdminController extends Controller
         $jabatanStats = Jabatan::withCount('users')->get();
 
         return view('admin.dashboard', compact(
+            'activeSection',
             'totalUsers',
             'totalPerjanjian',
             'totalNotifications',

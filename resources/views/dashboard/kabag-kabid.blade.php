@@ -492,7 +492,7 @@
         <aside class="sidebar">
             <h3>Menu</h3>
             <div class="sidebar-menu">
-                <a href="{{ route('perjanjian.index') }}" class="active">
+                <a href="{{ route('perjanjian.index') }}" target="_self" class="active">
                     <i class="fas fa-file-contract"></i>
                     Perjanjian Kinerja
                 </a>
@@ -540,7 +540,7 @@
             <div class="section">
                 <div class="section-title">
                     <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Perjanjian Kinerja</h2>
-                    <a href="{{ route('perjanjian.index') }}">Lihat Semua</a>
+                    <a href="{{ route('perjanjian.index') }}" target="_self">Lihat Semua</a>
                 </div>
                 <table>
                     <thead>
@@ -564,7 +564,7 @@
     </div>
 
     <!-- FOOTER -->
-    <footer>© 2026 RSUD Bangil – Sistem Laporan Kinerja</footer>
+    <footer style="margin-top:40px;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
 
     <!-- LOGOUT MODAL -->
     <div id="logoutModal" class="logout-modal">

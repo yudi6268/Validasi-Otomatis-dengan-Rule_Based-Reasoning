@@ -4,6 +4,16 @@
 @section('page-title', 'Dashboard Admin')
 
 @section('content')
+@php $activeSection = $activeSection ?? 'dashboard'; @endphp
+
+@if ($activeSection === 'profile')
+<div class="container-fluid" style="max-width: 100%; overflow-x: hidden;">
+    @include('dashboard.partials.profile-panel', [
+        'title' => 'Profil Administrator',
+        'description' => 'Profil admin sekarang ditampilkan sebagai panel internal agar tetap berada dalam shell dashboard admin.'
+    ])
+</div>
+@else
 <div class="container-fluid" style="max-width: 100%; overflow-x: hidden;">
     <!-- Alert Pending Users -->
     @php
@@ -126,6 +136,8 @@
         </div>
     </div>
 </div>
+
+@endif
 
 <!-- Modals for Program, Kegiatan, Sub-Kegiatan -->
 <!-- Modal Program -->

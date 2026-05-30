@@ -26,7 +26,7 @@ class PdfHelper
         $pdfPortrait->setOrientation('Portrait');
         $pdfPortrait->setOption('enable-local-file-access', true);
         $pdfPortrait->setOption('disable-smart-shrinking', true);
-        $pdfPortrait->setOption('zoom', 1.15);
+        $pdfPortrait->setOption('zoom', 1.0);
         $pdfPortrait->setOption('margin-top', 0);
         $pdfPortrait->setOption('margin-right', 0);
         $pdfPortrait->setOption('margin-bottom', 0);
@@ -56,7 +56,7 @@ class PdfHelper
         $pdfLandscape->setOrientation('Landscape'); // Physical Landscape
         $pdfLandscape->setOption('enable-local-file-access', true);
         $pdfLandscape->setOption('disable-smart-shrinking', true);
-        $pdfLandscape->setOption('zoom', 1.15);
+        $pdfLandscape->setOption('zoom', 1.0);
         $pdfLandscape->setOption('margin-top', 0);
         $pdfLandscape->setOption('margin-right', 0);
         $pdfLandscape->setOption('margin-bottom', 0);

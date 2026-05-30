@@ -3,7 +3,7 @@
 @section('title', 'Form Perjanjian')
 
 @section('back')
-<a href="{{ route('perjanjian.index') }}" style="text-decoration:none; color:#009970; font-size:20px;">
+<a href="{{ route('perjanjian.index') }}" target="_self" style="text-decoration:none; color:#009970; font-size:20px;">
     <i class="fa-solid fa-arrow-left"></i>
 </a>
 @endsection

@@ -47,6 +47,18 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is wakil direktur
+     */
+    public function isWadir(): bool
+    {
+        return in_array($this->jabatan, [
+            'Wakil Direktur Umum dan Keuangan',
+            'Wakil Direktur Pelayanan',
+            'Wakil Direktur Perencanaan dan Keuangan',
+        ], true);
+    }
+
+    /**
      * Get perjanjian created by this user
      */
     public function perjanjians()

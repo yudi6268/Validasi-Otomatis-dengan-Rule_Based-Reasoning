@@ -5,7 +5,7 @@
     $statusParam = request()->get('status');
     $pageTitle = 'Perjanjian';
     
-    if ($statusParam === 'all') {
+    if ($statusParam === 'all' || $statusParam === 'sent') {
         $pageTitle = 'Perjanjian Terkirim';
     } elseif ($statusParam === 'approved') {
         $pageTitle = 'Perjanjian Disetujui';
@@ -13,6 +13,14 @@
         $pageTitle = 'Perjanjian Ditolak';
     } elseif ($statusParam === 'waiting') {
         $pageTitle = 'Menunggu Persetujuan';
+    }
+
+    $dashboardBackRoute = auth()->check() && auth()->user()->isWadir()
+        ? route('dashboard.wadir', ['panel' => 'perjanjian'])
+        : route('home', ['section' => 'dashboard']);
+
+    if (request()->get('from') === 'dashboard_wadir_perjanjian') {
+        $dashboardBackRoute = route('dashboard.wadir', ['panel' => 'perjanjian']);
     }
 @endphp
 
@@ -511,28 +519,28 @@
         
         <div class="stats-grid">
             
-            <div class="stat-card" onclick="showList('terkirim')" style="cursor: pointer;">
-                <div class="stat-number terkirim">{{ $counts['total'] ?? 0 }}</div>
+            <div class="stat-card" onclick="openStatusOrModal('terkirim')" style="cursor: pointer;">
+                <div class="stat-number terkirim">{{ $counts['sent'] ?? 0 }}</div>
                 <div class="stat-label">Terkirim</div>
-                <button class="stat-btn btn-terkirim" onclick="event.stopPropagation(); showList('terkirim')">Lihat</button>
+                <button class="stat-btn btn-terkirim" onclick="event.stopPropagation(); openStatusOrModal('terkirim')">Lihat</button>
             </div>
             
-            <div class="stat-card" onclick="showList('disetujui')" style="cursor: pointer;">
+            <div class="stat-card" onclick="openStatusOrModal('disetujui')" style="cursor: pointer;">
                 <div class="stat-number disetujui">{{ $counts['approved'] ?? 0 }}</div>
                 <div class="stat-label">Disetujui</div>
-                <button class="stat-btn btn-disetujui" onclick="event.stopPropagation(); showList('disetujui')">Lihat</button>
+                <button class="stat-btn btn-disetujui" onclick="event.stopPropagation(); openStatusOrModal('disetujui')">Lihat</button>
             </div>
             
-            <div class="stat-card" onclick="showList('ditolak')" style="cursor: pointer;">
+            <div class="stat-card" onclick="openStatusOrModal('ditolak')" style="cursor: pointer;">
                 <div class="stat-number ditolak">{{ $counts['rejected'] ?? 0 }}</div>
                 <div class="stat-label">Ditolak</div>
-                <button class="stat-btn btn-ditolak" onclick="event.stopPropagation(); showList('ditolak')">Lihat</button>
+                <button class="stat-btn btn-ditolak" onclick="event.stopPropagation(); openStatusOrModal('ditolak')">Lihat</button>
             </div>
             
-            <div class="stat-card" onclick="showList('menunggu')" style="cursor: pointer;">
+            <div class="stat-card" onclick="openStatusOrModal('menunggu')" style="cursor: pointer;">
                 <div class="stat-number menunggu">{{ $counts['waiting'] ?? 0 }}</div>
                 <div class="stat-label">Menunggu</div>
-                <button class="stat-btn btn-menunggu" onclick="event.stopPropagation(); showList('menunggu')">Lihat</button>
+                <button class="stat-btn btn-menunggu" onclick="event.stopPropagation(); openStatusOrModal('menunggu')">Lihat</button>
             </div>
         </div>
     </div>
@@ -544,7 +552,7 @@
 
     <!-- Back Button -->
     <div class="back-to-stats" id="backButton">
-        <button onclick="showStats()"><i class="fas fa-arrow-left"></i> Kembali ke Dashboard</button>
+        <button type="button" onclick="window.location.href='{{ $dashboardBackRoute }}'"><i class="fas fa-arrow-left"></i> Kembali ke Dashboard</button>
     </div>
 
     <!-- Card List -->
@@ -583,8 +591,8 @@
 </div>
 
 <!-- Footer -->
-<div class="footer">
-    © 2026 RSUD Bangil – Sistem Laporan Kinerja
+<div class="footer" style="margin-top:40px;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">
+    © 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil
 </div>
 
 <!-- Floating Add Button (for card list view) -->
@@ -627,6 +635,17 @@
     </div>
 </div>
 
+<!-- Modal Info Data Kosong -->
+<div id="noDataModal" class="logout-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+    <div class="logout-box" style="background:#fff;padding:32px 24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);min-width:300px;text-align:center;">
+        <h3 style="margin-bottom:18px;">Informasi</h3>
+        <p id="noDataModalText" style="margin-bottom:24px;color:#555;line-height:1.6;">Tidak ada data perjanjian.</p>
+        <div class="logout-buttons" style="display:flex;gap:16px;justify-content:center;">
+            <button type="button" style="background:#00B5A0;color:#fff;padding:8px 24px;border:none;border-radius:6px;font-weight:600;cursor:pointer;" onclick="closeNoDataModal()">Tutup</button>
+        </div>
+    </div>
+</div>
+
 <form id="deleteForm" method="POST" style="display: none;">
     @csrf
     @method('DELETE')
@@ -640,6 +659,8 @@ console.log('=== PERJANJIAN INDEX SCRIPT START ===');
 var allItems = [];
 var currentFilter = '';
 var viewOnly = false; // Flag for view-only mode (from direktur dashboard)
+const isAdminUser = @json(auth()->check() && auth()->user()->role === 'admin');
+const currentUserId = @json(auth()->id());
 
 try {
     allItems = {!! json_encode($items) !!};
@@ -653,6 +674,15 @@ try {
 const urlParams = new URLSearchParams(window.location.search);
 const statusParam = urlParams.get('status');
 const viewOnlyParam = urlParams.get('view_only');
+const sourceParam = urlParams.get('from');
+const isFromWadirPanel = sourceParam === 'dashboard_wadir_perjanjian';
+const canMutatePerjanjian = Boolean(isAdminUser) && !viewOnly;
+
+function appendSourceParam(url) {
+    if (!sourceParam) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}from=${encodeURIComponent(sourceParam)}`;
+}
 
 if (viewOnlyParam === '1') {
     viewOnly = true;
@@ -664,6 +694,7 @@ if (statusParam) {
     // Map status from direktur dashboard to perjanjian filter
     const statusMapping = {
         'all': 'terkirim',
+        'sent': 'terkirim',
         'approved': 'disetujui',
         'rejected': 'ditolak',
         'waiting': 'menunggu'
@@ -740,25 +771,99 @@ function updateCounts() {
     };
     
     allItems.forEach(item => {
+        const itemStatus = getItemStatus(item);
         counts.total++;
-        
-        if (item.rejected && item.rejected == true) {
-            counts.ditolak++;
-        } else if (item.pihak2_signature && item.pihak2_signature != '') {
-            counts.disetujui++;
-        } else if (item.pihak2_name && !item.pihak2_signature && !item.rejected) {
-            counts.menunggu++;
-        }
+
+        if (itemStatus === 'terkirim') counts.terkirim++;
+        if (itemStatus === 'disetujui') counts.disetujui++;
+        if (itemStatus === 'ditolak') counts.ditolak++;
+        if (itemStatus === 'menunggu') counts.menunggu++;
     });
     
     // Update stat numbers in dashboard
     const statCards = document.querySelectorAll('.stat-card .stat-number');
     if (statCards.length >= 4) {
-        statCards[0].textContent = counts.total; // Terkirim = total
+        statCards[0].textContent = counts.terkirim;
         statCards[1].textContent = counts.disetujui;
         statCards[2].textContent = counts.ditolak;
         statCards[3].textContent = counts.menunggu;
     }
+}
+
+function getItemStatus(item) {
+    const rawStatus = String(item.status || '').toLowerCase();
+    const statusMap = {
+        sent: 'terkirim',
+        draft: 'terkirim',
+        terkirim: 'terkirim',
+        waiting: 'menunggu',
+        menunggu: 'menunggu',
+        approved: 'disetujui',
+        disetujui: 'disetujui',
+        rejected: 'ditolak',
+        ditolak: 'ditolak'
+    };
+
+    if (item.rejected && item.rejected == true) return 'ditolak';
+    if (item.pihak2_signature && item.pihak2_signature != '') return 'disetujui';
+
+    if (statusMap[rawStatus]) {
+        return statusMap[rawStatus];
+    }
+
+    // Fallback for old records
+    if (item.pihak2_name && !item.pihak2_signature && !item.rejected) return 'terkirim';
+    return 'terkirim';
+}
+
+function statusLabel(status) {
+    const labels = {
+        terkirim: 'Terkirim',
+        disetujui: 'Disetujui',
+        ditolak: 'Ditolak',
+        menunggu: 'Menunggu'
+    };
+    return labels[status] || 'Terkirim';
+}
+
+function statusLabelLong(status) {
+    const labels = {
+        terkirim: 'terkirim',
+        disetujui: 'disetujui',
+        ditolak: 'ditolak',
+        menunggu: 'menunggu'
+    };
+    return labels[status] || status;
+}
+
+function showNoDataModal(filter) {
+    const modalText = document.getElementById('noDataModalText');
+    if (modalText) {
+        modalText.textContent = `Tidak ada data perjanjian dengan status ${statusLabelLong(filter)}.`;
+    }
+    const modal = document.getElementById('noDataModal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeNoDataModal() {
+    const modal = document.getElementById('noDataModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function hasDataForFilter(filter) {
+    return allItems.some(item => getItemStatus(item) === filter);
+}
+
+function openStatusOrModal(filter) {
+    if (!hasDataForFilter(filter)) {
+        showNoDataModal(filter);
+        return;
+    }
+    showList(filter);
 }
 
 window.showList = function(filter) {
@@ -790,28 +895,11 @@ function renderCards(filter) {
     const searchValue = (document.getElementById('searchInput')?.value || '').toLowerCase();
 
     let filteredItems = allItems.filter(item => {
-        let status = 'menunggu';
-        if (item.rejected && item.rejected == true) {
-            status = 'ditolak';
-        } else if (item.pihak2_signature && item.pihak2_signature != '') {
-            status = 'disetujui';
-        } else if (filter === 'terkirim') {
-            status = 'terkirim';
-        }
-        // Map controller status to UI status
-        let matchFilter = false;
-        if (filter === 'terkirim') {
-            matchFilter = item.pihak2_signature || item.rejected || item.pihak2_name;
-        } else if (filter === 'disetujui') {
-            matchFilter = item.pihak2_signature && item.pihak2_signature != '';
-        } else if (filter === 'ditolak') {
-            matchFilter = item.rejected && item.rejected == true;
-        } else if (filter === 'menunggu') {
-            matchFilter = item.pihak2_name && !item.pihak2_signature && !item.rejected;
-        }
+        const itemStatus = getItemStatus(item);
+        const matchFilter = itemStatus === filter;
         // Search by name or status
         let namaPegawai = (item.pihak2_name || '').toLowerCase();
-        let statusText = status.toLowerCase();
+        let statusText = statusLabel(itemStatus).toLowerCase();
         let matchSearch = !searchValue || namaPegawai.includes(searchValue) || statusText.includes(searchValue);
         return matchFilter && matchSearch;
     });
@@ -822,24 +910,9 @@ function renderCards(filter) {
     } else {
         let html = '';
         filteredItems.forEach(item => {
-            // Determine actual status for display
-            let actualStatus = 'menunggu';
-            let statusText = 'Menunggu';
-            
-            if (item.rejected && item.rejected == true) {
-                actualStatus = 'ditolak';
-                statusText = 'Ditolak';
-            } else if (item.pihak2_signature && item.pihak2_signature != '') {
-                actualStatus = 'disetujui';
-                statusText = 'Disetujui';
-            } else if (item.pihak2_name && !item.pihak2_signature && !item.rejected) {
-                actualStatus = 'menunggu';
-                statusText = 'Menunggu';
-            }
-            
-            // For terkirim view, use actual status colors
-            let displayStatusClass = filter === 'terkirim' ? actualStatus : filter;
-            let displayStatusText = filter === 'terkirim' ? statusText : (filter.charAt(0).toUpperCase() + filter.slice(1));
+            const itemStatus = getItemStatus(item);
+            const displayStatusClass = itemStatus;
+            const displayStatusText = statusLabel(itemStatus);
             
             html += `
                 <div class="perjanjian-card">
@@ -848,73 +921,30 @@ function renderCards(filter) {
                     </div>
                     
                     <div class="card-content">
-                        <div class="card-title">Perjanjian Kinerja ${new Date(item.created_at).getFullYear()}</div>
+                        <div class="card-title">Perjanjian Kinerja ${new Date(item.agreement_date || item.created_at).getFullYear()}</div>
                         <div class="card-status status-${displayStatusClass}">${displayStatusText}</div>
-                        <div class="card-date">${formatDate(item.created_at)}</div>
+                        <div class="card-date">${formatDate(item.agreement_date || item.created_at)}</div>
                     </div>
                     
                     <div class="card-actions">
-                        <a href="/perjanjian/${item.id}/print" class="action-btn btn-view" title="Lihat" target="_blank">
+                        <a href="${appendSourceParam(`/perjanjian/${item.id}/print`)}" class="action-btn btn-view" title="Lihat" target="_blank">
                             <i class="fas fa-eye"></i>
                         </a>`;
             
-            if (filter === 'terkirim') {
-                // Show actual status actions in terkirim view
-                if (item.pihak2_signature) {
-                    // Disetujui: view + download + delete (hide delete if viewOnly)
-                    html += `
-                        <a href="/perjanjian/${item.id}/pdf" class="action-btn btn-download" title="Download">
+            if (itemStatus === 'disetujui') {
+                // Diterima: hanya view + download
+                html += `
+                        <a href="${appendSourceParam(`/perjanjian/${item.id}/pdf`)}" class="action-btn btn-download" title="Download">
                             <i class="fas fa-download"></i>
                         </a>`;
-                    if (!viewOnly) {
-                        html += `
-                        <button onclick="confirmDelete(${item.id})" class="action-btn btn-delete" title="Hapus">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>`;
-                    }
-                } else if (item.rejected) {
-                    // Ditolak: view + alasan
+            } else {
+                // Status selain disetujui: view + edit + delete untuk admin atau pemilik data.
+                const canEditItem = Boolean(!viewOnly && (isAdminUser || Number(item.user_id) === Number(currentUserId)));
+                if (canEditItem) {
                     html += `
-                        <button onclick="showReason('${escapeHtml(item.rejection_reason || 'Tidak ada alasan')}')" class="btn-reason" title="Alasan">
-                            Alasan
-                        </button>`;
-                } else if (item.pihak2_name) {
-                    // Menunggu: view + edit + delete (hide edit/delete if viewOnly)
-                    if (!viewOnly) {
-                        html += `
-                        <a href="/perjanjian/${item.id}/edit" class="action-btn btn-edit" title="Edit">
+                        <a href="${appendSourceParam(`/perjanjian/${item.id}/edit`)}" class="action-btn btn-edit" title="Edit">
                             <i class="fas fa-pencil-alt"></i>
                         </a>
-                        <button onclick="confirmDelete(${item.id})" class="action-btn btn-delete" title="Hapus">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>`;
-                    }
-                }
-            } else if (filter === 'menunggu') {
-                // Menunggu: view + edit + delete (hide edit/delete if viewOnly)
-                if (!viewOnly) {
-                    html += `
-                        <a href="/perjanjian/${item.id}/edit" class="action-btn btn-edit" title="Edit">
-                            <i class="fas fa-pencil-alt"></i>
-                        </a>
-                        <button onclick="confirmDelete(${item.id})" class="action-btn btn-delete" title="Hapus">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>`;
-                }
-            } else if (filter === 'ditolak') {
-                // Ditolak: view + alasan
-                html += `
-                        <button onclick="showReason('${escapeHtml(item.rejection_reason || 'Tidak ada alasan')}')" class="btn-reason" title="Alasan">
-                            Alasan
-                        </button>`;
-            } else if (filter === 'disetujui') {
-                // Disetujui: view + download + delete (hide delete if viewOnly)
-                html += `
-                        <a href="/perjanjian/${item.id}/pdf" class="action-btn btn-download" title="Download">
-                            <i class="fas fa-download"></i>
-                        </a>`;
-                if (!viewOnly) {
-                    html += `
                         <button onclick="confirmDelete(${item.id})" class="action-btn btn-delete" title="Hapus">
                             <i class="fas fa-trash-alt"></i>
                         </button>`;
@@ -1039,11 +1069,18 @@ window.handleBackNavigation = function() {
     // Check if we're in view-only mode (from direktur dashboard)
     const urlParams = new URLSearchParams(window.location.search);
     const viewOnlyParam = urlParams.get('view_only');
+    const sourceParam = urlParams.get('from');
     
     if (viewOnlyParam === '1') {
         // If from direktur dashboard, go back to dashboard direktur
         console.log('Returning to direktur dashboard');
         window.location.href = '{{ route('dashboard.direktur') }}';
+        return;
+    }
+
+    if (sourceParam === 'dashboard_wadir_perjanjian') {
+        console.log('Returning to wadir perjanjian panel from sourced navigation');
+        window.location.href = '{{ $dashboardBackRoute }}';
         return;
     }
     
@@ -1055,8 +1092,8 @@ window.handleBackNavigation = function() {
         // If in card list, go back to stats dashboard
         showStats();
     } else {
-        // If in stats dashboard, go to home
-        window.location.href = '{{ route('home') }}';
+        // If in stats dashboard, go to dashboard route based on user role
+        window.location.href = '{{ $dashboardBackRoute }}';
     }
 };
 
@@ -1064,12 +1101,16 @@ window.handleBackNavigation = function() {
 window.onclick = function(event) {
     const reasonModal = document.getElementById('reasonModal');
     const deleteModal = document.getElementById('deleteModal');
+    const noDataModal = document.getElementById('noDataModal');
     
     if (event.target == reasonModal) {
         closeReasonModal();
     }
     if (event.target == deleteModal) {
         closeDeleteModal();
+    }
+    if (event.target == noDataModal) {
+        closeNoDataModal();
     }
 }
 
@@ -1106,13 +1147,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (statusParam) {
         const statusMapping = {
             'all': 'terkirim',
+            'sent': 'terkirim',
             'approved': 'disetujui',
             'rejected': 'ditolak',
             'waiting': 'menunggu'
         };
         const mappedStatus = statusMapping[statusParam] || statusParam;
         console.log('Auto-showing list with status:', mappedStatus);
-        showList(mappedStatus);
+        openStatusOrModal(mappedStatus);
     } else {
         const cardListActive = document.getElementById('cardList').classList.contains('active');
         console.log('Card list active:', cardListActive);

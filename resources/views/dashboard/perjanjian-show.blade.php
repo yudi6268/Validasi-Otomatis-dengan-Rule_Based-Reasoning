@@ -573,7 +573,7 @@
         }
 
         function goBack() {
-            window.history.back();
+            window.location.href = '{{ route('dashboard.wadir') }}';
         }
 
         function printPDF() {

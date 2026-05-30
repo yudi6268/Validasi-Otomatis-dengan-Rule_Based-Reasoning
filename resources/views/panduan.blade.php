@@ -53,8 +53,8 @@
                 </ul>
             </div>
         </main>
-        <footer style="background:#fff;text-align:center;font-size:15px;font-weight:700;padding:15px 0;border-top:1px solid #ddd;color:#1B2A41;position:fixed;left:0;bottom:0;width:100vw;z-index:10;">
-            © 2026 RSUD Bangil – Sistem Laporan Kinerja
+          <footer style="margin-top:40px;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">
+           © 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil
         </footer>
 </body>
 </html>

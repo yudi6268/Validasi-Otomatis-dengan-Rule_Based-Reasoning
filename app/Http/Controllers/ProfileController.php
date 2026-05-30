@@ -27,16 +27,19 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = Auth::user();
+        $isJson = $request->header('Accept') === 'application/json' || $request->isJson();
         
         // Log request untuk debugging
         \Log::info('Profile update attempt', [
             'user_id' => $user->id,
             'has_photo' => $request->filled('croppedPhotoData'),
-            'has_signature' => $request->filled('signature_data')
+            'has_signature' => $request->filled('signature_data'),
+            'isJson' => $isJson
         ]);
 
         $request->validate([
             'nama' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
             'id_pegawai' => 'nullable|string|max:50',
             'nip' => 'nullable|string|max:50',
             'jabatan' => 'nullable|string|max:100',
@@ -51,11 +54,12 @@ class ProfileController extends Controller
             /* ===========================
              * SIMPAN DATA TEXT BIASA
              =========================== */
-            $user->update($request->except([
-                'email',
+            $updateData = $request->except([
+                $isJson ? '_skip_email_exception' : 'email',
                 'croppedPhotoData',
                 'signature_data'
-            ]));
+            ]);
+            $user->update($updateData);
             
             \Log::info('Profile text data updated', ['user_id' => $user->id]);
 
@@ -130,6 +134,22 @@ class ProfileController extends Controller
                 'tanda_tangan' => $user->tanda_tangan
             ]);
 
+            if ($isJson) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Profil berhasil diperbarui',
+                    'data' => [
+                        'nama' => $user->nama,
+                        'email' => $user->email,
+                        'nip' => $user->nip,
+                        'pangkat' => $user->pangkat,
+                        'id_pegawai' => $user->id_pegawai,
+                        'foto_profil' => $user->foto_profil,
+                        'tanda_tangan' => $user->tanda_tangan,
+                    ]
+                ]);
+            }
+
             return back()->with('success', 'Profil berhasil diperbarui!');
 
         } catch (\Exception $e) {
@@ -138,6 +158,15 @@ class ProfileController extends Controller
                 'user_id' => $user->id,
                 'trace' => $e->getTraceAsString()
             ]);
+
+            if ($isJson) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan saat menyimpan profil.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
             return back()->withErrors([
                 'error' => 'Terjadi kesalahan saat menyimpan profil.'
             ]);

@@ -24,6 +24,8 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #E3F8F6, #D6F5EF);
             min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
         }
 
         /* Sidebar */
@@ -113,12 +115,15 @@
             margin-left: var(--sidebar-width);
             padding: 0;
             min-height: 100vh;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         /* Top Navbar */
         .top-navbar {
             background: #fff;
-            padding: 15px 30px;
+            padding: 12px 22px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: space-between;
@@ -151,8 +156,10 @@
 
         /* Content Area */
         .content-area {
-            padding: 20px;
+            padding: 16px;
             overflow-x: hidden;
+            overflow-y: auto;
+            flex: 1;
         }
 
         /* Cards */
@@ -409,8 +416,13 @@
         <nav class="sidebar-nav">
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                    <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') && request()->query('section', 'dashboard') === 'dashboard' ? 'active' : '' }}">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('admin.dashboard', ['section' => 'profile']) }}" class="nav-link {{ request()->routeIs('admin.dashboard') && request()->query('section') === 'profile' ? 'active' : '' }}">
+                        <i class="fas fa-user"></i> Profil
                     </a>
                 </li>
                 <li class="nav-item">

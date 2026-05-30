@@ -5,7 +5,7 @@
 @section('title', 'Form Perjanjian')
 
 @section('back')
-<a href="{{ route('perjanjian.index') }}" style="text-decoration:none; color:#009970; font-size:20px;">
+<a href="{{ auth()->check() && auth()->user()->isWadir() ? route('dashboard.wadir') : route('home', ['section' => 'dashboard']) }}" target="_self" style="text-decoration:none; color:#009970; font-size:20px;">
     <i class="fa-solid fa-arrow-left"></i>
 </a>
 @endsection
@@ -115,6 +115,39 @@
     .add-btn {
         color: #009970;
     }
+
+    /* Sembunyikan kolom AKSI pada tabel lanjutan (tanpa menyentuh kolom TW IV) */
+    #tabel2 thead tr:first-child th:last-child,
+    #tabel2 tbody td:last-child,
+    #tabel3 tfoot td:last-child {
+        display: none;
+    }
+
+    .indicator-toggle-wrap {
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        margin-bottom: 4px;
+    }
+
+    .indicator-mini-btn {
+        border: none;
+        border-radius: 4px;
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        opacity: 0.35;
+    }
+
+    .indicator-mini-btn.active {
+        opacity: 1;
+    }
+
+    .indicator-plus { background: #009970; }
+    .indicator-minus { background: #dc3545; }
 
     table thead th {
         background: #efefef;
@@ -374,7 +407,7 @@ window.addProgram = function() {
             </select>
         </td>
         <td><input type="text" name="program_anggaran[]" value="0" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari kegiatan" /></td>
-        <td><textarea name="program_ket[]" onkeyup="autoExpand(this)"></textarea></td>
+        <td><textarea name="program_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;"></textarea></td>
         <td>
             <button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${newProgramNo}')" title="Tambah Kegiatan">➕</button>
             <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -458,6 +491,14 @@ window.addSubRow = function(parentNo) {
     const inputStyle = parentLevel === 1 ? 'font-style:italic;' : '';
     const paddingLeft = parentLevel === 1 ? '5px' : '5px';
 
+    const ketCellHtml = parentLevel === 1
+        ? `<textarea name="${dataLevel}_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;"></textarea>`
+        : `<select name="${dataLevel}_ket[]" style="width:95%; padding:6px;" onchange="updateHierarchicalKet(); syncProgramToTabelD();">
+                <option value="">-- Pilih --</option>
+                <option value="APBD">APBD</option>
+                <option value="BLUD">BLUD</option>
+           </select>`;
+
     tr.innerHTML = `
         <td class="no-col">${newNo}</td>
         <td>
@@ -469,7 +510,7 @@ window.addSubRow = function(parentNo) {
             </select>
         </td>
         <td><input type="text" name="${dataLevel}_anggaran[]" value="0" ${parentLevel === 1 ? 'readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari sub kegiatan"' : 'style="text-align:right" oninput="formatRupiah(this); calculateHierarchicalTotal(); syncProgramToTabelD();"'}></td>
-        <td><textarea name="${dataLevel}_ket[]" onkeyup="autoExpand(this)"></textarea></td>
+        <td>${ketCellHtml}</td>
         <td>
             ${parentLevel < 2 ? `<button type="button" class="table-action-btn add-btn" onclick="window.addSubRow('${newNo}')" title="Tambah Sub Kegiatan">➕</button>` : ''}
             <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -824,8 +865,8 @@ console.log('=== Global functions loaded ===');
             <th>NO</th>
             <th>SASARAN</th>
             <th>INDIKATOR KINERJA</th>
-            <th style="width: 80px;">SATUAN</th>
-            <th>TARGET</th>
+            <th style="width: 70px;">SATUAN</th>
+            <th style="width: 90px;">TARGET</th>
             <th style="width: 60px;">AKSI</th>
         </tr>
     </thead>
@@ -837,6 +878,11 @@ console.log('=== Global functions loaded ===');
             <td><textarea name="a_satuan[]" onkeyup="autoExpand(this)"></textarea></td>
             <td><textarea name="a_target[]" onkeyup="autoExpand(this)"></textarea></td>
             <td>
+                <input type="hidden" name="a_indicator_type[]" value="positif">
+                <div class="indicator-toggle-wrap">
+                    <button type="button" class="indicator-mini-btn indicator-plus active" title="Indikator Positif" onclick="setIndicatorType(this, 'positif')">+</button>
+                    <button type="button" class="indicator-mini-btn indicator-minus" title="Indikator Negatif" onclick="setIndicatorType(this, 'negatif')">-</button>
+                </div>
                 <button type="button" class= "table-action-btn delete-btn" onclick="deleteRowTabelA(this)" title="hapus">🗑</button>
                 <button type="button" class="table-action-btn add-btn" onclick="addRow('tabelA')" title="Tambah">➕</button>
             </td>
@@ -872,7 +918,7 @@ console.log('=== Global functions loaded ===');
                 </select>
             </td>
             <td><input type="text" name="program_anggaran[]" value="0" readonly style="text-align:right; background:#f0f0f0; cursor:not-allowed;" placeholder="Auto" title="Total otomatis dari kegiatan" /></td>
-            <td><textarea name="program_ket[]" onkeyup="autoExpand(this)"></textarea></td>
+            <td><textarea name="program_ket[]" readonly style="background:#f0f0f0; cursor:not-allowed;"></textarea></td>
             <td>
                 <button type="button" class="table-action-btn add-btn" onclick="addSubRow('1')" title="Tambah Kegiatan">➕</button>
                 <button type="button" class="table-action-btn delete-btn" onclick="window.deleteRow(this, 'tabelProgram')" title="Hapus">🗑</button>
@@ -914,6 +960,56 @@ document.addEventListener('DOMContentLoaded', function() {
                 sub.dataset.parent = newNo;
                 sub.querySelector('.no-col').textContent = `${newNo}.${i+1}`;
             });
+        });
+    }
+
+    // Roll-up KET: sub-kegiatan -> kegiatan -> program
+    window.updateHierarchicalKet = function() {
+        const tbody = document.querySelector('#tabelProgram tbody');
+        if (!tbody) return;
+
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+
+        function mergeKet(values) {
+            const cleaned = values.filter(v => !!v && (v === 'APBD' || v === 'BLUD'));
+            const unique = [...new Set(cleaned)];
+            if (unique.length === 0) return '';
+            if (unique.length === 1) return unique[0];
+            return 'APBD/BLUD';
+        }
+
+        // Step 1: kegiatan dari sub-kegiatan
+        allRows.forEach(row => {
+            if (row.dataset.level !== 'kegiatan') return;
+            const kegiatanNo = row.querySelector('.no-col')?.textContent?.trim();
+            if (!kegiatanNo) return;
+
+            const childSubRows = allRows.filter(r => r.dataset.parent === kegiatanNo && r.dataset.level === 'subkegiatan');
+            const ketValues = childSubRows.map(sub => sub.querySelector('select[name="subkegiatan_ket[]"]')?.value || '');
+            const merged = mergeKet(ketValues);
+
+            const kegiatanKetInput = row.querySelector('textarea[name="kegiatan_ket[]"]');
+            if (kegiatanKetInput) {
+                kegiatanKetInput.value = merged;
+                autoExpand(kegiatanKetInput);
+            }
+        });
+
+        // Step 2: program dari kegiatan
+        allRows.forEach(row => {
+            if (!row.classList.contains('program-row')) return;
+            const programNo = row.querySelector('.no-col')?.textContent?.trim();
+            if (!programNo) return;
+
+            const childKegiatanRows = allRows.filter(r => r.dataset.parent === programNo && r.dataset.level === 'kegiatan');
+            const ketValues = childKegiatanRows.map(keg => keg.querySelector('textarea[name="kegiatan_ket[]"]')?.value || '');
+            const merged = mergeKet(ketValues);
+
+            const programKetInput = row.querySelector('textarea[name="program_ket[]"]');
+            if (programKetInput) {
+                programKetInput.value = merged;
+                autoExpand(programKetInput);
+            }
         });
     }
 
@@ -1017,6 +1113,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             console.log('totalAnggaran element not found!');
         }
+
+        // Selalu sinkronkan KET otomatis setelah perhitungan anggaran
+        window.updateHierarchicalKet();
     }
     
     // Backward compatibility
@@ -1030,6 +1129,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Panggil sekali untuk baris awal
     calculateHierarchicalTotal();
+    updateHierarchicalKet();
     });
 
     function formatRupiah(input) {
@@ -1075,7 +1175,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <strong style="color:#00B5A0; font-size:14px;">Panduan Pengisian Target Triwulan:</strong>
             <ul style="margin:8px 0 0 20px; font-size:12px; color:#555; line-height:1.6;">
                 <li>Kolom <strong>Target Triwulan</strong> tidak dapat diisi manual</li>
-                <li>Untuk <strong>Sub-Kegiatan</strong>: Klik tombol <span style="background:#00B5A0; color:white; padding:2px 6px; border-radius:3px; font-size:11px;">🎯 Atur</span> untuk mengisi target per bulan</li>
+                <li>Target triwulan pada sub-kegiatan diatur otomatis sesuai konfigurasi target yang sudah diinput</li>
                 <li>Target <strong>Kegiatan</strong> dan <strong>Program</strong> akan otomatis menjumlah dari sub-kegiatan di bawahnya</li>
             </ul>
         </div>
@@ -1421,13 +1521,15 @@ function openTargetModal(no, nama, pagu, key) {
             document.getElementById('bln12').value = val4.toLocaleString('id-ID');
         }
     }
+
+    const initialMode = row?.dataset.inputMode === 'prosentase' ? 'prosentase' : 'nominal';
     
     // Open modal first
     document.getElementById('targetModal').style.display = 'block';
     
     // Initialize mode and calculate with a small delay to ensure DOM is ready
     setTimeout(() => {
-        switchInputMode('nominal');
+        switchInputMode(initialMode);
         calculateModalTotal();
     }, 100);
 }
@@ -1441,10 +1543,12 @@ function closeTargetModal() {
 }
 
 function switchInputMode(mode) {
+    const previousMode = currentModalData.inputMode;
     currentModalData.inputMode = mode;
     
     const btnNominal = document.getElementById('btnNominal');
     const btnProsentase = document.getElementById('btnProsentase');
+    const pagu = currentModalData.pagu;
     
     if (mode === 'nominal') {
         btnNominal.style.background = '#00B5A0';
@@ -1464,17 +1568,26 @@ function switchInputMode(mode) {
         if (!input) continue;
         
         const rawValue = input.value.replace(/[^\d]/g, '');
+        const numericValue = parseInt(rawValue) || 0;
         
         if (mode === 'nominal') {
             input.placeholder = '0';
-            // Reformat as rupiah
             if (rawValue) {
-                input.value = parseInt(rawValue).toLocaleString('id-ID');
+                if (previousMode === 'prosentase' && pagu > 0) {
+                    input.value = Math.round((numericValue / 100) * pagu).toLocaleString('id-ID');
+                } else {
+                    input.value = numericValue.toLocaleString('id-ID');
+                }
             }
         } else {
             input.placeholder = '0%';
-            // Show as plain number for percentage
-            input.value = rawValue;
+            if (rawValue) {
+                if (previousMode === 'nominal' && pagu > 0) {
+                    input.value = Math.round((numericValue / pagu) * 100).toString();
+                } else {
+                    input.value = rawValue;
+                }
+            }
         }
     }
     
@@ -1685,6 +1798,7 @@ function saveTargetModal() {
         if (tw2Input) tw2Input.value = Math.round(tw2).toLocaleString('id-ID');
         if (tw3Input) tw3Input.value = Math.round(tw3).toLocaleString('id-ID');
         if (tw4Input) tw4Input.value = Math.round(tw4).toLocaleString('id-ID');
+        row.dataset.inputMode = mode;
         
         // Hitung hierarchical total (sub -> kegiatan -> program)
         hitungHierarchicalTW();
@@ -1800,8 +1914,10 @@ function syncTabelAToC() {
         const tw2Input = row.querySelector('textarea[name="c_tw2[]"]');
         const tw3Input = row.querySelector('textarea[name="c_tw3[]"]');
         const tw4Input = row.querySelector('textarea[name="c_tw4[]"]');
+        const indicatorTypeInput = row.querySelector('input[name="c_indicator_type[]"]');
         
         existingData.push({
+            indicatorType: indicatorTypeInput ? indicatorTypeInput.value : 'positif',
             tw1: tw1Input ? tw1Input.value : '',
             tw2: tw2Input ? tw2Input.value : '',
             tw3: tw3Input ? tw3Input.value : '',
@@ -1820,10 +1936,12 @@ function syncTabelAToC() {
     rowsA.forEach((rowA, index) => {
         const sasaranInput = rowA.querySelector('textarea[name="a_sasaran[]"]');
         const indikatorInput = rowA.querySelector('textarea[name="a_indikator[]"]');
+        const indicatorTypeInput = rowA.querySelector('input[name="a_indicator_type[]"]');
         const targetInput = rowA.querySelector('textarea[name="a_target[]"]');
         
         const sasaran = sasaranInput ? sasaranInput.value : '';
         const indikator = indikatorInput ? indikatorInput.value : '';
+        const indicatorType = indicatorTypeInput ? indicatorTypeInput.value : 'positif';
         const target = targetInput ? targetInput.value : '';
         
         // Ambil data Target Triwulan yang sudah ada (jika ada)
@@ -1831,12 +1949,16 @@ function syncTabelAToC() {
         const tw2 = existingData[index]?.tw2 || '';
         const tw3 = existingData[index]?.tw3 || '';
         const tw4 = existingData[index]?.tw4 || '';
+        const existingIndicatorType = existingData[index]?.indicatorType || indicatorType;
         
         const newRow = document.createElement('tr');
         newRow.innerHTML = `
             <td style="width: 25%;"><textarea name="c_sasaran[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${sasaran}</textarea></td>
             <td style="width: 20%;"><textarea name="c_indikator[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${indikator}</textarea></td>
-            <td style="width: 12%;"><textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${target}</textarea></td>
+            <td style="width: 12%;">
+                <input type="hidden" name="c_indicator_type[]" value="${existingIndicatorType}">
+                <textarea name="c_target[]" readonly style="background: #f5f5f5; cursor: not-allowed;" onkeyup="autoExpand(this)">${target}</textarea>
+            </td>
             <td style="width: 10%;"><textarea name="c_tw1[]" onkeyup="autoExpand(this)">${tw1}</textarea></td>
             <td style="width: 10%;"><textarea name="c_tw2[]" onkeyup="autoExpand(this)">${tw2}</textarea></td>
             <td style="width: 10%;"><textarea name="c_tw3[]" onkeyup="autoExpand(this)">${tw3}</textarea></td>
@@ -1874,10 +1996,28 @@ function addRow(tableId) {
     
     const newRow = lastRow.cloneNode(true);
     
-    // Reset values untuk input dan textarea, tapi pertahankan dropdown
+    // Reset values untuk input dan textarea, tapi pertahankan dropdown tertentu
     newRow.querySelectorAll("input, textarea").forEach(el => {
         el.value = "";
     });
+
+    if (tableId !== 'tabel3') {
+        newRow.querySelectorAll('select').forEach(sel => {
+            sel.selectedIndex = 0;
+            if (sel.name === 'a_indicator_type[]') {
+                sel.value = 'positif';
+            }
+        });
+    }
+
+    if (tableId === 'tabelA') {
+        const hiddenType = newRow.querySelector('input[name="a_indicator_type[]"]');
+        if (hiddenType) hiddenType.value = 'positif';
+        const plusBtn = newRow.querySelector('.indicator-plus');
+        const minusBtn = newRow.querySelector('.indicator-minus');
+        if (plusBtn) plusBtn.classList.add('active');
+        if (minusBtn) minusBtn.classList.remove('active');
+    }
     
     // Kembalikan nilai dropdown ke pilihan yang sama - dengan force set selected
     if (tableId === 'tabel3' && savedDropdownValue) {
@@ -1933,6 +2073,20 @@ function addRow(tableId) {
     if (tableId === 'tabelA') {
         syncTabelAToC();
     }
+}
+
+function setIndicatorType(btn, type) {
+    const row = btn.closest('tr');
+    if (!row) return;
+    const hiddenType = row.querySelector('input[name="a_indicator_type[]"]');
+    if (hiddenType) hiddenType.value = type;
+
+    const plusBtn = row.querySelector('.indicator-plus');
+    const minusBtn = row.querySelector('.indicator-minus');
+    if (plusBtn) plusBtn.classList.toggle('active', type === 'positif');
+    if (minusBtn) minusBtn.classList.toggle('active', type === 'negatif');
+
+    syncTabelAToC();
 }
 
 /* =========================
@@ -2212,7 +2366,7 @@ function saveToSupabase(e) {
         if (data.success) {
             showSuccessMessage(data.message || 'Berhasil disimpan.');
             setTimeout(() => {
-                window.location.href = '{{ route("perjanjian.index") }}';
+                window.location.href = '{{ auth()->check() && auth()->user()->isWadir() ? route("dashboard.wadir") : route("home", ["section" => "dashboard"]) }}';
             }, 1200);
         } else {
             showErrorMessage(data.message || 'Gagal menyimpan data.');
