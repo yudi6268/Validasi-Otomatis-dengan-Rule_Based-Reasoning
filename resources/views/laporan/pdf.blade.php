@@ -14,7 +14,10 @@
     .section-heading { font-size: 12pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
     .body-text { font-size: 12pt; text-align: justify; line-height: 1.15; text-indent: 2em; margin-bottom: 6pt; }
     .body-text-noindent { font-size: 12pt; text-align: justify; line-height: 1.15; margin-bottom: 4pt; }
-    .list-item { font-size: 12pt; margin-left: 1.5em; margin-bottom: 3pt; line-height: 1.15; text-align: justify; }
+    .list-item { font-size: 12pt; padding-left: 2.5em; text-indent: -2.5em; margin-bottom: 3pt; line-height: 1.15; text-align: justify; word-break: break-word; }
+    .list-row { display:table; width:100%; margin-bottom:3pt; font-size:12pt; line-height:1.15; }
+    .list-row .list-num { display:table-cell; width:2.2em; vertical-align:top; white-space:nowrap; }
+    .list-row .list-text { display:table-cell; text-align:justify; vertical-align:top; word-break:break-word; overflow-wrap:break-word; }
     .data-table { width: 100%; border-collapse: collapse; margin-bottom: 10pt; font-size: 9pt; table-layout: fixed; }
     .data-table th, .data-table td { border: 1px solid #000; padding: 2px 3px; vertical-align: top; text-align: justify; word-break: break-word; overflow-wrap: break-word; line-height: 1.15; }
     .data-table th { font-weight: bold; text-align: center; background: #fff; font-size: 8.5pt; }
@@ -36,10 +39,39 @@
     .sig-name { font-size: 12pt; font-weight: bold; text-decoration: underline; display: inline-block; margin-top: 4pt; }
     .sig-nip  { font-size: 11pt; }
     .page-break { page-break-before: always; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none; } }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff !important; }
+      .no-print { display: none; }
+      .lk-page-wrapper { background: #fff !important; padding: 0 !important; }
+      .page { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; max-width: none !important; }
+    }
+    @if(isset($for_pdf) && !$for_pdf)
+    /* Browser preview: grey background with white page cards */
+    body { background: #e6fcfc !important; }
+    .lk-page-wrapper {
+      width: 100%;
+      min-height: 100vh;
+      background: #e6fcfc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 100px;
+      box-sizing: border-box;
+    }
+    .page {
+      background: #fff;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+      border-radius: 4px;
+      max-width: 820px;
+      width: 100%;
+      margin: 0 auto 24px;
+      box-sizing: border-box;
+    }
+    @endif
   </style>
 </head>
 <body>
+@if(isset($for_pdf) && !$for_pdf)<div class="lk-page-wrapper">@endif
 @php
   $tw      = (int) ($triwulan ?? 1);
   $twNames = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV'];
@@ -68,7 +100,8 @@
   $relByKey = [];
   foreach ($relRows as $r) { $relByKey[$r['row'] ?? ''] = $r; }
 
-  $fmt = fn($v) => is_numeric($v) ? number_format((float)$v, 0, ',', '.') : ($v ?? '-');
+  $fmt  = fn($v) => is_numeric($v) ? number_format((float)$v, 0, ',', '.') : ($v ?? '-');
+  $fmt2 = fn($v) => is_numeric($v) ? number_format((float)$v, 2, ',', '.') : ($v ?? '-');
 
   $pihak1Sig  = $laporan->pihak1_signature
     ?: ($perjanjian->pihak1_ttd
@@ -124,6 +157,33 @@
   $location  = $perjanjian->location ?? 'Pasuruan';
   $agreeDate = $laporan->updated_at ? $laporan->updated_at->locale('id')->isoFormat('D MMMM Y') : '';
 
+  // Helper: resolve ket (APBD/BLUD) from stored source or fall back to name-based inference
+  $resolveSubKet = function($sub) {
+    $s = trim($sub['source'] ?? $sub['keterangan'] ?? $sub['ket'] ?? '');
+    if ($s !== '' && $s !== '-') return $s;
+    return stripos($sub['name'] ?? '', 'BLUD') !== false ? 'BLUD' : 'APBD';
+  };
+  $resolveKgKet = function($kg) use ($resolveSubKet) {
+    $s = trim($kg['source'] ?? $kg['keterangan'] ?? $kg['ket'] ?? '');
+    if ($s !== '' && $s !== '-') return $s;
+    $subs = $kg['subKegiatan'] ?? [];
+    if (!empty($subs)) {
+      $vals = array_unique(array_map($resolveSubKet, $subs));
+      return count($vals) === 1 ? $vals[0] : 'APBD/BLUD';
+    }
+    return stripos($kg['name'] ?? '', 'BLUD') !== false ? 'BLUD' : 'APBD';
+  };
+  $resolveProgKet = function($prog) use ($resolveKgKet) {
+    $s = trim($prog['source'] ?? $prog['keterangan'] ?? $prog['ket'] ?? '');
+    if ($s !== '' && $s !== '-') return $s;
+    $kgs = $prog['kegiatan'] ?? [];
+    if (!empty($kgs)) {
+      $vals = array_unique(array_map($resolveKgKet, $kgs));
+      return count($vals) === 1 ? $vals[0] : 'APBD/BLUD';
+    }
+    return stripos($prog['name'] ?? '', 'BLUD') !== false ? 'BLUD' : 'APBD';
+  };
+
   $tanggapanOptions = [
     'kurang_baik'     => 'Laporan kurang baik',
     'sudah_baik'      => 'Laporan sudah baik',
@@ -133,6 +193,64 @@
     'capaian_ulang'   => 'Capaian diteliti ulang',
   ];
   $tanggapanVal = $laporan->tanggapan_pimpinan ?? '';
+
+  $validationResult = $laporan->getValidationResult($tw);
+  $validationScore = $validationResult['score'] ?? null;
+  $validationIssues = $validationResult['issues'] ?? 0;
+  $validationWarnings = $validationResult['warnings'] ?? 0;
+  $validationSuggestions = $validationResult['suggestions'] ?? 0;
+  $validationSummaryText = '';
+  if ($validationResult) {
+      // Tentukan kategori capaian berdasarkan skor
+      $capCategory = $validationScore !== null
+          ? ($validationScore >= 90 ? 'Sangat Baik' : ($validationScore >= 75 ? 'Baik' : ($validationScore >= 60 ? 'Cukup' : 'Kurang')))
+          : 'Tidak Tersedia';
+
+      // Bangun narasi singkat
+      $narrativeParts = [];
+      
+      // Bagian 1: Hasil capaian
+      if ($validationScore !== null) {
+          $narrativeParts[] = "Laporan kinerja Triwulan {$twName} menunjukkan capaian dengan kategori <strong>{$capCategory}</strong> (skor {$validationScore}%).";
+      }
+
+      // Bagian 2: Kondisi temuan
+      $findings = [];
+      if ($validationIssues > 0) {
+          $findings[] = "{$validationIssues} masalah";
+      }
+      if ($validationWarnings > 0) {
+          $findings[] = "{$validationWarnings} peringatan";
+      }
+      if ($validationSuggestions > 0) {
+          $findings[] = "{$validationSuggestions} saran perbaikan";
+      }
+      
+      if (!empty($findings)) {
+          $findingsText = implode(', ', $findings);
+          $narrativeParts[] = "Ditemukan {$findingsText} dari hasil validasi.";
+      } else {
+          $narrativeParts[] = "Tidak ada temuan kritis pada laporan.";
+      }
+
+      // Bagian 3: Rekomendasi otomatis
+      $recommendation = '';
+      if ($validationIssues > 0) {
+          $recommendation = "Direkomendasikan untuk diperbaiki sesuai temuan masalah sebelum disetujui.";
+      } elseif ($validationWarnings > 0 || $validationSuggestions > 0) {
+          $recommendation = "Direkomendasikan untuk disetujui dengan mempertimbangkan saran perbaikan di periode berikutnya.";
+      } else {
+          $recommendation = "Direkomendasikan untuk disetujui tanpa perbaikan tambahan.";
+      }
+      
+      if ($validationScore !== null && $validationScore >= 75) {
+          $recommendation .= " Capaian kinerja sudah memenuhi target yang ditetapkan.";
+      }
+      
+      $narrativeParts[] = $recommendation;
+
+      $validationSummaryText = implode(' ', $narrativeParts);
+  }
 @endphp
 
 {{-- ============================
@@ -187,24 +305,19 @@
   @if(!empty($laporan->bab_pelaksanaan))
     <div class="body-text">{!! nl2br(e($laporan->bab_pelaksanaan)) !!}</div>
   @elseif(!empty($fungsiItems))
-    @if(count($fungsiItems) === 1)
-      <p class="body-text"><strong>{{ $jabatan1 }}</strong> mempunyai fungsi {{ $fungsiItems[0] }}</p>
-    @else
-      <p class="body-text-noindent"><strong>{{ $jabatan1 }}</strong> mempunyai fungsi :</p>
-      @foreach($fungsiItems as $i => $f)
-        <p class="list-item">{{ chr(97+$i) }}.&nbsp;&nbsp;{{ trim($f) }}</p>
-      @endforeach
-    @endif
+    {{-- Fungsi: always prose sentence (items joined), never a bullet list --}}
+    @php $fungsiSentence = implode(', ', array_map('trim', $fungsiItems)); @endphp
+    <p class="body-text"><strong>{{ $jabatan1 }}</strong> mempunyai fungsi {{ $fungsiSentence }}</p>
     @if(!empty($tugasItems))
       <p class="body-text-noindent">Untuk melaksanakan fungsinya, <strong>{{ $jabatan1 }}</strong> mempunyai tugas yaitu :</p>
       @foreach($tugasItems as $i => $tugas)
-        <p class="list-item">{{ chr(97+$i) }}.  {{ trim($tugas) }}</p>
+        <p class="list-item">{{ chr(97+$i) }}.&nbsp;&nbsp;{{ trim($tugas) }}</p>
       @endforeach
     @endif
     @if(!empty($membawahiItems))
       <p class="body-text-noindent"><strong>{{ $jabatan1 }}</strong> membawahi :</p>
       @foreach($membawahiItems as $i => $unit)
-        <p class="list-item">{{ chr(97+$i) }}.  {{ trim($unit) }}</p>
+        <p class="list-item">{{ chr(97+$i) }}.&nbsp;&nbsp;{{ trim($unit) }}</p>
       @endforeach
     @endif
   @else
@@ -224,10 +337,11 @@
 
   {{-- Tabel Sasaran Kinerja --}}
   @if(!empty($sasar))
+    @php $satuan = $tabelA['satuan'] ?? []; @endphp
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width:5%;">NO</th><th style="width:35%;">Sasaran</th><th style="width:45%;">Indikator Kinerja</th><th style="width:15%;">Target</th>
+          <th style="width:5%;">NO</th><th style="width:28%;">Sasaran</th><th style="width:37%;">Indikator Kinerja</th><th style="width:18%;">Satuan</th><th style="width:12%;">Target</th>
         </tr>
       </thead>
       <tbody>
@@ -247,6 +361,7 @@
             <td class="center">{{ $i + 1 }}</td>
             <td>{{ $s ?? '-' }}</td>
             <td>{{ $indik[$i] ?? '-' }}</td>
+            <td class="center">{{ $satuan[$i] ?? '-' }}</td>
             <td class="center">{{ $annualTgt }}</td>
           </tr>
         @endforeach
@@ -267,7 +382,7 @@
             $ab = 0; for ($t=1;$t<=4;$t++) $ab += floatval($prog['tw'.$t] ?? 0);
             if ($ab == 0) foreach ($prog['kegiatan'] ?? [] as $kg) { for ($t=1;$t<=4;$t++) $ab += floatval($kg['tw'.$t] ?? 0); }
             $totalAnggaran += $ab;
-            $pKet = $prog['source'] ?? $prog['keterangan'] ?? $prog['ket'] ?? '';
+            $pKet = $resolveProgKet($prog);
           @endphp
           <tr>
             <td class="center bold">{{ $prog['no'] ?? '' }}</td>
@@ -279,13 +394,13 @@
             @php
               $kb = 0; for ($t=1;$t<=4;$t++) $kb += floatval($kg['tw'.$t] ?? 0);
               if ($kb==0) foreach ($kg['subKegiatan']??[] as $sub) { for($t=1;$t<=4;$t++) $kb+=floatval($sub['tw'.$t]??0); }
-              $kKet = $kg['source'] ?? $kg['keterangan'] ?? $kg['ket'] ?? '';
+              $kKet = $resolveKgKet($kg);
             @endphp
             <tr><td class="center">{{ $kg['no']??'' }}</td><td class="indent">{{ $kg['name']??'-' }}</td><td class="right">{{ $kb>0?number_format($kb,0,',','.'):'–' }}</td><td class="center">{{ $kKet }}</td></tr>
             @foreach($kg['subKegiatan'] ?? [] as $sub)
               @php
                 $sb=0; for($t=1;$t<=4;$t++) $sb+=floatval($sub['tw'.$t]??0);
-                $sKet = $sub['source'] ?? $sub['keterangan'] ?? $sub['ket'] ?? '';
+                $sKet = $resolveSubKet($sub);
               @endphp
               <tr><td class="center">{{ $sub['no']??'' }}</td><td class="indent2">{{ $sub['name']??'-' }}</td><td class="right">{{ $sb>0?number_format($sb,0,',','.'):'–' }}</td><td class="center">{{ $sKet }}</td></tr>
             @endforeach
@@ -331,7 +446,7 @@
             <td>{{ $s }}</td>
             <td>{{ $indik[$i] ?? '-' }}</td>
             <td class="center">{{ is_numeric($tgt) ? $fmt($tgt) : $tgt }}</td>
-            <td class="center">{{ $rel !== null ? $fmt($rel) : '-' }}</td>
+            <td class="center">{{ $rel !== null ? $fmt2($rel) : '-' }}</td>
             <td class="center">{{ $cap !== '-' ? $cap : '-' }}</td>
             <td></td>
           </tr>
@@ -359,7 +474,7 @@
             $pRel=floatval($relByKey['anggaran-'.$pNo]['realisasi']??0);
             $totTgt+=$pTgt; $totRel+=$pRel;
             $pPct=$pTgt>0?round($pRel/$pTgt*100,2):'-';
-            $pKet2 = $prog['source'] ?? $prog['keterangan'] ?? $prog['ket'] ?? '';
+            $pKet2 = $resolveProgKet($prog);
           @endphp
           <tr>
             <td class="center bold">{{ $pNo }}</td><td class="bold">{{ $prog['name']??'-' }}</td>
@@ -368,10 +483,10 @@
             <td class="center">{{ $pPct!=='-'?$pPct:'-' }}</td><td class="center">{{ $pKet2 }}</td>
           </tr>
           @foreach($prog['kegiatan']??[] as $kg)
-            @php $kNo=$kg['no']??''; $kTgt=floatval($kg[$twKey]??0); $kRel=floatval($relByKey['anggaran-'.$kNo]['realisasi']??0); $kPct=$kTgt>0?round($kRel/$kTgt*100,2):'-'; $kKet2=$kg['source']??$kg['keterangan']??$kg['ket']??''; @endphp
+            @php $kNo=$kg['no']??''; $kTgt=floatval($kg[$twKey]??0); $kRel=floatval($relByKey['anggaran-'.$kNo]['realisasi']??0); $kPct=$kTgt>0?round($kRel/$kTgt*100,2):'-'; $kKet2=$resolveKgKet($kg); @endphp
             <tr><td class="center">{{ $kNo }}</td><td class="indent">{{ $kg['name']??'-' }}</td><td class="right">{{ $kTgt>0?$fmt($kTgt):'-' }}</td><td class="right">{{ $fmt($kRel) }}</td><td class="center">{{ $kPct!=='-'?$kPct:'-' }}</td><td class="center">{{ $kKet2 }}</td></tr>
             @foreach($kg['subKegiatan']??[] as $sub)
-              @php $sNo=$sub['no']??''; $sTgt=floatval($sub[$twKey]??0); $sRel=floatval($relByKey['anggaran-'.$sNo]['realisasi']??0); $sPct=$sTgt>0?round($sRel/$sTgt*100,2):'-'; $sKet2=$sub['source']??$sub['keterangan']??$sub['ket']??''; @endphp
+              @php $sNo=$sub['no']??''; $sTgt=floatval($sub[$twKey]??0); $sRel=floatval($relByKey['anggaran-'.$sNo]['realisasi']??0); $sPct=$sTgt>0?round($sRel/$sTgt*100,2):'-'; $sKet2=$resolveSubKet($sub); @endphp
               <tr><td class="center">{{ $sNo }}</td><td class="indent2">{{ $sub['name']??'-' }}</td><td class="right">{{ $sTgt>0?$fmt($sTgt):'-' }}</td><td class="right">{{ $fmt($sRel) }}</td><td class="center">{{ $sPct!=='-'?$sPct:'-' }}</td><td class="center">{{ $sKet2 }}</td></tr>
             @endforeach
           @endforeach
@@ -415,7 +530,13 @@
     @if(count($rLines) > 1)
       <p class="body-text-noindent">Adapun Rencana Tindak Lanjut dari hasil capaian kinerja :</p>
       @foreach($rLines as $idx => $line)
-        @if(trim($line))<p class="list-item">{{ $idx+1 }}.&nbsp;&nbsp;{{ trim($line) }}</p>@endif
+        @php
+          // Strip any existing leading number/bullet (e.g. "1.", "2.1.", "a)") so
+          // the sequential counter we add is always clean: 1, 2, 3 …
+          $cleanLine = preg_replace('/^\s*[\d][\d\.]*[\.)\s]+/', '', trim($line));
+          $cleanLine = $cleanLine ?: trim($line);
+        @endphp
+        @if(trim($line))<div class="list-row"><span class="list-num">{{ $idx+1 }}.</span><span class="list-text">{{ $cleanLine }}</span></div>@endif
       @endforeach
     @else
       <p class="body-text">{!! nl2br(e(trim($babRencanaText))) !!}</p>
@@ -425,6 +546,9 @@
   @endif
 
   <div class="section-heading">E. Tanggapan Atasan Langsung</div>
+  @if(!empty($validationSummaryText))
+    <p class="body-text" style="font-style:italic; margin-bottom:10px;">{!! $validationSummaryText !!}</p>
+  @endif
   <table class="check-table">
     <thead>
       <tr>
@@ -480,8 +604,29 @@
       <p class="body-text">{!! nl2br(e($kesimpulanText)) !!}</p>
     @endif
   @else
-    <p class="body-text">Demikian Laporan Kinerja Tribulan {{ $twName }} Tahun {{ $tahun }} {{ $jabatan1 }} dibuat sebagai bentuk pertanggungjawaban kinerja{!! $avgCap !== null ? ' dengan rata-rata capaian kinerja sebesar <strong>'.$avgCap.'%</strong> ('.$capKategori.')' : '' !!}.</p>
-    <p class="body-text">Laporan ini diharapkan dapat memberikan gambaran mengenai pelaksanaan kegiatan dan anggaran yang telah dicapai dalam rangka pencapaian target yang telah ditetapkan. Semoga laporan ini bermanfaat dan dapat dijadikan bahan evaluasi dalam rangka peningkatan kinerja ke depan.</p>
+    @php
+      // Fallback: generate composite-based penutup text (matches JS formula)
+      $totTgtFb = 0; $totRelFb = 0;
+      foreach ($programs as $prog) {
+        $pNoFb = $prog['no'] ?? '';
+        $totTgtFb += floatval($prog[$twKey] ?? 0);
+        $totRelFb += floatval($relByKey['anggaran-'.$pNoFb]['realisasi'] ?? 0);
+      }
+      $avgAngFb  = $totTgtFb > 0 ? round($totRelFb / $totTgtFb * 100, 0) : null;
+      $composite = ($avgCap !== null && $avgAngFb !== null) ? round(($avgCap + $avgAngFb) / 2, 0) : $avgCap;
+      $compKat   = $composite === null ? '' : ($composite >= 90 ? 'Sangat Baik' : ($composite >= 75 ? 'Baik' : ($composite >= 60 ? 'Cukup' : 'Kurang')));
+      $twTextArr = [1=>'pertama',2=>'kedua',3=>'ketiga',4=>'keempat'];
+      $twTxt     = $twTextArr[$tw] ?? (string)$tw;
+      $arahFb    = $composite === null ? '' : ($composite >= 90
+        ? 'upaya tindak lanjut diarahkan untuk menjaga konsistensi mutu, memperluas praktik baik, dan memastikan keberlanjutan kinerja unggul.'
+        : ($composite >= 75
+            ? 'upaya tindak lanjut diarahkan untuk menutup celah minor pada indikator tertentu serta memperkuat pengendalian pelaksanaan.'
+            : 'upaya tindak lanjut diarahkan pada akselerasi kinerja melalui penajaman prioritas, penguatan koordinasi, dan monitoring lebih intensif.'));
+    @endphp
+    <p class="body-text">Berdasarkan hasil pengukuran kinerja Triwulan {{ $twName }} ({{ $twTxt }}) Tahun {{ $tahun }} pada jabatan {{ $jabatan1 }}, capaian komposit indikator kinerja dan anggaran mencapai <strong>{{ $composite ?? $avgCap ?? '-' }}%</strong> dengan predikat <strong>{{ $compKat ?: $capKategori }}</strong>. Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.</p>
+    @if($arahFb)
+    <p class="body-text">Dengan demikian, {{ $arahFb }} Pelaksanaan rencana perbaikan diharapkan mampu meningkatkan kualitas capaian pada periode berikutnya secara konsisten, akuntabel, dan berorientasi hasil.</p>
+    @endif
   @endif
 
   <div class="sig-section">
@@ -519,11 +664,305 @@
 </div>
 
 @if(isset($for_pdf) && !$for_pdf)
-  <div class="no-print" style="text-align:center; padding:20px;">
+@php
+  $isValidated     = $laporan->hasValidationForTriwulan($tw);
+  $alreadyApproved = !empty($laporan->pihak2_signature);
+  $isDirekturView  = isset($isDirektur) && $isDirektur;
+
+  // Auto-suggest tanggapan dari rata-rata persentase capaian
+  $autoTanggapan = '';
+  if ($isDirekturView && $isValidated && !$alreadyApproved) {
+    $rows = $realisasiData['rows'] ?? [];
+    $pcts = array_filter(array_map(fn($r) => is_numeric($r['pct'] ?? null) ? (float)$r['pct'] : null, $rows), fn($v) => $v !== null);
+    $avg  = count($pcts) > 0 ? array_sum($pcts) / count($pcts) : null;
+    if ($avg !== null) {
+      $autoTanggapan = $avg >= 76 ? 'sudah_baik' : ($avg >= 66 ? 'diperbaiki' : 'kurang_baik');
+    }
+  }
+  $selectedTanggapan = ($tanggapanVal ?? '') ?: $autoTanggapan;
+@endphp
+
+{{-- Font Awesome --}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+@if($isDirekturView)
+<style>
+  .lk-aksi-container {
+    position: fixed;
+    top: 88px;
+    right: 20px;
+    z-index: 1200;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .lk-aksi-btn {
+    padding: 14px 28px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.18s cubic-bezier(.4,2,.6,1), box-shadow 0.18s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  }
+  .lk-aksi-btn:hover  { transform: scale(1.06); box-shadow: 0 6px 24px rgba(0,0,0,0.13); }
+  .lk-aksi-btn:active { transform: scale(0.96); }
+  .lk-aksi-btn.terima { background: #F5E94E; color: #222; }
+  .lk-aksi-btn.tolak  { background: #FF2E2E; color: #fff; }
+  .lk-modal-overlay {
+    display: none;
+    position: fixed; top:0; left:0; width:100vw; height:100vh;
+    background: rgba(0,0,0,0.3);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+  }
+  .lk-modal-box {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 480px;
+    width: 95vw;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+    overflow: hidden;
+  }
+  .check-tbl { width:80%; border-collapse:collapse; margin-bottom:16px; font-size:13px; }
+  .check-tbl th { padding:8px 12px; border:1px solid #d4b84f; background:#f2d46a; text-align:center; }
+  .check-tbl th:last-child { text-align:left; }
+  .check-tbl td { padding:8px; border:1px solid #e0e0e0; }
+  .check-tbl tr.tg-row:hover td { background:#f0faf7; cursor:pointer; }
+  .check-tbl tr.tg-selected td { background:#e8f5e9; font-weight:600; }
+</style>
+
+@if($alreadyApproved)
+  {{-- Already approved banner --}}
+  <div class="no-print" style="position:fixed;top:88px;right:20px;z-index:1200;background:#d4edda;border:1px solid #c3e6cb;border-radius:8px;padding:12px 20px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+    <i class="fas fa-check-circle" style="color:#155724;font-size:18px;"></i>
+    <span style="color:#155724;font-weight:700;font-size:14px;">Laporan sudah disetujui</span>
+  </div>
+
+@else
+  {{-- Floating action buttons --}}
+  <div class="lk-aksi-container">
+    <button class="lk-aksi-btn terima" type="button" onclick="handleSetujui()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M13.485 1.929a1 1 0 0 1 0 1.414l-7.071 7.071a1 1 0 0 1-1.414 0L2.515 8.071a1 1 0 1 1 1.414-1.414l1.071 1.071 6.364-6.364a1 1 0 0 1 1.414 0z"/>
+      </svg>
+      Terima
+    </button>
+    <button class="lk-aksi-btn tolak" type="button" onclick="handleTolak()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+      </svg>
+      Tolak
+    </button>
+  </div>
+
+  {{-- Modal: Belum Tervalidasi --}}
+  <div id="modal-belum-validasi" class="lk-modal-overlay no-print">
+    <div class="lk-modal-box" style="padding:32px 28px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:12px;color:#856404;">Laporan Belum Tervalidasi</h2>
+      <p style="font-size:14px;color:#555;margin-bottom:24px;line-height:1.6;">
+        Laporan kinerja ini belum divalidasi oleh Wakil Direktur.<br>
+        Aksi hanya dapat dilakukan setelah laporan tervalidasi.
+      </p>
+      <button type="button" onclick="document.getElementById('modal-belum-validasi').style.display='none'"
+        style="background:#6c757d;color:#fff;border:none;padding:10px 32px;border-radius:7px;font-weight:700;font-size:15px;cursor:pointer;">
+        Mengerti
+      </button>
+    </div>
+  </div>
+
+  {{-- Modal: Konfirmasi Setujui --}}
+  <div id="modal-setujui-laporan" class="lk-modal-overlay no-print">
+    <div class="lk-modal-box">
+      <div style="background:#009970;padding:18px 24px;">
+        <h2 style="color:#fff;font-size:17px;font-weight:700;margin:0;">
+          <i class="fas fa-clipboard-check" style="margin-right:8px;"></i>E. Tanggapan Atasan Langsung
+        </h2>
+      </div>
+      <div style="padding:24px;">
+        <p style="font-size:13px;color:#555;margin-bottom:16px;">
+          Pilih tanggapan berdasarkan hasil capaian kinerja. Sistem otomatis memilih berdasarkan hasil validasi.
+        </p>
+        @if(!empty($validationSummaryText))
+          <div style="background:#e9f7ef;border-left:4px solid #009970;padding:14px 16px;margin-bottom:18px;border-radius:10px;color:#0f5132;font-size:13px;line-height:1.5;">
+            {!! $validationSummaryText !!}
+          </div>
+        @endif
+        <table class="check-tbl" id="tanggapanTable">
+          <thead>
+            <tr>
+              <th style="width:50px;">Tanda (√)</th>
+              <th>Uraian</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($tanggapanOptions as $key => $label)
+            <tr class="tg-row {{ $selectedTanggapan === $key ? 'tg-selected' : '' }}"
+                onclick="selectTanggapan('{{ $key }}', this)">
+              <td style="text-align:center;">
+                <input type="radio" name="tanggapan_pimpinan" id="tg_{{ $key }}" value="{{ $key }}"
+                  {{ $selectedTanggapan === $key ? 'checked' : '' }}
+                  onclick="event.stopPropagation();">
+              </td>
+              <td>{{ $label }}</td>
+            </tr>
+            @endforeach
+          </tbody>
+        </table>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <button type="button" onclick="document.getElementById('modal-setujui-laporan').style.display='none'"
+            style="background:#6c757d;color:#fff;border:none;padding:10px 24px;border-radius:7px;font-weight:700;font-size:14px;cursor:pointer;">
+            Batal
+          </button>
+          <button type="button" id="btn-konfirmasi-setujui" onclick="submitSetujui()"
+            style="background:#009970;color:#fff;border:none;padding:10px 24px;border-radius:7px;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-check"></i> Setujui Laporan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- Modal: Konfirmasi Tolak --}}
+  <div id="modal-tolak-laporan" class="lk-modal-overlay no-print">
+    <div class="lk-modal-box" style="padding:32px 28px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:16px;">🔁</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:12px;color:#DC3545;">Kembalikan Laporan ke Pegawai?</h2>
+      <p style="font-size:14px;color:#555;margin-bottom:24px;line-height:1.6;">
+        Laporan kinerja akan dikembalikan ke pegawai.<br>
+        <strong>Data validasi akan dihapus</strong> dan laporan kembali ke kondisi awal sebelum tervalidasi.
+      </p>
+      <div style="display:flex;justify-content:center;gap:12px;">
+        <button type="button" onclick="document.getElementById('modal-tolak-laporan').style.display='none'"
+          style="background:#6c757d;color:#fff;border:none;padding:10px 28px;border-radius:7px;font-weight:700;font-size:15px;cursor:pointer;">
+          Batal
+        </button>
+        <button type="button" id="btn-konfirmasi-tolak" onclick="submitTolak()"
+          style="background:#DC3545;color:#fff;border:none;padding:10px 28px;border-radius:7px;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-undo"></i> Ya, Kembalikan
+        </button>
+      </div>
+    </div>
+  </div>
+
+@endif {{-- end !$alreadyApproved --}}
+
+<script>
+  var isValidated = {{ $isValidated ? 'true' : 'false' }};
+
+  function handleSetujui() {
+    if (!isValidated) {
+      document.getElementById('modal-belum-validasi').style.display = 'flex';
+    } else {
+      document.getElementById('modal-setujui-laporan').style.display = 'flex';
+    }
+  }
+
+  function handleTolak() {
+    if (!isValidated) {
+      document.getElementById('modal-belum-validasi').style.display = 'flex';
+    } else {
+      document.getElementById('modal-tolak-laporan').style.display = 'flex';
+    }
+  }
+
+  function selectTanggapan(key, row) {
+    document.querySelectorAll('#tanggapanTable .tg-row').forEach(r => r.classList.remove('tg-selected'));
+    row.classList.add('tg-selected');
+    document.getElementById('tg_' + key).checked = true;
+  }
+
+  function submitSetujui() {
+    const selected = document.querySelector('input[name="tanggapan_pimpinan"]:checked');
+    if (!selected) {
+      alert('Pilih salah satu tanggapan terlebih dahulu.');
+      return;
+    }
+    const btn = document.getElementById('btn-konfirmasi-setujui');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+
+    fetch('{{ route('direktur.laporan.approve', $laporan->id) }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ tanggapan_pimpinan: selected.value }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.message || 'Terjadi kesalahan.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Setujui Laporan';
+      }
+    })
+    .catch(() => {
+      alert('Terjadi kesalahan jaringan.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Setujui Laporan';
+    });
+  }
+
+  function submitTolak() {
+    const btn = document.getElementById('btn-konfirmasi-tolak');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+    fetch('{{ route('direktur.laporan.reject', $laporan->id) }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.message || 'Terjadi kesalahan.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-undo"></i> Ya, Kembalikan';
+      }
+    })
+    .catch(() => {
+      alert('Terjadi kesalahan jaringan.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-undo"></i> Ya, Kembalikan';
+    });
+  }
+
+  // Tutup modal klik di luar
+  document.querySelectorAll('.lk-modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target === el) el.style.display = 'none';
+    });
+  });
+</script>
+@endif {{-- end isDirekturView --}}
+
+@else
+  {{-- Non-direktur: tombol cetak --}}
+  <div class="no-print" style="text-align:center;padding:20px;">
     <button onclick="window.print()" style="background:#00B5A0;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;">
       Cetak PDF
     </button>
   </div>
 @endif
+
+@if(isset($for_pdf) && !$for_pdf)</div>@endif
 </body>
 </html>

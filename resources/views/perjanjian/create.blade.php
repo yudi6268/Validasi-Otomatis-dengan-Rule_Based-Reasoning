@@ -2253,8 +2253,18 @@ function getHierarchicalBudgetStructure() {
         const anggaranInput = row.querySelector('input[type="text"]');
         const amount = (anggaranInput?.value || '0').replace(/[^\d]/g, '');
         
-        // Keterangan (source) - jika ada
-        const ket = '';
+        // Keterangan (source) - read from form element
+        let ket = '';
+        if (isProgram) {
+            ket = row.querySelector('textarea[name="program_ket[]"]')?.value?.trim() || '';
+        } else if (isSub) {
+            const dl = row.dataset.level;
+            if (dl === 'kegiatan') {
+                ket = row.querySelector('textarea[name="kegiatan_ket[]"]')?.value?.trim() || '';
+            } else if (dl === 'subkegiatan') {
+                ket = row.querySelector('select[name="subkegiatan_ket[]"]')?.value?.trim() || '';
+            }
+        }
         
         // Ambil TW data dari tabel keempat
         const twData = twDataMap[no] || { tw1: '', tw2: '', tw3: '', tw4: '' };

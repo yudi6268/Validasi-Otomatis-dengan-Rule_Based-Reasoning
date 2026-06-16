@@ -361,9 +361,10 @@
         }
 
         .modal-btn {
-            padding: 10px 20px;
+            padding: 10px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -533,14 +534,14 @@
 
     <!-- Logout Modal -->
     <div id="logoutModal" class="modal">
-        <div class="modal-content">
-            <p>Apakah Anda yakin ingin keluar?</p>
-            <div class="modal-footer">
+        <div class="modal-content" style="text-align:center;">
+            <h3 style="font-size:16px;font-weight:600;color:#1a2a25;margin-bottom:20px;">Apa anda ingin keluar?</h3>
+            <div class="modal-footer" style="justify-content:center;">
                 <form method="POST" action="{{ route('logout') }}" style="display: inline;">
                     @csrf
-                    <button type="submit" class="modal-btn modal-btn-submit">YA</button>
+                    <button type="submit" class="modal-btn modal-btn-submit">Ya, Keluar</button>
                 </form>
-                <button onclick="closeLogoutModal()" class="modal-btn modal-btn-cancel">TIDAK</button>
+                <button onclick="closeLogoutModal()" class="modal-btn modal-btn-cancel">Batal</button>
             </div>
         </div>
     </div>

@@ -1279,18 +1279,11 @@
         if (request()->get('from') === 'dashboard_wadir_perjanjian') {
             $backUrl = route('dashboard.wadir', ['panel' => 'perjanjian']);
         }
+        // Default: no blocking variable (may be passed from controller)
+        if (!isset($approvedOther)) { $approvedOther = null; }
     @endphp
 
-    @if(empty($for_pdf))
-        <div style="position:fixed;top:18px;left:18px;z-index:1300;">
-            <a href="{{ $backUrl }}"
-                style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#ffffff;color:#009970;text-decoration:none;font-size:20px;box-shadow:0 4px 12px rgba(0,0,0,0.08);border:1px solid #d7e3df;"
-                title="Kembali"
-                aria-label="Kembali">
-                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-            </a>
-        </div>
-    @endif
+
 
     {{-- Header with title for user --}}
     @if(!$isDirektur)
@@ -1366,7 +1359,7 @@
         </style>
         <div class="aksi-container">
             <button id="btn-setujui" type="button" class="aksi-btn terima"
-                onclick="document.getElementById('modal-setujui').style.display='flex'">
+                onclick="@if(!empty($approvedOther))document.getElementById('modal-sudah-disetujui').style.display='flex'@else document.getElementById('modal-setujui').style.display='flex'@endif">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
                     <path
                         d="M13.485 1.929a1 1 0 0 1 0 1.414l-7.071 7.071a1 1 0 0 1-1.414 0L2.515 8.071a1 1 0 1 1 1.414-1.414l1.071 1.071 6.364-6.364a1 1 0 0 1 1.414 0z" />
@@ -1538,6 +1531,35 @@
             }
                                                 });
         </script>
+
+        @if(!empty($approvedOther))
+        {{-- Modal: sudah ada perjanjian disetujui --}}
+        <div id="modal-sudah-disetujui"
+            style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:#fff; border-radius:14px; padding:36px 28px; max-width:440px; width:95vw; box-shadow:0 6px 32px rgba(0,0,0,0.18); position:relative; text-align:center;">
+                <div style="margin-bottom:14px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" fill="#FFA500" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+                    </svg>
+                </div>
+                <h2 style="font-size:19px; font-weight:700; margin-bottom:12px; color:#1B2A41;">Persetujuan Tidak Dapat Dilakukan</h2>
+                <p style="font-size:14px; color:#555; line-height:1.6; margin-bottom:22px;">
+                    Sudah terdapat Perjanjian Kinerja atas nama <strong>{{ $perjanjian->pihak1_name }}</strong>
+                    yang telah disetujui sebelumnya
+                    (disetujui pada <strong>{{ optional($approvedOther->updated_at)->translatedFormat('d F Y') }}</strong>).
+                    <br><br>
+                    Perjanjian baru tidak dapat disetujui selama masih ada perjanjian yang aktif.
+                </p>
+                <button onclick="document.getElementById('modal-sudah-disetujui').style.display='none'"
+                    style="background:#009970;color:#fff;padding:10px 36px;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;">
+                    Mengerti
+                </button>
+                <button onclick="document.getElementById('modal-sudah-disetujui').style.display='none'"
+                    style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;font-weight:bold;color:#aaa;cursor:pointer;">&times;</button>
+            </div>
+        </div>
+        @endif
     @endif
 
     {{-- Wrapper for centered preview card (only for non-print view) --}}

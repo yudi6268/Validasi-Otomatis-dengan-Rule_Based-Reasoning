@@ -32,50 +32,64 @@ class LaporanKinerjaController extends Controller
         $user = Auth::user();
         $activeSection = $request->query('section', 'laporan');
 
-        // ------------------------------------------------------------------
-        // Wadir viewing a specific perjanjian's laporan via perjanjian_id param
+        // Redirect old validasi section URL to the regular laporan page
+        if ($activeSection === 'validasi') {
+            return redirect()->route('laporan.kinerja', array_filter([
+                'from' => $request->query('from'),
+            ]));
+        }
         // ------------------------------------------------------------------
         $perjanjianIdParam = $request->query('perjanjian_id');
-        if ($perjanjianIdParam && $user->isWadir()) {
+        if ($perjanjianIdParam) {
             $perjanjian = Perjanjian::find((int) $perjanjianIdParam);
-            if (!$perjanjian) {
+
+            // Wadir dapat melihat semua; Direktur/Pimpinan hanya jika ia adalah pihak2
+            $isPihak2 = $perjanjian && (
+                $user->nama === $perjanjian->pihak2_name ||
+                $user->nip  === $perjanjian->pihak2_nip
+            );
+
+            if ($user->isWadir() || $isPihak2) {
+                if (!$perjanjian) {
+                    return view('laporan-kinerja', [
+                        'perjanjian'     => null,
+                        'laporans'       => collect(),
+                        'triwulanAktif'  => $this->getTriwulanAktif(),
+                        'message'        => 'Perjanjian tidak ditemukan.',
+                        'activeSection'  => $activeSection,
+                        'viewMode'       => 'list',
+                    ]);
+                }
+                $laporans = Laporan::where('perjanjian_id', $perjanjian->id)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                // Edit mode: wadir opens specific laporan in form view
+                $laporanIdParam = $request->query('laporan_id');
+                $mode = $request->query('mode');
+                if ($laporanIdParam && $mode === 'edit') {
+                    $selectedLaporan = $laporans->firstWhere('id', (int) $laporanIdParam) ?? $laporans->first();
+                    return view('laporan-kinerja', [
+                        'perjanjian'     => $perjanjian,
+                        'laporans'       => $laporans,
+                        'triwulanAktif'  => $selectedLaporan?->triwulan_aktif ?? (int) $this->getTriwulanAktif(),
+                        'message'        => null,
+                        'activeSection'  => $activeSection,
+                        'viewMode'       => 'form',
+                        'editLaporanId'  => (int) $laporanIdParam,
+                    ]);
+                }
+
                 return view('laporan-kinerja', [
-                    'perjanjian'     => null,
-                    'laporans'       => collect(),
-                    'triwulanAktif'  => $this->getTriwulanAktif(),
-                    'message'        => 'Perjanjian tidak ditemukan.',
-                    'activeSection'  => $activeSection,
-                    'viewMode'       => 'list',
+                    'perjanjian'    => $perjanjian,
+                    'laporans'      => $laporans,
+                    'triwulanAktif' => (int) $this->getTriwulanAktif(),
+                    'message'       => null,
+                    'activeSection' => $activeSection,
+                    'viewMode'      => 'list',
                 ]);
             }
-            $laporans = Laporan::where('perjanjian_id', $perjanjian->id)
-                ->orderBy('created_at', 'asc')
-                ->get();
-
-            // Edit mode: wadir opens specific laporan in form view
-            $laporanIdParam = $request->query('laporan_id');
-            $mode = $request->query('mode');
-            if ($laporanIdParam && $mode === 'edit') {
-                $selectedLaporan = $laporans->firstWhere('id', (int) $laporanIdParam) ?? $laporans->first();
-                return view('laporan-kinerja', [
-                    'perjanjian'     => $perjanjian,
-                    'laporans'       => $laporans,
-                    'triwulanAktif'  => $selectedLaporan?->triwulan_aktif ?? (int) $this->getTriwulanAktif(),
-                    'message'        => null,
-                    'activeSection'  => $activeSection,
-                    'viewMode'       => 'form',
-                    'editLaporanId'  => (int) $laporanIdParam,
-                ]);
-            }
-
-            return view('laporan-kinerja', [
-                'perjanjian'    => $perjanjian,
-                'laporans'      => $laporans,
-                'triwulanAktif' => (int) $this->getTriwulanAktif(),
-                'message'       => null,
-                'activeSection' => $activeSection,
-                'viewMode'      => 'list',
-            ]);
+            // Bukan Wadir dan bukan pihak2 – lanjut ke alur normal staf
         }
 
         // ------------------------------------------------------------------
@@ -123,6 +137,103 @@ class LaporanKinerjaController extends Controller
             'message' => null,
             'activeSection' => $activeSection,
             'viewMode' => 'form',
+        ]);
+    }
+
+    /**
+     * Dedicated validation summary page.
+     * Only validates the currently active triwulan.
+     * Route: GET /laporan-kinerja/validasi-summary
+     */
+    public function validasiSummaryPage(Request $request)
+    {
+        if (!Auth::check()) {
+            return redirect()->route('login');
+        }
+        $user = Auth::user();
+
+        $triwulanAktif = (int) $this->getTriwulanAktif();
+
+        // Find user's most recent approved perjanjian
+        $perjanjian = Perjanjian::where('user_id', $user->id)
+            ->where(function ($q) {
+                $q->where('status', 'disetujui')
+                  ->orWhere('status', 'approved')
+                  ->orWhereNotNull('pihak2_signature');
+            })
+            ->orderByDesc('tahun')
+            ->orderByDesc('created_at')
+            ->first();
+
+        if (!$perjanjian) {
+            return view('laporan.validasi-summary', [
+                'perjanjian'    => null,
+                'laporan'       => null,
+                'triwulanAktif' => $triwulanAktif,
+                'twResult'      => null,
+                'stats'         => ['total' => 0, 'valid' => 0, 'tidak_valid' => 0, 'revisi' => 0, 'peringatan' => 0],
+            ]);
+        }
+
+        $laporan = Laporan::where('perjanjian_id', $perjanjian->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        $twResult = null;
+        if ($laporan) {
+            $service  = new SmartValidationService();
+            $twResult = $service->validateLaporan($laporan, $triwulanAktif);
+        }
+
+        // Count actual indicators from the perjanjian (tabelB sasaran rows)
+        $tabelB = is_array($perjanjian->tabelB)
+            ? $perjanjian->tabelB
+            : json_decode((string) ($perjanjian->tabelB ?? '[]'), true);
+        $totalIndikator = count($tabelB['sasaran'] ?? []);
+
+        // Count how many indicators have been filled (realisasi value present in active TW)
+        $validCount = 0;
+        if ($laporan) {
+            $realisasiField = 'realisasi_tb' . $triwulanAktif;
+            $realisasiData  = $laporan->$realisasiField;
+            if (is_string($realisasiData)) {
+                $realisasiData = json_decode($realisasiData, true);
+            }
+            if (is_array($realisasiData)) {
+                foreach ($realisasiData['rows'] ?? [] as $row) {
+                    $val = $row['realisasi'] ?? '';
+                    if ($val !== '' && $val !== null) {
+                        $validCount++;
+                    }
+                }
+                // If no rows in realisasi but laporan exists, fall back to total
+                if (empty($realisasiData['rows']) && $totalIndikator === 0) {
+                    $totalIndikator = 0;
+                }
+            }
+        }
+
+        $stats = [
+            'total'       => $totalIndikator,
+            'valid'       => $validCount,
+            'tidak_valid' => $twResult ? count($twResult['issues']) : 0,
+            'revisi'      => $twResult ? count($twResult['suggestions']) : 0,
+            'peringatan'  => $twResult ? count($twResult['warnings']) : 0,
+        ];
+
+        // Check if laporan sudah tervalidasi untuk triwulan ini
+        $isAlreadyValidated = false;
+        if ($laporan && $laporan->hasValidationForTriwulan($triwulanAktif)) {
+            $isAlreadyValidated = true;
+        }
+
+        return view('laporan.validasi-summary', [
+            'perjanjian'    => $perjanjian,
+            'laporan'       => $laporan,
+            'triwulanAktif' => $triwulanAktif,
+            'twResult'      => $twResult,
+            'stats'         => $stats,
+            'isAlreadyValidated' => $isAlreadyValidated,
         ]);
     }
 
@@ -254,9 +365,10 @@ class LaporanKinerjaController extends Controller
         $laporan = Laporan::findOrFail($id);
         $perjanjian = $laporan->perjanjian;
 
-        // Authorization: owner or wadir
+        // Authorization: owner, wadir, or pihak2 (direktur)
         $user = Auth::user();
-        if ($perjanjian->user_id !== $user->id && !$user->isWadir()) {
+        $isPihak2 = $user->nama === $perjanjian->pihak2_name || $user->nip === $perjanjian->pihak2_nip;
+        if ($perjanjian->user_id !== $user->id && !$user->isWadir() && !$isPihak2) {
             abort(403, 'Tidak diizinkan mengakses laporan ini.');
         }
 
@@ -265,37 +377,23 @@ class LaporanKinerjaController extends Controller
             $triwulan = 1;
         }
 
+        // Detect direktur: pihak2 match OR jabatan contains 'direktur' (but not wakil direktur)
+        $jabatanStr   = strtolower($user->jabatan ?? '');
+        $isJabDirektur = str_contains($jabatanStr, 'direktur') && !str_contains($jabatanStr, 'wakil');
+        $isDirekturUser = $isPihak2 || $isJabDirektur;
+
         $viewData = [
-            'laporan'    => $laporan,
-            'perjanjian' => $perjanjian,
-            'triwulan'   => $triwulan,
-            'for_pdf'    => true,
+            'laporan'       => $laporan,
+            'perjanjian'    => $perjanjian,
+            'triwulan'      => $triwulan,
+            'for_pdf'       => false,
+            'isDirektur'    => $isDirekturUser,
+            'tanggapanVal'  => $laporan->tanggapan_pimpinan ?? '',
         ];
 
-        try {
-            $pdf = \Barryvdh\Snappy\Facades\SnappyPdf::loadView('laporan.pdf', $viewData);
-            $pdf->setPaper('Folio');
-            $pdf->setOrientation('Portrait');
-            $pdf->setOption('enable-local-file-access', true);
-            $pdf->setOption('disable-smart-shrinking', true);
-            $pdf->setOption('zoom', 1.0);
-            $pdf->setOption('margin-top', 10);
-            $pdf->setOption('margin-right', 10);
-            $pdf->setOption('margin-bottom', 10);
-            $pdf->setOption('margin-left', 10);
-
-            $fileName = 'laporan-kinerja-triwulan-' . $triwulan . '-' . ($perjanjian->tahun ?? date('Y')) . '.pdf';
-
-            $disposition = $request->query('download') ? 'attachment' : 'inline';
-
-            return response($pdf->output())
-                ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', $disposition . '; filename="' . $fileName . '"');
-        } catch (\Exception $e) {
-            Log::error('LaporanKinerjaController pdfPreview error: ' . $e->getMessage());
-            // Fallback: render HTML view in browser (printable)
-            return view('laporan.pdf', $viewData);
-        }
+        // Always render as HTML preview so action buttons are visible.
+        // PDF download is handled separately via browser print dialog.
+        return view('laporan.pdf', $viewData);
     }
 
     /**
@@ -360,6 +458,7 @@ class LaporanKinerjaController extends Controller
                 'realisasi_rows.*.row' => 'nullable|string',
                 'realisasi_rows.*.realisasi' => 'nullable|numeric',
                 'realisasi_rows.*.target' => 'nullable|numeric',
+                'realisasi_rows.*.ket' => 'nullable|string',
                 'rencana_tindak_lanjut' => 'nullable|string',
                 'kesimpulan' => 'nullable|string',
                 'finalize' => 'nullable|boolean',
@@ -438,6 +537,7 @@ class LaporanKinerjaController extends Controller
                             'row' => isset($row['row']) ? (string) $row['row'] : null,
                             'realisasi' => $realisasiValue,
                             'target' => isset($row['target']) ? floatval($row['target']) : null,
+                            'ket' => isset($row['ket']) ? (string) $row['ket'] : '',
                         ];
                     }, $validated['realisasi_rows']),
                     'followup' => $validated['rencana_tindak_lanjut'] ?? '',
@@ -775,6 +875,110 @@ class LaporanKinerjaController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Column filter fallback for table ' . $table . ': ' . $e->getMessage());
             return $data;
+        }
+    }
+
+    /**
+     * Simpan hasil validasi laporan ke database
+     * 
+     * POST /api/validasi-laporan
+     * Body: {tw, score, total, valid, invalid, warnings, suggestions, perjanjianId, laporanId}
+     */
+    public function saveValidasiResult(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'tw' => 'required|integer|between:1,4',
+                'score' => 'required|integer|min:0|max:100',
+                'total' => 'required|integer',
+                'valid' => 'required|integer',
+                'invalid' => 'required|integer',
+                'warnings' => 'required|integer',
+                'suggestions' => 'required|integer',
+                'laporanId' => 'required|integer',
+                'perjanjianId' => 'nullable|integer',
+            ]);
+
+            $laporan = Laporan::findOrFail($validated['laporanId']);
+
+            // Buat array validation result untuk triwulan ini
+            $validationResults = $laporan->validation_results ?? [];
+            if (!is_array($validationResults)) {
+                $validationResults = [];
+            }
+
+            $validationResults[$validated['tw']] = [
+                'score' => $validated['score'],
+                'issues' => $validated['invalid'],
+                'warnings' => $validated['warnings'],
+                'suggestions' => $validated['suggestions'],
+                'validated' => true,
+                'validated_at' => now()->toDateTimeString(),
+                'total' => $validated['total'],
+                'valid' => $validated['valid'],
+            ];
+
+            // Update laporan dengan hasil validasi
+            $laporan->update([
+                'validation_results' => $validationResults,
+                'validation_timestamp' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Validasi berhasil disimpan',
+                'data' => $validationResults,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi data gagal',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Save validation result error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Ambil hasil validasi dari database
+     * 
+     * GET /api/validasi-laporan/{laporanId}/{tw}
+     */
+    public function getValidasiResult($laporanId, $tw)
+    {
+        try {
+            $laporan = Laporan::findOrFail($laporanId);
+            $result = $laporan->getValidationResult($tw);
+
+            if (!$result) {
+                return response()->json([
+                    'success' => true,
+                    'validated' => false,
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'validated' => true,
+                'score' => $result['score'] ?? 0,
+                'issues' => $result['issues'] ?? 0,
+                'warnings' => $result['warnings'] ?? 0,
+                'suggestions' => $result['suggestions'] ?? 0,
+                'validated_at' => $result['validated_at'] ?? null,
+                'total' => $result['total'] ?? 0,
+                'valid' => $result['valid'] ?? 0,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Get validation result error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

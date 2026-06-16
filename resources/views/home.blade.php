@@ -101,6 +101,16 @@
             color: #007457;
         }
 
+        #logoutButton,
+        #logoutButton i {
+            color: #e53e3e;
+        }
+        #logoutButton:hover {
+            background: #fff5f5;
+            border-left-color: #e53e3e;
+            color: #e53e3e;
+        }
+
         .menu-item i {
             font-size: 16px;
             width: 24px;
@@ -460,9 +470,10 @@
         }
 
         .modal-box h3 {
-            font-size: 22px;
-            margin-bottom: 12px;
-            color: #12282f;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1a2a25;
         }
 
         .modal-box p {
@@ -482,9 +493,10 @@
         .modal-actions a {
             min-width: 120px;
             border: none;
-            border-radius: 14px;
-            padding: 12px 16px;
-            font-weight: 700;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
         }
 
@@ -868,13 +880,12 @@
 
     <div id="logoutModal" class="modal-overlay">
         <div class="modal-box">
-            <h3>Keluar dari aplikasi?</h3>
-            <p>Pastikan semua pekerjaan Anda sudah tersimpan sebelum keluar.</p>
+            <h3>Apa anda ingin keluar?</h3>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" id="cancelModal">Batal</button>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="btn-primary">Keluar</button>
+                    <button type="submit" class="btn-primary">Ya, Keluar</button>
                 </form>
             </div>
         </div>

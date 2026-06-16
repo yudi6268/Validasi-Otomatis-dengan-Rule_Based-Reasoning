@@ -13,7 +13,7 @@
             <i class="fas fa-chart-line"></i>
             Laporan Kinerja
         </a>
-        <a href="<?php echo e(route('laporan.kinerja', ['section' => 'validasi', 'from' => 'dashboard_wadir_laporan'])); ?>" class="<?php echo e(request()->routeIs('laporan.kinerja') && request()->get('section') === 'validasi' ? 'active' : ''); ?>">
+        <a href="<?php echo e(route('dashboard.wadir', ['panel' => 'validasi'])); ?>" class="<?php echo e(request()->routeIs('dashboard.wadir') && request()->query('panel') === 'validasi' ? 'active' : ''); ?>">
             <i class="fas fa-check-double"></i>
             Validasi Laporan
         </a>
@@ -21,7 +21,7 @@
             <i class="fas fa-user"></i>
             Profil
         </a>
-        <a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+        <a href="#" class="logout-link" id="logoutLink" onclick="event.preventDefault(); showLogoutModal();">
             <i class="fas fa-right-from-bracket"></i>
             Keluar
         </a>

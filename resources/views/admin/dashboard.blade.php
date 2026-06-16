@@ -41,12 +41,15 @@
         </div>
     </div>
     <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
-        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="border-inline-start: 4px solid #1E88E5; background: linear-gradient(135deg, #E3F2FD, #BBDEFB); min-height: 120px;">
+        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+             style="border-inline-start: 4px solid #1E88E5; background: linear-gradient(135deg, #E3F2FD, #BBDEFB); min-height: 120px; cursor: pointer;"
+             data-bs-toggle="modal" data-bs-target="#perjanjianModal">
             <div class="icon mb-2" style="background: #1E88E5; color: white; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.5rem;">
                 <i class="fas fa-file-contract"></i>
             </div>
             <div style="font-size: 1rem; color: #1E88E5; font-weight: 700;">Total Perjanjian</div>
             <div style="font-size: 1.3rem; color: #1E88E5; font-weight: 700;">{{ $totalPerjanjian }}</div>
+            <div style="font-size: 0.75rem; color: #1E88E5; opacity: 0.8; margin-top: 4px;"><i class="fas fa-mouse-pointer"></i> Klik untuk detail</div>
         </div>
     </div>
     <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
@@ -274,6 +277,60 @@
                     <div class="text-center text-muted py-4">
                         <i class="fas fa-list-ul fa-3x mb-3"></i>
                         <p>Belum ada data sub-kegiatan</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Perjanjian -->
+<div class="modal fade" id="perjanjianModal" tabindex="-1" aria-labelledby="perjanjianModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #1E88E5; color: white;">
+                <h5 class="modal-title" id="perjanjianModalLabel">
+                    <i class="fas fa-file-contract"></i> Daftar Perjanjian Kinerja ({{ count($allPerjanjianModal) }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-end mb-2">
+                    <a href="{{ route('admin.perjanjian.index') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-cog"></i> Kelola Perjanjian
+                    </a>
+                </div>
+                @if(!empty($allPerjanjianModal))
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th style="width:5%;">#</th>
+                                    <th style="width:28%;">Nama Pembuat</th>
+                                    <th style="width:28%;">Jabatan</th>
+                                    <th style="width:10%;">Tahun</th>
+                                    <th style="width:14%;">Tanggal</th>
+                                    <th style="width:15%;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allPerjanjianModal as $index => $pj)
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td><strong>{{ $pj['nama'] }}</strong></td>
+                                        <td><small>{{ $pj['jabatan'] }}</small></td>
+                                        <td>{{ $pj['tahun'] }}</td>
+                                        <td><small>{{ $pj['tanggal'] }}</small></td>
+                                        <td><span class="badge {{ $pj['badgeClass'] }}">{{ $pj['statusText'] }}</span></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-file-contract fa-3x mb-3"></i>
+                        <p>Belum ada data perjanjian</p>
                     </div>
                 @endif
             </div>

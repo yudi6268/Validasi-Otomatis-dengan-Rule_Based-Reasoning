@@ -152,7 +152,9 @@
     }
 
     .logout-box h3 {
-      color: #222;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a2a25;
       margin-bottom: 20px;
     }
 
@@ -165,9 +167,10 @@
     .logout-buttons button {
       background: #009970;
       color: #fff;
-      padding: 10px 30px;
+      padding: 10px 28px;
       border: none;
-      border-radius: 30px;
+      border-radius: 8px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
     }
@@ -358,10 +361,10 @@
   <!-- MODAL LOGOUT -->
   <div id="logoutModal">
     <div class="logout-box">
-      <h3>Apakah Anda ingin keluar?</h3>
+      <h3>Apa anda ingin keluar?</h3>
       <div class="logout-buttons">
-        <button type="button" id="yesBtn">YA</button>
-        <button id="noBtn">TIDAK</button>
+        <button type="button" id="yesBtn">Ya, Keluar</button>
+        <button id="noBtn" style="background:#eef0f3;color:#333;">Batal</button>
       </div>
     </div>
   </div>

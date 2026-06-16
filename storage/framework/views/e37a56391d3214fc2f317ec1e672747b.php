@@ -54,6 +54,13 @@
       color: #007b5e;
     }
 
+    #logout-btn {
+      color: #e53e3e;
+    }
+    #logout-btn:hover {
+      color: #c0392b;
+    }
+
     /* ================= PROFILE ================= */
     .profile-icon {
       color: #009970;

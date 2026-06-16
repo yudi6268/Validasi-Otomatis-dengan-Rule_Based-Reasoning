@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Dashboard Pimpinan - RSUD Bangil</title>
+    <title>Dashboard Direktur - RSUD Bangil</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
@@ -589,6 +589,172 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* ===== NEW PANEL SYSTEM ===== */
+        body { overflow: auto; }
+        .sidebar-menu a { cursor: pointer; }
+        .sidebar-menu a.logout-link { color: #e53e3e; }
+        .sidebar-menu a.logout-link i { color: #e53e3e; }
+        .sidebar-menu a.logout-link:hover { background: #fff5f5; border-left-color: #e53e3e; color: #e53e3e; }
+
+        /* Summary panels */
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .summary-section { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .summary-section .ss-title { font-size: 14px; font-weight: 800; color: #1B2A41; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .summary-stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+        .ss-card { background: #f8fafb; border-radius: 10px; padding: 12px; text-align: center; border-top: 3px solid #e0e0e0; }
+        .ss-card.green { border-top-color: #00b59a; }
+        .ss-card.yellow { border-top-color: #f5a623; }
+        .ss-card.blue { border-top-color: #4c9cf0; }
+        .ss-card.red { border-top-color: #e53e3e; }
+        .ss-num { font-size: 22px; font-weight: 800; color: #1B2A41; }
+        .ss-lbl { font-size: 11px; color: #888; font-weight: 600; margin-top: 2px; }
+
+        /* Stat cards - panel level */
+        .panel-stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+        .panel-stat-card { background: #fff; border-radius: 12px; padding: 18px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; cursor: pointer; transition: all 0.2s; border-top: 4px solid #e0e0e0; }
+        .panel-stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .panel-stat-card.green { border-top-color: #00b59a; }
+        .panel-stat-card.yellow { border-top-color: #f5a623; }
+        .panel-stat-card.blue { border-top-color: #4c9cf0; }
+        .panel-stat-card.red { border-top-color: #e53e3e; }
+        .panel-stat-num { font-size: 30px; font-weight: 800; color: #1B2A41; }
+        .panel-stat-lbl { font-size: 12px; color: #888; font-weight: 600; margin-top: 4px; }
+        .panel-stat-btn { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 700; color: #00b59a; background: #e8f7f4; padding: 3px 12px; border-radius: 6px; }
+
+        /* Dashboard tables */
+        .dash-section { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 18px; }
+        .dash-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0; }
+        .dash-section-hdr h3 { font-size: 15px; font-weight: 800; color: #1B2A41; }
+        .dash-see-all { font-size: 12px; font-weight: 700; color: #00b59a; text-decoration: none; }
+        .dash-table { width: 100%; border-collapse: collapse; }
+        .dash-table th { background: #f8fafb; padding: 9px 12px; text-align: left; font-size: 12px; font-weight: 700; color: #444; border-bottom: 2px solid #e8e8e8; }
+        .dash-table td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #555; vertical-align: middle; }
+        .dash-table tr:last-child td { border-bottom: none; }
+        .dash-table tr:hover td { background: #fafcff; }
+        .dash-table .empty td { text-align: center; padding: 24px; color: #aaa; }
+
+        /* Charts */
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 18px; }
+        .chart-panel { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .chart-panel h3 { font-size: 14px; font-weight: 800; color: #1B2A41; margin-bottom: 14px; }
+        .chart-box { position: relative; height: 220px; }
+
+        /* Status badge */
+        .s-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+        .s-green { background: #e8f7f4; color: #009970; }
+        .s-yellow { background: #fff3e0; color: #e07b00; }
+        .s-blue { background: #e3f0fd; color: #2176d2; }
+        .s-red { background: #fde8e8; color: #c0392b; }
+        .s-gray { background: #f0f0f0; color: #666; }
+
+        /* Buttons */
+        .btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 7px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; transition: all 0.18s; }
+        .btn-teal { background: #00b59a; color: #fff; } .btn-teal:hover { background: #009980; }
+        .btn-danger { background: #e53e3e; color: #fff; } .btn-danger:hover { background: #c0392b; }
+        .btn-neutral { background: #f0f0f0; color: #555; } .btn-neutral:hover { background: #e0e0e0; }
+
+        /* Modal system */
+        .dir-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 2000; align-items: center; justify-content: center; }
+        .dir-modal.open { display: flex !important; }
+        .dir-mbox { background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.18); width: min(720px, 94vw); max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; }
+        .dir-mbox.sm { width: min(480px, 94vw); }
+        .dir-mbox.xl { width: min(1000px, 96vw); height: 88vh; }
+        .dir-mhdr { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+        .dir-mhdr h3 { font-size: 16px; font-weight: 800; color: #1B2A41; margin: 0; }
+        .dir-mbody { padding: 16px 20px; overflow-y: auto; flex: 1; }
+        .dir-mftr { padding: 12px 20px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+        .dir-close { border: none; background: #f0f0f0; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 13px; color: #666; }
+        .item-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f5f5f5; gap: 14px; }
+        .item-row:last-child { border-bottom: none; }
+        .item-name { font-size: 14px; font-weight: 700; color: #1B2A41; }
+        .item-meta { font-size: 12px; color: #888; margin-top: 2px; }
+        .item-actions { display: flex; gap: 6px; flex-shrink: 0; margin-top: 2px; }
+
+        @media (max-width: 900px) { .summary-grid, .chart-grid { grid-template-columns: 1fr; } .panel-stat-grid { grid-template-columns: repeat(2,1fr); } .summary-stat-row { grid-template-columns: repeat(2,1fr); } }
+
+        /* ===== DASHBOARD PANEL - WELCOME & KPI ===== */
+        .dir-welcome-banner { background: linear-gradient(135deg, #00b59a 0%, #00927c 60%, #007360 100%); border-radius: 16px; padding: 22px 26px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; box-shadow: 0 6px 20px rgba(0,181,154,0.28); }
+        .dir-welcome-left h2 { font-size: 20px; font-weight: 900; margin: 0 0 4px; }
+        .dir-welcome-left p { font-size: 13px; opacity: .82; margin: 0; }
+        .dir-alert-pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 30px; font-size: 13px; font-weight: 700; border: 1.5px solid rgba(255,255,255,.4); background: rgba(255,255,255,.15); backdrop-filter: blur(4px); }
+        .dir-alert-pill.ok { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.1); }
+        .dir-alert-pill i { font-size: 16px; }
+
+        /* KPI row */
+        .dir-kpi-block { margin-bottom: 14px; }
+        .dir-kpi-label { font-size: 11px; font-weight: 800; color: #888; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .dir-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+        .dir-kpi-card { background: #fff; border-radius: 14px; padding: 16px 14px; box-shadow: 0 2px 10px rgba(0,0,0,.06); display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; transition: transform .18s, box-shadow .18s; position: relative; overflow: hidden; border-left: 4px solid #e0e0e0; }
+        .dir-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.11); }
+        .dir-kpi-card.c-teal  { border-left-color: #00b59a; }
+        .dir-kpi-card.c-green { border-left-color: #38a169; }
+        .dir-kpi-card.c-amber { border-left-color: #f5a623; }
+        .dir-kpi-card.c-red   { border-left-color: #e53e3e; }
+        .dir-kpi-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .c-teal  .dir-kpi-icon { background: #e6f9f5; color: #00b59a; }
+        .c-green .dir-kpi-icon { background: #e8f5ef; color: #38a169; }
+        .c-amber .dir-kpi-icon { background: #fff8ec; color: #f5a623; }
+        .c-red   .dir-kpi-icon { background: #fde8e8; color: #e53e3e; }
+        .dir-kpi-num { font-size: 26px; font-weight: 900; color: #1B2A41; line-height: 1; }
+        .dir-kpi-lbl { font-size: 11px; font-weight: 700; color: #999; margin-top: 3px; }
+        .dir-kpi-pulse { position: absolute; top: 10px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #f5a623; animation: kpiPulse 1.7s infinite; }
+        @keyframes kpiPulse { 0%,100%{box-shadow:0 0 0 0 rgba(245,166,35,.5);} 55%{box-shadow:0 0 0 7px rgba(245,166,35,0);} }
+
+        /* Preview lists (no actions) */
+        .dir-preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+        .dir-preview-list { display: flex; flex-direction: column; }
+        .dir-preview-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+        .dir-preview-item:last-child { border-bottom: none; }
+        .dir-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#00b59a,#007360); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; flex-shrink:0; }
+        .dir-avatar.blue { background: linear-gradient(135deg,#4c9cf0,#2176d2); }
+        .dir-preview-body { flex:1; min-width:0; }
+        .dir-preview-name { font-size:13px; font-weight:700; color:#1B2A41; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .dir-preview-meta { font-size:11px; color:#aaa; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .dir-preview-side { display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+        .dir-preview-date { font-size:10px; color:#bbb; }
+        .dir-empty-ok { display:flex; align-items:center; justify-content:center; gap:8px; padding:26px; color:#38a169; font-size:13px; font-weight:600; background:#f0fff8; border-radius:10px; }
+        .dir-empty-ok i { font-size:18px; }
+
+        @media (max-width: 900px) { .dir-kpi-row { grid-template-columns: repeat(2,1fr); } .dir-preview-grid { grid-template-columns: 1fr; } .dir-welcome-banner { flex-direction: column; gap: 14px; } }
+
+        /* ===== WADIR-STYLE PANEL SHELL (perjanjian & laporan panels) ===== */
+        .dir-panel-shell { max-width: 760px; margin: 0 auto; background: linear-gradient(180deg,#f8fffc 0%,#f2fbf8 100%); border: 1px solid #dff3ed; border-radius: 20px; padding: 18px 20px 24px; box-shadow: 0 14px 28px rgba(0,153,112,.08); }
+        .dir-panel-shell .panel-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-bottom: 14px; }
+        .dir-psc { background: #fff; border-radius: 14px; padding: 20px 14px 18px; box-shadow: 0 4px 14px rgba(0,0,0,.08); text-align: center; min-height: 168px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+        .dir-psc:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,.11); }
+        .dir-psc-num { font-size: 46px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+        .dir-psc-lbl { font-size: 14px; font-weight: 600; color: #666; margin-bottom: 12px; }
+        .dir-psc-btn { display: inline-block; padding: 7px 20px; border-radius: 999px; color: #fff; font-weight: 700; font-size: 13px; text-decoration: none; cursor: pointer; transition: opacity .2s; border: none; }
+        .dir-psc-btn:hover { opacity: .85; color: #fff; }
+        .dir-psc.d-green .dir-psc-num { color: #009970; } .dir-psc.d-green .dir-psc-btn { background: #009970; }
+        .dir-psc.d-yellow .dir-psc-num { color: #FFA500; } .dir-psc.d-yellow .dir-psc-btn { background: #FFA500; }
+        .dir-psc.d-blue .dir-psc-num { color: #2196F3; } .dir-psc.d-blue .dir-psc-btn { background: #2196F3; }
+        .dir-psc.d-red .dir-psc-num { color: #DC3545; } .dir-psc.d-red .dir-psc-btn { background: #DC3545; }
+        @media (max-width: 860px) { .dir-panel-shell { padding: 14px; } .dir-panel-shell .panel-stat-grid { grid-template-columns: 1fr; } .dir-psc { min-height: 140px; } }
+
+        /* ===== LIST CARD MODAL ITEMS ===== */
+        .dir-list-wrap { background: #E3F8F6; padding: 10px 0; min-height: 60px; }
+        .dir-list-card { background: #fff; border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; display: flex; align-items: center; gap: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: box-shadow .2s; }
+        .dir-list-card:last-child { margin-bottom: 0; }
+        .dir-list-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.13); }
+        .dir-doc-icon { width: 64px; height: 64px; background: #2196F3; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .dir-doc-icon i { color: #fff; font-size: 28px; }
+        .dir-doc-icon.lk { background: #2196F3; }
+        .dir-list-info { flex: 1; min-width: 0; }
+        .dir-list-name { font-size: 16px; font-weight: 700; color: #222; margin-bottom: 4px; }
+        .dir-list-badge { display: inline-block; margin: 4px 0 4px; padding: 5px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+        .dlb-menunggu { background: #fff3cd; color: #FFA500; }
+        .dlb-disetujui{ background: #d4edda; color: #009970; }
+        .dlb-ditolak  { background: #f8d7da; color: #DC3545; }
+        .dlb-terkirim { background: #e2e8f0; color: #475569; }
+        .dlb-proses   { background: #fff3cd; color: #FFA500; }
+        .dlb-setuju   { background: #d4edda; color: #009970; }
+        .dlb-tolak    { background: #f8d7da; color: #DC3545; }
+        .dir-list-date { font-size: 13px; color: #888; margin-top: 2px; }
+        .dir-list-action { flex-shrink: 0; }
+        .dir-view-btn { background: none; border: none; cursor: pointer; font-size: 24px; color: #2196F3; padding: 8px; transition: opacity .2s; line-height: 1; }
+        .dir-view-btn:hover { opacity: .7; }
     </style>
 </head>
 
@@ -599,381 +765,694 @@
         <div class="logo-container">
             <img src="{{ asset('images/logo_pemda.png') }}" alt="Logo Pemda">
             <img src="{{ asset('images/logo_rsud.png') }}" alt="Logo RSUD">
-            <span class="header-title">Dashboard Pimpinan</span>
+            <span class="header-title">Dashboard Direktur</span>
         </div>
-
-        <nav>
-            <a href="{{ route('panduan') }}">Panduan</a>
-            <a href="{{ route('kontak') }}">Kontak</a>
-            <a href="{{ route('tentang') }}">Tentang</a>
-        </nav>
-
         <div></div>
     </header>
 
-    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display:none;">
-        @csrf
-    </form>
+    <form id="logoutForm" action="{{ route('logout') }}" method="POST" style="display:none;">@csrf</form>
 
     <!-- MAIN DASHBOARD -->
     <div class="dashboard-container">
-        
-        <!-- SIDEBAR MENU -->
-        @include('dashboard.partials.pimpinan-sidebar')
+
+        <!-- SIDEBAR -->
+        @php $activePanel = request()->query('panel', 'dashboard'); @endphp
+        <aside class="sidebar">
+            <h3>Menu</h3>
+            <div class="sidebar-menu">
+                <a href="{{ route('dashboard.direktur', ['panel' => 'dashboard']) }}"
+                   class="{{ $activePanel === 'dashboard' ? 'active' : '' }}">
+                    <i class="fas fa-th-large"></i> Dashboard
+                </a>
+                <a href="{{ route('dashboard.direktur', ['panel' => 'perjanjian']) }}"
+                   class="{{ $activePanel === 'perjanjian' ? 'active' : '' }}">
+                    <i class="fas fa-file-contract"></i> Perjanjian Kinerja
+                </a>
+                <a href="{{ route('dashboard.direktur', ['panel' => 'laporan']) }}"
+                   class="{{ $activePanel === 'laporan' ? 'active' : '' }}">
+                    <i class="fas fa-chart-bar"></i> Laporan Kinerja
+                </a>
+                <a href="{{ route('dashboard.direktur', ['panel' => 'profil']) }}"
+                   class="{{ $activePanel === 'profil' ? 'active' : '' }}">
+                    <i class="fas fa-user"></i> Profil
+                </a>
+                <a href="#" class="logout-link"
+                   onclick="event.preventDefault(); document.getElementById('dirLogoutModal').style.display='flex';">
+                    <i class="fas fa-right-from-bracket"></i> Keluar
+                </a>
+            </div>
+        </aside>
 
         <!-- MAIN CONTENT -->
         <main class="main-content">
-            @php $panel = request()->query('panel'); @endphp
+            @php $panel = request()->query('panel', 'dashboard'); @endphp
 
-            @if ($panel === 'profil')
-                <div class="page-header">
-                    <h1>Profil</h1>
-                    <p>Informasi akun pimpinan dalam panel dashboard yang sama.</p>
+            {{-- ==================== PANEL DASHBOARD ==================== --}}
+            @if ($panel === 'dashboard')
+                @php $totalMenunggu = $perjanjianCounts['menunggu'] + $laporanCounts['menunggu']; @endphp
+
+                <!-- Welcome Banner -->
+                <div class="dir-welcome-banner">
+                    <div class="dir-welcome-left">
+                        <h2>Selamat Datang, {{ auth()->user()->nama }}</h2>
+                        <p>{{ \Carbon\Carbon::now()->translatedFormat('l, d F Y') }}</p>
+                    </div>
+                    <div>
+                        @if($totalMenunggu > 0)
+                            <div class="dir-alert-pill">
+                                <i class="fas fa-bell"></i>
+                                {{ $totalMenunggu }} item menunggu tindakan
+                            </div>
+                        @else
+                            <div class="dir-alert-pill ok">
+                                <i class="fas fa-check-circle"></i>
+                                Semua sudah ditindaklanjuti
+                            </div>
+                        @endif
+                    </div>
                 </div>
 
+                <!-- KPI – Perjanjian Kinerja -->
+                <div class="dir-kpi-block">
+                    <div class="dir-kpi-label"><i class="fas fa-file-contract"></i> Perjanjian Kinerja</div>
+                    <div class="dir-kpi-row">
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'perjanjian']) }}" class="dir-kpi-card c-teal">
+                            <div class="dir-kpi-icon"><i class="fas fa-layer-group"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $perjanjianCounts['total'] }}">0</div>
+                                <div class="dir-kpi-lbl">Total</div>
+                            </div>
+                        </a>
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'perjanjian']) }}" class="dir-kpi-card c-green">
+                            <div class="dir-kpi-icon"><i class="fas fa-check-double"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $perjanjianCounts['disetujui'] }}">0</div>
+                                <div class="dir-kpi-lbl">Disetujui</div>
+                            </div>
+                        </a>
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'perjanjian']) }}" class="dir-kpi-card c-amber">
+                            <div class="dir-kpi-icon"><i class="fas fa-hourglass-half"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $perjanjianCounts['menunggu'] }}">0</div>
+                                <div class="dir-kpi-lbl">Menunggu</div>
+                            </div>
+                            @if($perjanjianCounts['menunggu'] > 0)<span class="dir-kpi-pulse"></span>@endif
+                        </a>
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'perjanjian']) }}" class="dir-kpi-card c-red">
+                            <div class="dir-kpi-icon"><i class="fas fa-times-circle"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $perjanjianCounts['ditolak'] }}">0</div>
+                                <div class="dir-kpi-lbl">Ditolak</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- KPI – Laporan Kinerja -->
+                <div class="dir-kpi-block">
+                    <div class="dir-kpi-label"><i class="fas fa-chart-bar"></i> Laporan Kinerja</div>
+                    <div class="dir-kpi-row">
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'laporan']) }}" class="dir-kpi-card c-teal">
+                            <div class="dir-kpi-icon"><i class="fas fa-layer-group"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $laporanCounts['total'] }}">0</div>
+                                <div class="dir-kpi-lbl">Total</div>
+                            </div>
+                        </a>
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'laporan']) }}" class="dir-kpi-card c-green">
+                            <div class="dir-kpi-icon"><i class="fas fa-check-double"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $laporanCounts['disetujui'] }}">0</div>
+                                <div class="dir-kpi-lbl">Disetujui</div>
+                            </div>
+                        </a>
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'laporan']) }}" class="dir-kpi-card c-amber">
+                            <div class="dir-kpi-icon"><i class="fas fa-hourglass-half"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $laporanCounts['menunggu'] }}">0</div>
+                                <div class="dir-kpi-lbl">Menunggu</div>
+                            </div>
+                            @if($laporanCounts['menunggu'] > 0)<span class="dir-kpi-pulse"></span>@endif
+                        </a>
+                        <a href="{{ route('dashboard.direktur', ['panel' => 'laporan']) }}" class="dir-kpi-card c-red">
+                            <div class="dir-kpi-icon"><i class="fas fa-times-circle"></i></div>
+                            <div>
+                                <div class="dir-kpi-num" data-count="{{ $laporanCounts['ditolak'] }}">0</div>
+                                <div class="dir-kpi-lbl">Ditolak</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Preview (no actions) -->
+                <div class="dir-preview-grid">
+                    <div class="dash-section">
+                        <div class="dash-section-hdr">
+                            <h3><i class="fas fa-hourglass-half" style="color:#f5a623;margin-right:6px;"></i> PK Menunggu Persetujuan</h3>
+                            <a href="{{ route('dashboard.direktur', ['panel' => 'perjanjian']) }}" class="dash-see-all">Lihat Semua →</a>
+                        </div>
+                        @php $waitingPk = collect($perjanjianItems)->where('status', 'menunggu')->take(5); @endphp
+                        @if($waitingPk->isEmpty())
+                            <div class="dir-empty-ok"><i class="fas fa-check-circle"></i> Tidak ada yang menunggu</div>
+                        @else
+                            <div class="dir-preview-list">
+                                @foreach($waitingPk as $pk)
+                                    <div class="dir-preview-item">
+                                        <div class="dir-avatar">{{ mb_strtoupper(mb_substr($pk['pihak1_name'], 0, 1)) }}</div>
+                                        <div class="dir-preview-body">
+                                            <div class="dir-preview-name">{{ $pk['pihak1_name'] }}</div>
+                                            <div class="dir-preview-meta">{{ $pk['pihak1_jabatan'] }} &bull; {{ $pk['periode'] }}</div>
+                                        </div>
+                                        <div class="dir-preview-side">
+                                            <span class="s-badge s-blue"><i class="fas fa-clock" style="font-size:9px;"></i>&nbsp;Menunggu</span>
+                                            <div class="dir-preview-date">{{ $pk['tanggal'] }}</div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="dash-section">
+                        <div class="dash-section-hdr">
+                            <h3><i class="fas fa-hourglass-half" style="color:#4c9cf0;margin-right:6px;"></i> LK Menunggu Reviu</h3>
+                            <a href="{{ route('dashboard.direktur', ['panel' => 'laporan']) }}" class="dash-see-all">Lihat Semua →</a>
+                        </div>
+                        @php $waitingLk = collect($laporanItems)->where('status', 'menunggu')->take(5); @endphp
+                        @if($waitingLk->isEmpty())
+                            <div class="dir-empty-ok"><i class="fas fa-check-circle"></i> Tidak ada yang menunggu</div>
+                        @else
+                            <div class="dir-preview-list">
+                                @foreach($waitingLk as $lk)
+                                    <div class="dir-preview-item">
+                                        <div class="dir-avatar blue">{{ mb_strtoupper(mb_substr($lk['pihak1_name'], 0, 1)) }}</div>
+                                        <div class="dir-preview-body">
+                                            <div class="dir-preview-name">{{ $lk['pihak1_name'] }}</div>
+                                            <div class="dir-preview-meta">{{ $lk['pihak1_jabatan'] }} &bull; Triwulan {{ $lk['triwulan'] }}</div>
+                                        </div>
+                                        <div class="dir-preview-side">
+                                            <span class="s-badge s-blue"><i class="fas fa-clock" style="font-size:9px;"></i>&nbsp;Menunggu</span>
+                                            <div class="dir-preview-date">{{ $lk['tahun'] }}</div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="chart-grid">
+                    <div class="chart-panel">
+                        <h3><i class="fas fa-file-contract" style="color:#00b59a; margin-right:6px;"></i> Grafik Perjanjian Kinerja</h3>
+                        <div class="chart-box"><canvas id="chartPerjanjian"></canvas></div>
+                    </div>
+                    <div class="chart-panel">
+                        <h3><i class="fas fa-chart-bar" style="color:#4c9cf0; margin-right:6px;"></i> Grafik Laporan Kinerja</h3>
+                        <div class="chart-box"><canvas id="chartLaporan"></canvas></div>
+                    </div>
+                </div>
+
+            {{-- ==================== PANEL PERJANJIAN KINERJA ==================== --}}
+            @elseif ($panel === 'perjanjian')
+                @php $pkStatus = request()->query('status'); @endphp
+
+                @if (!$pkStatus)
+                    {{-- Stat cards --}}
+                    <div class="page-header">
+                        <h1>Perjanjian Kinerja</h1>
+                    </div>
+                    <div class="dir-panel-shell">
+                        <div class="panel-stat-grid">
+                            <div class="dir-psc d-green" onclick="location.href='{{ route('direktur.perjanjian.list', ['status'=>'total']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $perjanjianCounts['total'] }}</div>
+                                <div class="dir-psc-lbl">Terkirim</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.perjanjian.list', ['status'=>'total']) }}'">Lihat</button>
+                            </div>
+                            <div class="dir-psc d-yellow" onclick="location.href='{{ route('direktur.perjanjian.list', ['status'=>'disetujui']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $perjanjianCounts['disetujui'] }}</div>
+                                <div class="dir-psc-lbl">Disetujui</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.perjanjian.list', ['status'=>'disetujui']) }}'">Lihat</button>
+                            </div>
+                            <div class="dir-psc d-red" onclick="location.href='{{ route('direktur.perjanjian.list', ['status'=>'ditolak']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $perjanjianCounts['ditolak'] }}</div>
+                                <div class="dir-psc-lbl">Ditolak</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.perjanjian.list', ['status'=>'ditolak']) }}'">Lihat</button>
+                            </div>
+                            <div class="dir-psc d-blue" onclick="location.href='{{ route('direktur.perjanjian.list', ['status'=>'menunggu']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $perjanjianCounts['menunggu'] }}</div>
+                                <div class="dir-psc-lbl">Menunggu</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.perjanjian.list', ['status'=>'menunggu']) }}'">Lihat</button>
+                            </div>
+                        </div>
+                    </div>
+
+                @else
+                    {{-- List by status --}}
+                    @php
+                        $pkStatusLabels = ['total'=>'Semua','disetujui'=>'Disetujui','ditolak'=>'Ditolak','menunggu'=>'Menunggu'];
+                        $pkFiltered = $pkStatus === 'total'
+                            ? collect($perjanjianItems)
+                            : collect($perjanjianItems)->where('status', $pkStatus);
+                    @endphp
+                    <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:24px;padding:0 48px;">
+                        <a href="{{ route('dashboard.direktur', ['panel'=>'perjanjian']) }}" style="position:absolute;left:0;color:#333;font-size:20px;text-decoration:none;padding:4px 8px;">&larr;</a>
+                        <h2 style="font-size:18px;font-weight:700;color:#222;text-align:center;">{{ $pkStatusLabels[$pkStatus] === 'Semua' ? 'Semua Perjanjian Kinerja' : ($pkStatusLabels[$pkStatus] === 'Menunggu' ? 'Menunggu Persetujuan' : 'Perjanjian Kinerja ' . $pkStatusLabels[$pkStatus]) }}</h2>
+                    </div>
+                    <div class="dir-list-wrap">
+                        @forelse($pkFiltered as $pk)
+                            <div class="dir-list-card">
+                                <div class="dir-doc-icon"><i class="fas fa-file-alt"></i></div>
+                                <div class="dir-list-info">
+                                    <div class="dir-list-name">Perjanjian Kinerja {{ $pk['periode'] }}</div>
+                                    @php
+                                        $pkBadgeClass = ['disetujui'=>'dlb-disetujui','menunggu'=>'dlb-menunggu','ditolak'=>'dlb-ditolak'][$pk['status']] ?? 'dlb-terkirim';
+                                        $pkBadgeLabel = ['disetujui'=>'Disetujui','menunggu'=>'Menunggu','ditolak'=>'Ditolak'][$pk['status']] ?? ucfirst($pk['status']);
+                                    @endphp
+                                    <span class="dir-list-badge {{ $pkBadgeClass }}">{{ $pkBadgeLabel }}</span>
+                                    <div class="dir-list-date">{{ $pk['tanggal'] }}</div>
+                                    @if(!empty($pk['rejection_reason']))
+                                        <div style="font-size:12px;color:#DC3545;margin-top:3px;">Alasan: {{ $pk['rejection_reason'] }}</div>
+                                    @endif
+                                </div>
+                                <div class="dir-list-action">
+                                    <button class="dir-view-btn" title="Lihat"
+                                        onclick="window.open('{{ url('/dashboard/direktur/perjanjian') }}/{{ $pk['id'] }}/print','_blank')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        @empty
+                            <div style="text-align:center;padding:40px;color:#aaa;"><i class="fas fa-inbox" style="font-size:36px;display:block;margin-bottom:12px;"></i>Tidak ada data.</div>
+                        @endforelse
+                    </div>
+                @endif
+
+            {{-- ==================== PANEL LAPORAN KINERJA ==================== --}}
+            @elseif ($panel === 'laporan')
+                @php $lkStatus = request()->query('status'); @endphp
+
+                @if (!$lkStatus)
+                    {{-- Stat cards --}}
+                    <div class="page-header">
+                        <h1>Laporan Kinerja</h1>
+                    </div>
+                    <div class="dir-panel-shell">
+                        <div class="panel-stat-grid">
+                            <div class="dir-psc d-green" onclick="location.href='{{ route('direktur.laporan.list', ['status'=>'total']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $laporanCounts['total'] }}</div>
+                                <div class="dir-psc-lbl">Terkirim</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.laporan.list', ['status'=>'total']) }}'">Lihat</button>
+                            </div>
+                            <div class="dir-psc d-yellow" onclick="location.href='{{ route('direktur.laporan.list', ['status'=>'disetujui']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $laporanCounts['disetujui'] }}</div>
+                                <div class="dir-psc-lbl">Disetujui</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.laporan.list', ['status'=>'disetujui']) }}'">Lihat</button>
+                            </div>
+                            <div class="dir-psc d-red" onclick="location.href='{{ route('direktur.laporan.list', ['status'=>'ditolak']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $laporanCounts['ditolak'] }}</div>
+                                <div class="dir-psc-lbl">Ditolak</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.laporan.list', ['status'=>'ditolak']) }}'">Lihat</button>
+                            </div>
+                            <div class="dir-psc d-blue" onclick="location.href='{{ route('direktur.laporan.list', ['status'=>'menunggu']) }}'" style="cursor:pointer;">
+                                <div class="dir-psc-num">{{ $laporanCounts['menunggu'] }}</div>
+                                <div class="dir-psc-lbl">Menunggu</div>
+                                <button class="dir-psc-btn" onclick="event.stopPropagation();location.href='{{ route('direktur.laporan.list', ['status'=>'menunggu']) }}'">Lihat</button>
+                            </div>
+                        </div>
+                    </div>
+
+                @else
+                    {{-- List by status --}}
+                    @php
+                        $lkStatusLabels = ['total'=>'Semua','disetujui'=>'Disetujui','ditolak'=>'Ditolak','menunggu'=>'Menunggu'];
+                        $lkFiltered = $lkStatus === 'total'
+                            ? collect($laporanItems)
+                            : collect($laporanItems)->where('status', $lkStatus);
+                    @endphp
+                    <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:24px;padding:0 48px;">
+                        <a href="{{ route('dashboard.direktur', ['panel'=>'laporan']) }}" style="position:absolute;left:0;color:#333;font-size:20px;text-decoration:none;padding:4px 8px;">&larr;</a>
+                        <h2 style="font-size:18px;font-weight:700;color:#222;text-align:center;">{{ $lkStatusLabels[$lkStatus] === 'Semua' ? 'Semua Laporan Kinerja' : ($lkStatusLabels[$lkStatus] === 'Menunggu' ? 'Menunggu Reviu' : 'Laporan Kinerja ' . $lkStatusLabels[$lkStatus]) }}</h2>
+                    </div>
+                    <div class="dir-list-wrap">
+                        @forelse($lkFiltered as $lk)
+                            <div class="dir-list-card">
+                                <div class="dir-doc-icon lk"><i class="fas fa-file-alt"></i></div>
+                                <div class="dir-list-info">
+                                    <div class="dir-list-name">Laporan Kinerja Triwulan {{ $lk['triwulan'] }} {{ $lk['tahun'] }}</div>
+                                    @php
+                                        $lkBadgeClass = ['disetujui'=>'dlb-disetujui','menunggu'=>'dlb-menunggu','ditolak'=>'dlb-ditolak','terkirim'=>'dlb-terkirim'][$lk['status']] ?? 'dlb-terkirim';
+                                        $lkBadgeLabel = ['disetujui'=>'Disetujui','menunggu'=>'Menunggu','ditolak'=>'Ditolak','terkirim'=>'Terkirim'][$lk['status']] ?? ucfirst($lk['status']);
+                                    @endphp
+                                    <span class="dir-list-badge {{ $lkBadgeClass }}">{{ $lkBadgeLabel }}</span>
+                                    <div class="dir-list-date">{{ $lk['pihak1_name'] }}</div>
+                                </div>
+                                <div class="dir-list-action">
+                                    <button class="dir-view-btn" title="Lihat"
+                                        onclick="window.open('{{ route('laporan.kinerja') }}?perjanjian_id={{ $lk['perjanjian_id'] }}','_blank')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        @empty
+                            <div style="text-align:center;padding:40px;color:#aaa;"><i class="fas fa-inbox" style="font-size:36px;display:block;margin-bottom:12px;"></i>Tidak ada data.</div>
+                        @endforelse
+                    </div>
+                @endif
+
+            {{-- ==================== PANEL PROFIL ==================== --}}
+            @elseif ($panel === 'profil')
+                <div class="page-header">
+                    <h1>Profil Direktur</h1>
+                </div>
                 @include('dashboard.partials.profile-panel', [
-                    'title' => 'Profil Pimpinan',
-                    'description' => 'Profil ditampilkan langsung di dalam dashboard pimpinan agar tidak perlu membuka halaman terpisah.'
+                    'title'           => 'Profil Direktur',
+                    'hideDescription' => true,
+                    'hideSummary'     => true,
+                    'isEditable'      => true,
                 ])
-            @else
-                <!-- PAGE HEADER -->
-                <div class="page-header">
-                    <h1>Selamat Datang, {{ auth()->user()->nama }}</h1>
-                    <p>Kelola dan Review Laporan Kinerja</p>
-                </div>
-
-                <!-- SEARCH AND FILTER -->
-                <div class="search-filter-area">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="searchInput" placeholder="Cari nama pegawai atau tanggal...">
-                    </div>
-                </div>
-
-                <!-- STATS CARDS -->
-                <div class="stats-grid">
-                    <div class="stat-card green active" data-filter="all">
-                        <div class="label">Total Perjanjian</div>
-                        <div class="number">{{ $counts['all'] ?? 0 }}</div>
-                    </div>
-                    <div class="stat-card yellow" data-filter="setuju">
-                        <div class="label">Disetujui</div>
-                        <div class="number">{{ $counts['approved'] ?? 0 }}</div>
-                    </div>
-                    <div class="stat-card blue" data-filter="menunggu">
-                        <div class="label">Menunggu Approval</div>
-                        <div class="number">{{ $counts['waiting'] ?? 0 }}</div>
-                    </div>
-                    <div class="stat-card red" data-filter="tolak">
-                        <div class="label">Ditolak</div>
-                        <div class="number">{{ $counts['rejected'] ?? 0 }}</div>
-                    </div>
-                </div>
-
-                <!-- PERJANJIAN TABLE -->
-                <div class="section">
-                    <div class="section-title">
-                        <h2><i class="fas fa-file-contract" style="color: #00B5A0; margin-right: 10px;"></i>Menunggu Review</h2>
-                        <a href="{{ route('direktur.perjanjian.list') }}">Lihat Semua</a>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>No</th>
-                                <th>Jenis Dokumen</th>
-                                <th>Unit Kerja</th>
-                                <th>Periode</th>
-                                <th>Diunggah Oleh</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dataTable">
-                            @forelse($perjanjians ?? [] as $i => $perjanjian)
-                                <tr>
-                                    <td>{{ ($perjanjians->currentPage() - 1) * $perjanjians->perPage() + $loop->iteration }}</td>
-                                    <td>{{ $perjanjian->jenis ?? ($perjanjian->jenis_perjanjian ?? 'Perjanjian Kinerja') }}</td>
-                                    <td>{{ $perjanjian->pihak1_jabatan ?? '-' }}</td>
-                                    <td>{{ $perjanjian->periode ?? $perjanjian->created_at?->format('Y') ?? '-' }}</td>
-                                    <td>{{ $perjanjian->pihak1_name ?? '-' }}</td>
-                                    <td>
-                                        <button type="button" class="btn-action" onclick="showPreview({{ $perjanjian->id }})">Review</button>
-                                        <button type="button" class="btn-action reject" onclick="showRejectModal({{ $perjanjian->id }})">Tolak</button>
-                                        <a href="{{ route('direktur.perjanjian.print', $perjanjian->id) }}" target="_blank">
-                                            <button type="button" class="btn-action">Cetak</button>
-                                        </a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" style="text-align: center; padding: 30px;">Belum ada data perjanjian kinerja</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-                        {{ $perjanjians->links() }}
-                    </div>
-                </div>
-
-                <div class="section" style="margin-top:16px;">
-                    <div class="section-title">
-                        <h2>Ringkasan Persetujuan (Tahun ini)</h2>
-                        <a href="#">Lihat Semua</a>
-                    </div>
-                    <canvas id="approvalChart" height="96"></canvas>
-                </div>
             @endif
         </main>
     </div>
 
     <!-- FOOTER -->
-    <footer style="margin-top:0;background:#fff;text-align:center;font-size:12px;font-weight:700;line-height:1.4;padding:10px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
+    <footer style="margin-top:40px;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© {{ date('Y') }} RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
 
-    <!-- PREVIEW MODAL -->
-    <div id="previewModal" class="action-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Preview Perjanjian</h3>
-                <button type="button" class="modal-close" onclick="closePreview()"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <iframe id="previewIframe" src="" frameborder="0"></iframe>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-action" onclick="approvePerjanjian(currentPreviewId)">Setujui</button>
-                <button type="button" class="btn-action reject" onclick="closePreview()">Tutup</button>
-            </div>
-        </div>
-    </div>
+    {{-- ===================== MODALS ===================== --}}
 
-    <!-- REJECT MODAL -->
-    <div id="rejectModal" class="action-modal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h3>Tolak Perjanjian</h3>
-                <button type="button" class="modal-close" onclick="closeReject()"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <p>Silakan isi alasan penolakan sebelum mengirim.</p>
-                <textarea id="rejectionReason" placeholder="Tulis alasan penolakan minimal 10 karakter..."></textarea>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-action reject" onclick="submitReject()">Kirim Penolakan</button>
-                <button type="button" class="btn-action" onclick="closeReject()">Batal</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- LOGOUT MODAL -->
-    <div id="logoutModal" class="logout-modal">
-        <div class="logout-box">
-            <h3>Keluar?</h3>
-            <p>Apakah Anda yakin ingin keluar dari sistem?</p>
-            <div class="logout-buttons">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="btn-logout">Ya, Keluar</button>
+    <!-- Logout Modal -->
+    <div id="dirLogoutModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;padding:32px 24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);min-width:300px;max-width:380px;text-align:center;">
+            <h3 style="margin-bottom:18px;">Apa anda ingin keluar?</h3>
+            <div style="display:flex;gap:16px;justify-content:center;">
+                <form method="POST" action="{{ route('logout') }}">@csrf
+                    <button type="submit" style="background:#00B5A0;color:#fff;padding:8px 24px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">YA</button>
                 </form>
-                <button id="cancelLogout" class="btn-cancel">Batal</button>
+                <button type="button" onclick="document.getElementById('dirLogoutModal').style.display='none';" style="background:#eee;color:#333;padding:8px 24px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">TIDAK</button>
             </div>
         </div>
     </div>
 
-    
+    <!-- Perjanjian Status Modal -->
+    <div id="modalPkStatus" class="dir-modal">
+        <div class="dir-mbox">
+            <div class="dir-mhdr">
+                <h3 id="modalPkTitle">Perjanjian Kinerja</h3>
+                <button class="dir-close" onclick="closePkModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="dir-mbody" id="modalPkBody"></div>
+            <div class="dir-mftr">
+                <button class="btn-xs btn-neutral" onclick="closePkModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Laporan Status Modal -->
+    <div id="modalLkStatus" class="dir-modal">
+        <div class="dir-mbox">
+            <div class="dir-mhdr">
+                <h3 id="modalLkTitle">Laporan Kinerja</h3>
+                <button class="dir-close" onclick="closeLkModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="dir-mbody" id="modalLkBody"></div>
+            <div class="dir-mftr">
+                <button class="btn-xs btn-neutral" onclick="closeLkModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal (iframe) -->
+    <div id="previewModal" class="dir-modal">
+        <div class="dir-mbox xl" style="display:flex;flex-direction:column;">
+            <div class="dir-mhdr">
+                <h3>Preview Perjanjian</h3>
+                <button class="dir-close" onclick="closePreviewModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <iframe id="previewIframe" src="" style="flex:1;border:none;min-height:0;"></iframe>
+            <div class="dir-mftr">
+                <button id="btnApprovePreview" class="btn-xs btn-teal" onclick="approvePerjanjian(currentPreviewId)"><i class="fas fa-check"></i> Setujui</button>
+                <button id="btnRejectPreview" class="btn-xs btn-danger" onclick="closePreviewModal(); openRejectModal(currentPreviewId)"><i class="fas fa-times"></i> Tolak</button>
+                <button class="btn-xs btn-neutral" onclick="closePreviewModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Modal -->
+    <div id="rejectModal" class="dir-modal">
+        <div class="dir-mbox sm">
+            <div class="dir-mhdr">
+                <h3>Tolak Perjanjian</h3>
+                <button class="dir-close" onclick="closeRejectModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="dir-mbody">
+                <p style="font-size:13px;color:#666;margin-bottom:12px;">Isi alasan penolakan (minimal 10 karakter):</p>
+                <textarea id="rejectionReason" style="width:100%;min-height:120px;border:1px solid #d9d9d9;border-radius:8px;padding:12px;font-size:14px;resize:vertical;color:#333;font-family:inherit;" placeholder="Tulis alasan penolakan..."></textarea>
+            </div>
+            <div class="dir-mftr">
+                <button class="btn-xs btn-danger" onclick="submitReject()"><i class="fas fa-times-circle"></i> Kirim Penolakan</button>
+                <button class="btn-xs btn-neutral" onclick="closeRejectModal()">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        const logoutModal = document.getElementById('logoutModal');
-        const cancelLogout = document.getElementById('cancelLogout');
+        const CSRF_TOKEN     = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const REVIEW_BASE    = "{{ url('/dashboard/direktur/perjanjian') }}";
+        const LAPORAN_URL    = "{{ route('laporan.kinerja') }}";
 
-        function showLogoutModal() {
-            if (logoutModal) {
-                logoutModal.style.display = 'flex';
-            }
-        }
+        const PERJANJIAN_ITEMS = @json($perjanjianItems ?? []);
+        const LAPORAN_ITEMS    = @json($laporanItems ?? []);
+        const CHART_DATA       = @json($chartData ?? []);
 
-        if (cancelLogout) {
-            cancelLogout.addEventListener('click', () => {
-                logoutModal.style.display = 'none';
-            });
-        }
-
-        if (logoutModal) {
-            logoutModal.addEventListener('click', (e) => {
-                if (e.target === logoutModal) {
-                    logoutModal.style.display = 'none';
-                }
-            });
-        }
-
-        // Search and filter
-        const searchInput = document.getElementById('searchInput');
-        const statCards = document.querySelectorAll('.stat-card');
-        const dataTable = document.getElementById('dataTable');
-        let activeFilter = 'all';
-
-        statCards.forEach(card => {
-            card.addEventListener('click', () => {
-                statCards.forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-                activeFilter = card.dataset.filter;
-                filterTable();
-            });
-        });
-
-        if (searchInput) searchInput.addEventListener('keyup', filterTable);
-
-        function filterTable() {
-            const keyword = (searchInput?.value || '').toLowerCase();
-            const rows = dataTable ? dataTable.querySelectorAll('tr') : [];
-
-            rows.forEach(row => {
-                const rowText = row.innerText.toLowerCase();
-
-                // simple search only (status filter handled by backend via stat cards)
-                const searchMatch = rowText.includes(keyword);
-                row.style.display = searchMatch ? '' : 'none';
-            });
-        }
-
-        const previewModal = document.getElementById('previewModal');
-        const rejectModal = document.getElementById('rejectModal');
-        const previewIframe = document.getElementById('previewIframe');
-        const rejectionReason = document.getElementById('rejectionReason');
         let currentPreviewId = null;
-        let currentRejectId = null;
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        const reviewBaseUrl = '{{ url('/dashboard/direktur/perjanjian') }}';
+        let currentRejectId  = null;
+        let currentPreviewStatus = null;
 
-        function showPreview(id) {
-            currentPreviewId = id;
-            previewIframe.src = `${reviewBaseUrl}/${id}`;
-            previewModal.style.display = 'flex';
+        // ---- Modal helpers ----
+        function openDirModal(id)  { const el = document.getElementById(id); if (el) el.classList.add('open'); }
+        function closeDirModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('open'); }
+
+        // ---- Escape HTML ----
+        function esc(s) {
+            if (!s && s !== 0) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        function closePreview() {
-            previewModal.style.display = 'none';
-            previewIframe.src = '';
+        // ---- Badge helper ----
+        const PK_BADGE_CLASS = { disetujui:'dlb-setuju', menunggu:'dlb-proses', ditolak:'dlb-tolak' };
+        const PK_BADGE_LABEL = { disetujui:'Disetujui', menunggu:'Diproses', ditolak:'Ditolak' };
+        const LK_BADGE_CLASS = { disetujui:'dlb-setuju', menunggu:'dlb-proses', ditolak:'dlb-tolak', terkirim:'dlb-terkirim' };
+        const LK_BADGE_LABEL = { disetujui:'Disetujui', menunggu:'Diproses', ditolak:'Ditolak', terkirim:'Terkirim' };
+        function pkBadge(s)  { return `<span class="dir-list-badge ${PK_BADGE_CLASS[s]||'dlb-terkirim'}">${PK_BADGE_LABEL[s]||s}</span>`; }
+        function lkBadge(s)  { return `<span class="dir-list-badge ${LK_BADGE_CLASS[s]||'dlb-terkirim'}">${LK_BADGE_LABEL[s]||s}</span>`; }
+
+        // ---- Perjanjian Status Modal ----
+        const PK_MAP = {
+            total:     { title: 'Semua Perjanjian Kinerja',                  filter: null },
+            disetujui: { title: 'Perjanjian Kinerja — Disetujui',          filter: 'disetujui' },
+            menunggu:  { title: 'Perjanjian Kinerja — Menunggu Persetujuan', filter: 'menunggu' },
+            ditolak:   { title: 'Perjanjian Kinerja — Ditolak',             filter: 'ditolak' },
+        };
+
+        function openPkModal(status) {
+            const meta  = PK_MAP[status] || PK_MAP.total;
+            const items = meta.filter ? PERJANJIAN_ITEMS.filter(i => i.status === meta.filter) : PERJANJIAN_ITEMS;
+            document.getElementById('modalPkTitle').textContent = meta.title;
+            const body = document.getElementById('modalPkBody');
+            if (!items.length) {
+                body.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;"><i class="fas fa-inbox" style="font-size:36px;margin-bottom:12px;display:block;"></i>Tidak ada data.</div>';
+            } else {
+                const cards = items.map(pk => {
+                    const reason = pk.rejection_reason
+                        ? `<div style="font-size:11px;color:#b91c1c;margin-top:2px;">Alasan: ${esc(pk.rejection_reason)}</div>` : '';
+                    return `<div class="dir-list-card">
+                        <div class="dir-doc-icon"><i class="fas fa-file-alt"></i></div>
+                        <div class="dir-list-info">
+                            <div class="dir-list-name">${esc(pk.pihak1_name)}</div>
+                            ${pkBadge(pk.status)}
+                            <div class="dir-list-date">${esc(pk.tanggal)}</div>
+                            ${reason}
+                        </div>
+                        <div class="dir-list-action">
+                            <button class="btn-xs btn-teal" onclick="openPreviewModal(${pk.id},'${pk.status}')"><i class="fas fa-eye"></i> Lihat</button>
+                        </div>
+                    </div>`;
+                });
+                body.innerHTML = `<div class="dir-list-wrap">${cards.join('')}</div>`;
+            }
+            openDirModal('modalPkStatus');
+        }
+        function closePkModal() { closeDirModal('modalPkStatus'); }
+
+        // ---- Laporan Status Modal ----
+        const LK_MAP = {
+            total:     { title: 'Semua Laporan Kinerja',           filter: null },
+            disetujui: { title: 'Laporan Kinerja — Disetujui',     filter: 'disetujui' },
+            menunggu:  { title: 'Laporan Kinerja — Menunggu Reviu', filter: 'menunggu' },
+            ditolak:   { title: 'Laporan Kinerja — Ditolak',        filter: 'ditolak' },
+        };
+
+        function openLkModal(status) {
+            const meta  = LK_MAP[status] || LK_MAP.total;
+            const items = meta.filter ? LAPORAN_ITEMS.filter(i => i.status === meta.filter) : LAPORAN_ITEMS;
+            document.getElementById('modalLkTitle').textContent = meta.title;
+            const body = document.getElementById('modalLkBody');
+            if (!items.length) {
+                body.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;"><i class="fas fa-inbox" style="font-size:36px;margin-bottom:12px;display:block;"></i>Tidak ada data.</div>';
+            } else {
+                const cards = items.map(lk => {
+                    const viewUrl = `${LAPORAN_URL}?perjanjian_id=${lk.perjanjian_id}`;
+                    return `<div class="dir-list-card">
+                        <div class="dir-doc-icon lk"><i class="fas fa-chart-bar"></i></div>
+                        <div class="dir-list-info">
+                            <div class="dir-list-name">${esc(lk.pihak1_name)}</div>
+                            ${lkBadge(lk.status)}
+                            <div class="dir-list-date">Triwulan ${lk.triwulan} &bull; ${esc(lk.tahun)}</div>
+                        </div>
+                        <div class="dir-list-action">
+                            <a href="${viewUrl}" target="_blank" class="btn-xs btn-teal"><i class="fas fa-eye"></i> Lihat</a>
+                        </div>
+                    </div>`;
+                });
+                body.innerHTML = `<div class="dir-list-wrap">${cards.join('')}</div>`;
+            }
+            openDirModal('modalLkStatus');
+        }
+        function closeLkModal() { closeDirModal('modalLkStatus'); }
+
+        // ---- Preview Modal ----
+        function openPreviewModal(id, status) {
+            currentPreviewId     = id;
+            currentPreviewStatus = status || 'menunggu';
+            document.getElementById('previewIframe').src = REVIEW_BASE + '/' + id;
+            const canAct = (currentPreviewStatus === 'menunggu');
+            document.getElementById('btnApprovePreview').style.display = canAct ? '' : 'none';
+            document.getElementById('btnRejectPreview').style.display  = canAct ? '' : 'none';
+            openDirModal('previewModal');
+        }
+        function closePreviewModal() {
+            closeDirModal('previewModal');
+            document.getElementById('previewIframe').src = '';
             currentPreviewId = null;
+            currentPreviewStatus = null;
         }
 
+        // ---- Inline Reject (from PK list page) ----
+        function openInlineReject(id) {
+            currentRejectId = id;
+            document.getElementById('rejectionReason').value = '';
+            openDirModal('rejectModal');
+        }
+
+        // ---- Approve ----
         function approvePerjanjian(id) {
             if (!id) return;
             if (!confirm('Yakin ingin menyetujui perjanjian ini?')) return;
-            fetch(`${reviewBaseUrl}/${id}/approve`, {
+            fetch(REVIEW_BASE + '/' + id + '/approve', {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                }
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' }
             }).then(async r => {
                 const res = await r.json();
                 alert(res.message || 'Operasi selesai');
-                if (res.success) {
-                    closePreview();
-                    window.location.reload();
-                }
-            }).catch(err => {
-                alert('Terjadi kesalahan: ' + err.message);
-            });
+                if (res.success) { closePreviewModal(); location.reload(); }
+            }).catch(err => alert('Error: ' + err.message));
         }
 
-        function showRejectModal(id) {
+        // ---- Reject Modal ----
+        function openRejectModal(id) {
             currentRejectId = id;
-            rejectionReason.value = '';
-            rejectModal.style.display = 'flex';
+            document.getElementById('rejectionReason').value = '';
+            openDirModal('rejectModal');
         }
-
-        function closeReject() {
-            rejectModal.style.display = 'none';
-            rejectionReason.value = '';
+        function closeRejectModal() {
+            closeDirModal('rejectModal');
+            document.getElementById('rejectionReason').value = '';
             currentRejectId = null;
         }
-
         function submitReject() {
             if (!currentRejectId) return;
-            const reason = rejectionReason.value.trim();
-            if (reason.length < 10) {
-                alert('Alasan penolakan minimal 10 karakter.');
-                return;
-            }
-            fetch(`${reviewBaseUrl}/${currentRejectId}/reject`, {
+            const reason = document.getElementById('rejectionReason').value.trim();
+            if (reason.length < 10) { alert('Alasan penolakan minimal 10 karakter.'); return; }
+            fetch(REVIEW_BASE + '/' + currentRejectId + '/reject', {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rejection_reason: reason })
             }).then(async r => {
                 const res = await r.json();
                 alert(res.message || 'Operasi selesai');
-                if (res.success) {
-                    closeReject();
-                    window.location.reload();
-                }
-            }).catch(err => {
-                alert('Terjadi kesalahan: ' + err.message);
-            });
+                if (res.success) { closeRejectModal(); location.reload(); }
+            }).catch(err => alert('Error: ' + err.message));
         }
 
-        // Close modals when clicking outside content
-        if (previewModal) {
-            previewModal.addEventListener('click', (event) => {
-                if (event.target === previewModal) closePreview();
-            });
-        }
-        if (rejectModal) {
-            rejectModal.addEventListener('click', (event) => {
-                if (event.target === rejectModal) closeReject();
-            });
-        }
+        // ---- Backdrop close ----
+        ['modalPkStatus','modalLkStatus','previewModal','rejectModal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('click', e => { if (e.target === el) closeDirModal(id); });
+        });
+        const dirLogout = document.getElementById('dirLogoutModal');
+        if (dirLogout) dirLogout.addEventListener('click', e => { if (e.target === dirLogout) dirLogout.style.display = 'none'; });
 
-        // Chart.js render
-        (function() {
-            const ctx = document.getElementById('approvalChart');
-            if (!ctx) return;
-            const labels = {!! json_encode($monthly['labels'] ?? []) !!};
-            const approved = {!! json_encode($monthly['approved'] ?? []) !!};
-            const rejected = {!! json_encode($monthly['rejected'] ?? []) !!};
+        // ---- Escape ----
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            closePkModal(); closeLkModal(); closePreviewModal(); closeRejectModal();
+            const dl = document.getElementById('dirLogoutModal'); if (dl) dl.style.display = 'none';
+        });
 
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-            script.onload = () => {
-                new Chart(ctx.getContext('2d'), {
-                    type: 'line',
+        // ---- Count-up animation ----
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.dir-kpi-num[data-count]').forEach(function (el) {
+                const target = parseInt(el.dataset.count, 10);
+                if (!target) { el.textContent = '0'; return; }
+                const dur = 700, step = 16, inc = target / (dur / step);
+                let cur = 0;
+                const t = setInterval(function () {
+                    cur = Math.min(cur + inc, target);
+                    el.textContent = Math.floor(cur);
+                    if (cur >= target) clearInterval(t);
+                }, step);
+            });
+        });
+
+        // ---- Charts ----
+        document.addEventListener('DOMContentLoaded', function () {
+            const months = CHART_DATA.months || [];
+
+            const pkCanvas = document.getElementById('chartPerjanjian');
+            if (pkCanvas && months.length) {
+                new Chart(pkCanvas.getContext('2d'), {
+                    type: 'bar',
                     data: {
-                        labels: labels,
+                        labels: months,
                         datasets: [
-                            {
-                                label: 'Disetujui',
-                                data: approved,
-                                borderColor: '#00B5A0',
-                                backgroundColor: 'rgba(0,181,144,0.08)',
-                                tension: 0.3,
-                                fill: true
-                            },
-                            {
-                                label: 'Ditolak',
-                                data: rejected,
-                                borderColor: '#FF2E2E',
-                                backgroundColor: 'rgba(255,46,46,0.08)',
-                                tension: 0.3,
-                                fill: true
-                            }
+                            { label: 'Disetujui', data: CHART_DATA.pkDisetujui || [], backgroundColor: 'rgba(0,181,144,0.75)', borderRadius: 4 },
+                            { label: 'Menunggu',  data: CHART_DATA.pkMenunggu  || [], backgroundColor: 'rgba(76,156,240,0.75)', borderRadius: 4 },
+                            { label: 'Ditolak',   data: CHART_DATA.pkDitolak   || [], backgroundColor: 'rgba(229,62,62,0.75)',  borderRadius: 4 },
                         ]
                     },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: { position: 'top' }
-                        }
-                    }
+                    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top' } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
                 });
-            };
-            document.head.appendChild(script);
-        })();
+            }
+
+            const lkCanvas = document.getElementById('chartLaporan');
+            if (lkCanvas && months.length) {
+                new Chart(lkCanvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            { label: 'Disetujui', data: CHART_DATA.lkDisetujui || [], backgroundColor: 'rgba(0,181,144,0.75)', borderRadius: 4 },
+                            { label: 'Menunggu',  data: CHART_DATA.lkMenunggu  || [], backgroundColor: 'rgba(76,156,240,0.75)', borderRadius: 4 },
+                        ]
+                    },
+                    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top' } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
+                });
+            }
+        });
     </script>
 
 </body>
 </html>
-

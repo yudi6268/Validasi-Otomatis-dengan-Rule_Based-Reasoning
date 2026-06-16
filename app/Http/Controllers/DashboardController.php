@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Perjanjian;
 use App\Models\Laporan;
+use App\Models\Setting;
 use App\Services\SupabaseService;
 use Illuminate\Support\Carbon;
 
@@ -405,6 +406,27 @@ class DashboardController extends Controller
         $laporanRejectedCount  = $laporanItems->filter(fn($i) => $i['status'] === 'ditolak')->count();
         $laporanTerkirimCount  = $laporanItems->filter(fn($i) => $i['status'] === 'terkirim')->count();
 
+        // Triwulan laporan milik Wadir sendiri (bukan bawahan) untuk cek duplikat di tombol Tambah Laporan
+        $ownPerjanjianIds = $wadirPerjanjianItems->filter(fn($p) => $p->user_id === $user->id)->pluck('id');
+        $ownLaporanTriwulans = \App\Models\Laporan::whereIn('perjanjian_id', $ownPerjanjianIds)
+            ->pluck('triwulan_aktif')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // Check if active triwulan has already been validated
+        $isActiveTrwValidated = false;
+        $setting = Setting::where('key', 'triwulan_aktif')->first();
+        $triwulanAktif = $setting ? $setting->value : 1;
+        $userPerjanjian = $wadirPerjanjianItems->firstWhere('user_id', $user->id);
+        if ($userPerjanjian) {
+            $userLaporan = \App\Models\Laporan::where('perjanjian_id', $userPerjanjian->id)->latest()->first();
+            if ($userLaporan && $userLaporan->hasValidationForTriwulan($triwulanAktif)) {
+                $isActiveTrwValidated = true;
+            }
+        }
+
         return view('dashboard.wadir', compact('totalPerjanjian', 'perjanjianSent', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected'))
             ->with('chartData', $chartData)
             ->with('notifications', $notifications)
@@ -414,7 +436,9 @@ class DashboardController extends Controller
             ->with('laporanValidatedCount', $laporanValidatedCount)
             ->with('laporanWaitingReviewCount', $laporanWaitingReviewCount)
             ->with('laporanRejectedCount', $laporanRejectedCount)
+            ->with('isActiveTrwValidated', $isActiveTrwValidated)
             ->with('laporanItems', $laporanItems)
+            ->with('ownLaporanTriwulans', $ownLaporanTriwulans)
             ->with('pdfPerjanjianId', $pdfPerjanjianId)
             ->with('pdfTriwulanAvailability', $pdfTriwulanAvailability);
     }

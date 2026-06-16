@@ -16,27 +16,212 @@ class DirekturDashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // Dashboard direktur langsung menampilkan halaman perjanjian
-        return $this->perjanjianKinerja($request);
+        $user = Auth::user();
+
+        // All perjanjian where direktur is pihak kedua
+        $allPerjanjians = Perjanjian::where(function ($q) use ($user) {
+            $q->where('pihak2_name', $user->nama)->orWhere('pihak2_nip', $user->nip);
+        })->orderBy('created_at', 'desc')->get();
+
+        $perjanjianItems = $allPerjanjians->map(function ($p) {
+            $status = $this->isRejectedValue($p->rejected) ? 'ditolak'
+                : (!empty($p->pihak2_signature) ? 'disetujui' : 'menunggu');
+            return [
+                'id'               => $p->id,
+                'pihak1_name'      => $p->pihak1_name ?? '-',
+                'pihak1_jabatan'   => $p->pihak1_jabatan ?? '-',
+                'jenis'            => 'Perjanjian Kinerja',
+                'periode'          => $p->periode ?? optional($p->created_at)->format('Y') ?? '-',
+                'tanggal'          => optional($p->created_at)->format('d M Y') ?? '-',
+                'status'           => $status,
+                'rejection_reason' => $p->rejection_reason ?? null,
+            ];
+        })->values();
+
+        $perjanjianCounts = [
+            'total'     => $perjanjianItems->count(),
+            'disetujui' => $perjanjianItems->where('status', 'disetujui')->count(),
+            'menunggu'  => $perjanjianItems->where('status', 'menunggu')->count(),
+            'ditolak'   => $perjanjianItems->where('status', 'ditolak')->count(),
+        ];
+
+        $perjanjianIds = $allPerjanjians->pluck('id');
+        $allLaporans   = Laporan::whereIn('perjanjian_id', $perjanjianIds)
+            ->with('perjanjian')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $laporanItems = $allLaporans->map(function ($l) {
+            $hasRealisasi = false;
+            for ($tw = 1; $tw <= 4; $tw++) {
+                if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
+            }
+            $status = 'terkirim';
+            if (!empty($l->pihak2_signature)) {
+                $status = 'disetujui';
+            } elseif (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan)) {
+                $status = 'ditolak';
+            } elseif ($hasRealisasi && empty($l->kesimpulan) && empty($l->tanggapan_pimpinan)) {
+                $status = 'menunggu';
+            }
+            return [
+                'id'             => $l->id,
+                'perjanjian_id'  => $l->perjanjian_id,
+                'pihak1_name'    => $l->perjanjian?->pihak1_name ?? '-',
+                'pihak1_jabatan' => $l->perjanjian?->pihak1_jabatan ?? '-',
+                'uraian'         => $l->uraian_kegiatan ?? 'Laporan Kinerja',
+                'triwulan'       => $l->triwulan_aktif ?? '-',
+                'tahun'          => $l->tahun ?? optional($l->created_at)->format('Y') ?? '-',
+                'status'         => $status,
+            ];
+        })->values();
+
+        $laporanCounts = [
+            'total'     => $laporanItems->count(),
+            'disetujui' => $laporanItems->where('status', 'disetujui')->count(),
+            'menunggu'  => $laporanItems->where('status', 'menunggu')->count(),
+            'ditolak'   => $laporanItems->where('status', 'ditolak')->count(),
+        ];
+
+        // Build monthly chart data
+        $months         = [];
+        $pkDisetujui    = array_fill(0, 12, 0);
+        $pkDitolak      = array_fill(0, 12, 0);
+        $pkMenunggu     = array_fill(0, 12, 0);
+        $lkDisetujui    = array_fill(0, 12, 0);
+        $lkMenunggu     = array_fill(0, 12, 0);
+        for ($m = 1; $m <= 12; $m++) {
+            $months[] = \Carbon\Carbon::create(null, $m)->locale('id')->translatedFormat('M');
+        }
+        foreach ($allPerjanjians as $p) {
+            $idx = (int) optional($p->created_at)->format('n') - 1;
+            if ($idx < 0 || $idx > 11) continue;
+            $s = $this->isRejectedValue($p->rejected) ? 'ditolak'
+                : (!empty($p->pihak2_signature) ? 'disetujui' : 'menunggu');
+            if ($s === 'disetujui') $pkDisetujui[$idx]++;
+            elseif ($s === 'ditolak') $pkDitolak[$idx]++;
+            else $pkMenunggu[$idx]++;
+        }
+        foreach ($allLaporans as $l) {
+            $idx = (int) optional($l->created_at)->format('n') - 1;
+            if ($idx < 0 || $idx > 11) continue;
+            if (!empty($l->pihak2_signature)) $lkDisetujui[$idx]++;
+            else $lkMenunggu[$idx]++;
+        }
+
+        $chartData = compact('months', 'pkDisetujui', 'pkDitolak', 'pkMenunggu', 'lkDisetujui', 'lkMenunggu');
+
+        return view('dashboard.direktur', compact(
+            'perjanjianItems', 'perjanjianCounts',
+            'laporanItems', 'laporanCounts',
+            'chartData'
+        ));
     }
 
     public function perjanjianList(Request $request)
     {
         $user = Auth::user();
-        
-        // Tentukan page title berdasarkan filter
-        $filter = $request->get('filter', 'all');
-        $pageTitle = 'Total Laporan Diterima';
-        
-        if ($filter === 'approved') {
-            $pageTitle = 'Total Laporan Disetujui';
-        } elseif ($filter === 'rejected') {
-            $pageTitle = 'Total Laporan Ditolak';
-        } elseif ($filter === 'waiting') {
-            $pageTitle = 'Total Laporan Menunggu Persetujuan';
-        }
-        
-        return view('dashboard.perjanjian-list', compact('pageTitle'));
+
+        $allPerjanjians = Perjanjian::where(function ($q) use ($user) {
+            $q->where('pihak2_name', $user->nama)->orWhere('pihak2_nip', $user->nip);
+        })->orderBy('created_at', 'desc')->get();
+
+        $allItems = $allPerjanjians->map(function ($p) {
+            $status = $this->isRejectedValue($p->rejected) ? 'ditolak'
+                : (!empty($p->pihak2_signature) ? 'disetujui' : 'menunggu');
+            return [
+                'id'               => $p->id,
+                'periode'          => $p->periode ?? optional($p->created_at)->format('Y') ?? '-',
+                'tanggal'          => optional($p->created_at)->translatedFormat('d F Y') ?? '-',
+                'status'           => $status,
+                'rejection_reason' => $p->rejection_reason ?? null,
+                'print_url'        => route('direktur.perjanjian.print', $p->id),
+            ];
+        })->values();
+
+        $statusParam = $request->get('status', 'total');
+        $items = $statusParam === 'total'
+            ? $allItems
+            : $allItems->where('status', $statusParam)->values();
+
+        $counts = [
+            'total'     => $allItems->count(),
+            'disetujui' => $allItems->where('status', 'disetujui')->count(),
+            'menunggu'  => $allItems->where('status', 'menunggu')->count(),
+            'ditolak'   => $allItems->where('status', 'ditolak')->count(),
+        ];
+
+        $titles = [
+            'total'     => 'Semua Perjanjian Kinerja',
+            'disetujui' => 'Perjanjian Kinerja Disetujui',
+            'menunggu'  => 'Menunggu Persetujuan',
+            'ditolak'   => 'Perjanjian Kinerja Ditolak',
+        ];
+        $pageTitle = $titles[$statusParam] ?? 'Perjanjian Kinerja';
+
+        return view('dashboard.direktur-perjanjian-list', compact('items', 'counts', 'statusParam', 'pageTitle'));
+    }
+
+    public function laporanList(Request $request)
+    {
+        $user = Auth::user();
+
+        $allPerjanjians = Perjanjian::where(function ($q) use ($user) {
+            $q->where('pihak2_name', $user->nama)->orWhere('pihak2_nip', $user->nip);
+        })->pluck('id');
+
+        $allLaporans = Laporan::whereIn('perjanjian_id', $allPerjanjians)
+            ->with('perjanjian')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $allItems = $allLaporans->map(function ($l) {
+            $status = 'terkirim';
+            if (!empty($l->pihak2_signature)) {
+                $status = 'disetujui';
+            } elseif (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan)) {
+                $status = 'ditolak';
+            } else {
+                $hasRealisasi = false;
+                for ($tw = 1; $tw <= 4; $tw++) {
+                    if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
+                }
+                if ($hasRealisasi && empty($l->kesimpulan) && empty($l->tanggapan_pimpinan)) {
+                    $status = 'menunggu';
+                }
+            }
+            return [
+                'id'            => $l->id,
+                'perjanjian_id' => $l->perjanjian_id,
+                'pihak1_name'   => $l->perjanjian?->pihak1_name ?? '-',
+                'triwulan'      => $l->triwulan_aktif ?? '-',
+                'tahun'         => $l->tahun ?? optional($l->created_at)->format('Y') ?? '-',
+                'status'        => $status,
+                'view_url'      => route('laporan.pdf.preview', ['id' => $l->id]) . '?triwulan=' . ($l->triwulan_aktif ?? 1),
+            ];
+        })->values();
+
+        $statusParam = $request->get('status', 'total');
+        $items = $statusParam === 'total'
+            ? $allItems
+            : $allItems->where('status', $statusParam)->values();
+
+        $counts = [
+            'total'     => $allItems->count(),
+            'disetujui' => $allItems->where('status', 'disetujui')->count(),
+            'menunggu'  => $allItems->where('status', 'menunggu')->count(),
+            'ditolak'   => $allItems->where('status', 'ditolak')->count(),
+        ];
+
+        $titles = [
+            'total'     => 'Semua Laporan Kinerja',
+            'disetujui' => 'Laporan Kinerja Disetujui',
+            'menunggu'  => 'Menunggu Reviu',
+            'ditolak'   => 'Laporan Kinerja Ditolak',
+        ];
+        $pageTitle = $titles[$statusParam] ?? 'Laporan Kinerja';
+
+        return view('dashboard.direktur-laporan-list', compact('items', 'counts', 'statusParam', 'pageTitle'));
     }
 
     public function showPerjanjian($id)
@@ -68,6 +253,11 @@ class DirekturDashboardController extends Controller
     }
 
     public function perjanjianKinerja(Request $request)
+    {
+        return redirect()->route('dashboard.direktur', ['panel' => 'perjanjian']);
+    }
+
+    public function perjanjianKinerja_legacy(Request $request)
     {
         $user = Auth::user();
         
@@ -226,6 +416,11 @@ class DirekturDashboardController extends Controller
     }
 
     public function laporanKinerja(Request $request)
+    {
+        return redirect()->route('dashboard.direktur', ['panel' => 'laporan']);
+    }
+
+    public function laporanKinerja_legacy(Request $request)
     {
         $user = Auth::user();
         
@@ -418,6 +613,80 @@ class DirekturDashboardController extends Controller
     }
 
     /**
+     * Approve Laporan Kinerja (Direktur memberikan tanggapan & menyetujui)
+     */
+    public function approveLaporan(Request $request, $id)
+    {
+        try {
+            $user = Auth::user();
+
+            $laporan = Laporan::findOrFail($id);
+            $perjanjian = $laporan->perjanjian;
+
+            // Validasi: hanya pihak2 dari perjanjian ini yang boleh approve
+            if ($user->nama !== $perjanjian->pihak2_name && $user->nip !== $perjanjian->pihak2_nip) {
+                return response()->json(['success' => false, 'message' => 'Tidak memiliki izin untuk menyetujui laporan ini.'], 403);
+            }
+
+            // Validasi: laporan harus sudah tervalidasi untuk triwulan aktif
+            if (!$laporan->hasValidationForTriwulan()) {
+                return response()->json(['success' => false, 'message' => 'Laporan belum tervalidasi. Tidak dapat disetujui.'], 422);
+            }
+
+            $request->validate([
+                'tanggapan_pimpinan' => 'required|string',
+            ]);
+
+            // Simpan tanggapan & tanda tangani
+            $laporan->tanggapan_pimpinan = $request->tanggapan_pimpinan;
+            $laporan->pihak2_name       = $perjanjian->pihak2_name ?? $user->nama;
+            $laporan->pihak2_jabatan    = $perjanjian->pihak2_jabatan ?? $user->jabatan;
+            $laporan->pihak2_signature  = $user->tanda_tangan ?? $perjanjian->pihak2_signature ?? '';
+            $laporan->save();
+
+            return response()->json(['success' => true, 'message' => 'Laporan kinerja berhasil disetujui.']);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Pilih salah satu tanggapan terlebih dahulu.'], 422);
+        } catch (\Exception $e) {
+            Log::error('approveLaporan error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Tolak Laporan Kinerja — hapus data validasi agar dikembalikan ke user
+     */
+    public function rejectLaporan(Request $request, $id)
+    {
+        try {
+            $user = Auth::user();
+            $laporan = Laporan::findOrFail($id);
+            $perjanjian = $laporan->perjanjian;
+
+            if ($user->nama !== $perjanjian->pihak2_name && $user->nip !== $perjanjian->pihak2_nip) {
+                return response()->json(['success' => false, 'message' => 'Tidak memiliki izin.'], 403);
+            }
+
+            // Hapus semua data validasi agar laporan kembali ke kondisi awal
+            $laporan->kesimpulan         = null;
+            $laporan->tanggapan_pimpinan = null;
+            $laporan->pihak2_signature   = null;
+            $laporan->pihak2_name        = null;
+            $laporan->pihak2_jabatan     = null;
+            $laporan->bab_capaian        = null;
+            $laporan->bab_rencana        = null;
+            $laporan->save();
+
+            return response()->json(['success' => true, 'message' => 'Laporan kinerja telah dikembalikan ke pegawai.']);
+
+        } catch (\Exception $e) {
+            Log::error('rejectLaporan error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Print/Preview Perjanjian PDF
      */
     public function printPerjanjian($id)
@@ -446,6 +715,24 @@ class DirekturDashboardController extends Controller
             if ($user && ($user->nama === $perjanjian->pihak2_name || $user->nip === $perjanjian->pihak2_nip)) {
                 $isDirektur = true;
             }
+
+            // Isi pangkat dari profil user jika belum tersimpan di perjanjian
+            if (empty($perjanjian->pihak2_pangkat)) {
+                $pihak2User = User::where('nama', $perjanjian->pihak2_name)
+                    ->orWhere('nip', $perjanjian->pihak2_nip)
+                    ->first();
+                if ($pihak2User && !empty($pihak2User->pangkat)) {
+                    $perjanjian->pihak2_pangkat = $pihak2User->pangkat;
+                }
+            }
+            if (empty($perjanjian->pihak1_pangkat)) {
+                $pihak1User = User::where('nama', $perjanjian->pihak1_name)
+                    ->orWhere('nip', $perjanjian->pihak1_nip)
+                    ->first();
+                if ($pihak1User && !empty($pihak1User->pangkat)) {
+                    $perjanjian->pihak1_pangkat = $pihak1User->pangkat;
+                }
+            }
             
             // Set status konsisten dari database
             $status = 'menunggu';
@@ -454,11 +741,22 @@ class DirekturDashboardController extends Controller
             } elseif (!empty($perjanjian->pihak2_signature)) {
                 $status = 'disetujui';
             }
+
+            // Cek apakah pihak1 sudah punya perjanjian lain yang disetujui (selain ini)
+            $approvedOther = null;
+            if ($isDirektur && $status === 'menunggu') {
+                $approvedOther = Perjanjian::where('id', '!=', $perjanjian->id)
+                    ->where('pihak1_name', $perjanjian->pihak1_name)
+                    ->whereNotNull('pihak2_signature')
+                    ->where(function ($q) { $q->where('rejected', false)->orWhereNull('rejected'); })
+                    ->orderBy('updated_at', 'desc')
+                    ->first();
+            }
             
             // Flag untuk HTML preview (bukan PDF)
             $for_pdf = false;
             
-            return view('perjanjian.print', compact('data', 'perjanjian', 'tabelA', 'tabelB', 'tabelC', 'isDirektur', 'status', 'for_pdf'));
+            return view('perjanjian.print', compact('data', 'perjanjian', 'tabelA', 'tabelB', 'tabelC', 'isDirektur', 'status', 'for_pdf', 'approvedOther'));
             
         } catch (\Exception $e) {
             Log::error('Print perjanjian error: ' . $e->getMessage());

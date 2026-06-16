@@ -19,7 +19,8 @@
       background: #f5f5f5;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
       color: #1B2A41;
     }
     header {
@@ -50,6 +51,7 @@
     .dashboard-container {
       display: flex;
       flex: 1;
+      min-height: 0;
       gap: 0;
     }
     .sidebar {
@@ -494,6 +496,21 @@
     
     .btn-secondary-alt:hover {
       background: #D0D0D0;
+    }
+
+    .btn-cancel {
+      background: #e74c3c;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-cancel:hover {
+      background: #c0392b;
     }
     
     /* Footer */
@@ -1040,13 +1057,11 @@
 
     <main class="main-content">
     <div class="page-header">
-      <div class="page-title"><?php echo e($activeSection === 'validasi' ? 'Validasi Laporan' : 'Laporan Kinerja'); ?></div>
-      <?php if($activeSection !== 'validasi'): ?>
+      <div class="page-title">Laporan Kinerja</div>
       <div class="page-subtitle">
         <?php echo e(($viewMode ?? 'form') === 'list' ? 'Daftar laporan kinerja per triwulan' : 'Form pengisian realisasi laporan kinerja per triwulan'); ?>
 
       </div>
-      <?php endif; ?>
       <?php if($sourceFrom === 'dashboard_wadir_laporan'): ?>
       <div style="margin-top: 12px;">
         <a href="<?php echo e($laporanBackRoute); ?>" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;border:1px solid #cfd8dc;background:#fff;color:#1B2A41;font-weight:700;text-decoration:none;">
@@ -1172,7 +1187,7 @@
 
       <?php else: ?>
       
-      <?php if($activeSection !== 'validasi' && !(isset($editLaporanId) && $editLaporanId)): ?>
+      <?php if(!(isset($editLaporanId) && $editLaporanId)): ?>
       <!-- Info Card -->
       <div class="info-card">
         <h5 style="margin-bottom: 16px; color: #00B5A0;">
@@ -1206,10 +1221,15 @@
 
       <?php if($activeSection === 'laporan'): ?>
         <?php if(isset($editLaporanId) && $editLaporanId): ?>
-          
           <div id="editModeLoader" style="text-align:center;padding:80px 20px;color:#8f9ba5;">
             <i class="fas fa-spinner fa-spin" style="font-size:36px;margin-bottom:16px;display:block;color:#00B5A0;"></i>
             <p style="font-size:15px;font-weight:600;color:#1B2A41;">Memuat form edit laporan kinerja...</p>
+          </div>
+        <?php elseif(request()->get('tambah') === '1'): ?>
+          
+          <div id="tambahOverlay" style="position:fixed;inset:0;background:#f0f4f8;z-index:1045;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+            <i class="fas fa-spinner fa-spin" style="font-size:36px;color:#00B5A0;"></i>
+            <p style="font-size:15px;font-weight:600;color:#1B2A41;margin:0;">Memuat form laporan kinerja...</p>
           </div>
         <?php else: ?>
         
@@ -1247,62 +1267,66 @@
         <?php endif; ?> 
       <?php endif; ?> 
 
-      <?php if($activeSection === 'validasi'): ?>
-        <div class="validation-panel show" id="validationPanel">
-      <?php else: ?>
-        <div class="validation-panel" id="validationPanel">
-      <?php endif; ?>
-
+      <div class="validation-panel" id="validationPanel">
           <div class="validation-header" style="justify-content:center;">
             <div class="validation-title" style="font-size:22px;">
               <i class="fas fa-shield-alt"></i>
               Validasi Laporan Per Triwulan
             </div>
           </div>
-
-          <?php if($activeSection === 'validasi'): ?>
-          <div class="triwulan-grid" style="margin-top:18px; margin-bottom:6px;">
-            <?php
-              $twData = [
-                1 => ['period' => 'Januari – Maret',   'color' => 'tw-1'],
-                2 => ['period' => 'April – Juni',       'color' => 'tw-2'],
-                3 => ['period' => 'Juli – September',   'color' => 'tw-3'],
-                4 => ['period' => 'Oktober – Desember', 'color' => 'tw-4'],
-              ];
-            ?>
-            <?php $__currentLoopData = $twData; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $tw => $info): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-              <?php $isActive = ($triwulanAktif == $tw); ?>
-              <div class="tw-card <?php echo e($info['color']); ?> <?php echo e($isActive ? 'tw-active' : 'tw-inactive'); ?>" data-validation-panel-tw="<?php echo e($tw); ?>" role="button" tabindex="0" onclick="handleValidationPanelTriwulanClick(<?php echo e($tw); ?>)">
-                <div class="tw-card-badge <?php echo e($isActive ? 'tw-badge-active' : 'tw-badge-inactive'); ?>" data-panel-badge="<?php echo e($tw); ?>">
-                  <?php echo e($isActive ? 'Triwulan Aktif' : 'Belum Aktif'); ?>
-
-                </div>
-                <div class="tw-card-num"><?php echo e($tw); ?></div>
-                <div class="tw-card-title">Triwulan <?php echo e($tw); ?></div>
-                <div class="tw-card-period"><?php echo e($info['period']); ?></div>
-                <button type="button" class="tw-card-btn" data-panel-btn="<?php echo e($tw); ?>" onclick="event.stopPropagation(); handleValidationPanelTriwulanClick(<?php echo e($tw); ?>)">
-                  <i class="fas fa-shield-alt"></i>
-                  Status Validasi
-                </button>
-              </div>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-          </div>
-          <?php endif; ?>
-          
           <div class="validation-actions" style="justify-content:center; border-top:none; margin-top:10px; padding-top:10px;">
             <button type="button" class="btn-validate" id="btnRunValidation" onclick="openValidationTriwulanModal()">
               <i class="fas fa-magic"></i> Validasi Laporan
             </button>
           </div>
-
       </div>
-
-      <?php if($activeSection !== 'validasi'): ?>
-        
-    <?php endif; ?>
       <?php endif; ?> 
     <?php endif; ?> 
     </main>
+  </div>
+
+  <!-- Modal: Laporan sudah ada untuk triwulan ini -->
+  <div class="modal fade" id="alreadyHasLaporanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header" style="border-bottom:1px solid #e0e0e0;">
+          <h5 class="modal-title"><i class="fas fa-info-circle text-warning me-2"></i> Laporan Sudah Ada</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px;">
+          <p style="margin:0 0 6px 0; color:#444;">Laporan kinerja <strong id="alreadyHasLaporanTwLabel">Triwulan ini</strong> sudah pernah diisi.</p>
+          <p style="margin:0; color:#666; font-size:13px;">Gunakan tombol <strong>Edit</strong> pada tabel laporan untuk mengubah data yang sudah ada, atau kembali ke dashboard.</p>
+        </div>
+        <div class="modal-footer" style="gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" id="alreadyHasLaporanBtnBack"
+            onclick="setTimeout(function(){ window.location.href='<?php echo e(route('dashboard.wadir', ['panel' => 'laporan'])); ?>'; }, 120);">
+            Kembali ke Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Konfirmasi edit laporan yang sudah tervalidasi -->
+  <div class="modal fade" id="editValidatedLaporanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header" style="background:#fff8e1; border-bottom:1px solid #ffe082;">
+          <h5 class="modal-title" style="color:#e65100;"><i class="fas fa-exclamation-triangle me-2"></i> Peringatan Validasi</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px;">
+          <p style="margin:0 0 10px 0; color:#444;">Laporan kinerja <strong id="editValidatedTwLabel">Triwulan ini</strong> <strong style="color:#d84315;">sudah tervalidasi</strong>.</p>
+          <p style="margin:0; color:#666; font-size:13px; line-height:1.6;">Jika Anda melanjutkan dan menyimpan perubahan, <strong>validasi akan otomatis dibatalkan oleh sistem</strong>. Anda perlu menjalankan validasi ulang setelah selesai mengedit.</p>
+        </div>
+        <div class="modal-footer" style="gap:8px; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-warning btn-sm" id="editValidatedLaporanConfirmBtn" style="color:#fff;">
+            <i class="fas fa-edit me-1"></i> Lanjut Edit
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Pilih Triwulan Validasi -->
@@ -1413,8 +1437,8 @@
           </div>
 
           <?php
-            $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true);
-            $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true);
+            $tabelB = $perjanjian ? (is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true)) : [];
+            $tabelC = $perjanjian ? (is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true)) : [];
             $activeTriwulan = $triwulanAktif ?? 1;
             $activeTwKey = 'tw' . $activeTriwulan;
           ?>
@@ -1455,7 +1479,7 @@
                           </td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($targetValue ?? '-'); ?></td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
-                            <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="kinerja-<?php echo e($index); ?>" data-target="<?php echo e($targetValueNormalized); ?>" data-indicator-type="<?php echo e($indicatorType); ?>" placeholder="Realisasi" />
+                            <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="kinerja-<?php echo e($index); ?>" data-label="<?php echo e($tabelB['indikator'][$index] ?? $sasaran); ?>" data-index="<?php echo e($index + 1); ?>" data-target="<?php echo e($targetValueNormalized); ?>" data-indicator-type="<?php echo e($indicatorType); ?>" placeholder="Realisasi" />
                           </td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-kinerja-<?php echo e($index); ?>">-</td>
                         </tr>
@@ -1487,6 +1511,7 @@
                           $targetValue = $program[$activeTwKey] ?? '';
                           $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                           $hasKegiatan = !empty($program['kegiatan'] ?? []);
+                          $progKet = $program['source'] ?? $program['keterangan'] ?? $program['ket'] ?? '';
                         ?>
                         <tr style="background: #f7f9fa;">
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($programNo); ?></td>
@@ -1496,7 +1521,7 @@
                             <?php if($hasKegiatan): ?>
                               <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-<?php echo e($programNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" value="-" />
                             <?php else: ?>
-                              <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($programNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
+                              <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($programNo); ?>" data-label="<?php echo e($program['name'] ?? ''); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
                             <?php endif; ?>
                           </td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-<?php echo e($programNo); ?>">-</td>
@@ -1507,6 +1532,7 @@
                             $targetValue = $kegiatan[$activeTwKey] ?? '';
                             $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                             $hasSubKegiatan = !empty($kegiatan['subKegiatan'] ?? []);
+                            $kegKet = $kegiatan['source'] ?? $kegiatan['keterangan'] ?? $kegiatan['ket'] ?? '';
                           ?>
                           <tr>
                             <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($kegiatanNo); ?></td>
@@ -1516,7 +1542,7 @@
                               <?php if($hasSubKegiatan): ?>
                                 <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-<?php echo e($kegiatanNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" value="-" />
                               <?php else: ?>
-                                <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($kegiatanNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
+                                <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($kegiatanNo); ?>" data-label="<?php echo e($kegiatan['name'] ?? ''); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" />
                               <?php endif; ?>
                             </td>
                             <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-<?php echo e($kegiatanNo); ?>">-</td>
@@ -1526,12 +1552,13 @@
                               $subNo = $sub['no'] ?? '';
                               $targetValue = $sub[$activeTwKey] ?? '';
                               $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
+                              $subKet = $sub['source'] ?? $sub['keterangan'] ?? $sub['ket'] ?? '';
                             ?>
                             <tr>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e($subNo); ?></td>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 32px;"><?php echo e($sub['name'] ?? '-'); ?></td>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><?php echo e(is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-')); ?></td>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($subNo); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" /></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-<?php echo e($subNo); ?>" data-label="<?php echo e($sub['name'] ?? ''); ?>" data-target="<?php echo e($targetValueNormalized); ?>" placeholder="Realisasi" /></td>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-<?php echo e($subNo); ?>">-</td>
                             </tr>
                           <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
@@ -1613,7 +1640,7 @@
             </div>
 
             <div class="d-flex gap-2 justify-content-end">
-              <button type="button" class="btn-secondary-alt" data-bs-dismiss="modal">
+              <button type="button" class="btn-cancel" data-bs-dismiss="modal">
                 <i class="fas fa-times"></i>
                 Batal
               </button>
@@ -1793,7 +1820,7 @@
     </div>
   </div>
 
-  <footer style="margin-top:40px;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
+  <footer style="background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;flex-shrink:0;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
 
   <!-- Hidden data container untuk semua realisasi -->
   <div id="realisasiData" style="display: none;">
@@ -1872,27 +1899,12 @@
       });
     }
 
-    function openRealisasiModal(triwulan) {
-      if (Number(triwulan) !== Number(triwulanAktif)) {
-        showAlert('Input realisasi hanya dapat dilakukan pada Triwulan aktif yang ditetapkan admin.', 'error');
-        return;
-      }
-
+    // Internal helper: actually open the realisasi form modal
+    function _doOpenRealisasiModal(triwulan, forceEmpty) {
       const modal = document.getElementById('realisasiModal');
-      if (!modal) {
-        console.error('Modal realisasi tidak ditemukan.');
-        return;
-      }
-
-      if (!window.bootstrap || !bootstrap.Modal) {
-        console.error('Bootstrap modal belum tersedia.');
-        return;
-      }
-
-      if (!perjanjianData || !perjanjianData.id) {
-        alert('Data perjanjian tidak ditemukan. Silakan refresh halaman.');
-        return;
-      }
+      if (!modal) { console.error('Modal realisasi tidak ditemukan.'); return; }
+      if (!window.bootstrap || !bootstrap.Modal) { console.error('Bootstrap modal belum tersedia.'); return; }
+      if (!perjanjianData || !perjanjianData.id) { alert('Data perjanjian tidak ditemukan. Silakan refresh halaman.'); return; }
 
       document.getElementById('perjanjianId').value = perjanjianData.id;
       document.getElementById('triwulanEdit').value = triwulan;
@@ -1918,11 +1930,12 @@
       });
 
       const triwulanKey = 'realisasi_tb' + triwulan;
+      // If forceEmpty, skip loading existing data (tambah mode)
       // If editing a specific laporan (edit mode), load from that laporan's data
-      const laporanData = (EDIT_LAPORAN_ID !== null && laporanRealisasi[String(EDIT_LAPORAN_ID)])
+      const laporanData = (!forceEmpty && EDIT_LAPORAN_ID !== null && laporanRealisasi[String(EDIT_LAPORAN_ID)])
         ? laporanRealisasi[String(EDIT_LAPORAN_ID)]
-        : (Object.values(laporanRealisasi || {})[0] || {});
-      const rawContent = laporanData[triwulan] || '';
+        : (!forceEmpty ? (Object.values(laporanRealisasi || {})[0] || {}) : {});
+      const rawContent = forceEmpty ? '' : (laporanData[triwulan] || '');
       let existingContent = '';
       let existingRows = [];
       let existingFollowUp = '';
@@ -1994,11 +2007,49 @@
       const bsModal = new bootstrap.Modal(modal);
       bsModal.show();
     }
+
+    // Public openRealisasiModal: shows validation warning first if the TW is already validated
+    function openRealisasiModal(triwulan, forceEmpty) {
+      if (Number(triwulan) !== Number(triwulanAktif)) {
+        showAlert('Input realisasi hanya dapat dilakukan pada Triwulan aktif yang ditetapkan admin.', 'error');
+        return;
+      }
+      // Check if this triwulan is already validated
+      if (!forceEmpty) {
+        const editLapId = EDIT_LAPORAN_ID || (Object.keys(laporanRealisasi)[0] || null);
+        if (editLapId && hasValidationCompleted(editLapId, triwulan)) {
+          const warnModal = document.getElementById('editValidatedLaporanModal');
+          if (warnModal && window.bootstrap) {
+            const twLabel = document.getElementById('editValidatedTwLabel');
+            if (twLabel) {
+              const twPeriods = { 1:'Januari – Maret', 2:'April – Juni', 3:'Juli – September', 4:'Oktober – Desember' };
+              twLabel.textContent = 'Triwulan ' + triwulan + ' (' + (twPeriods[triwulan] || '') + ')';
+            }
+            const bsWarn = new bootstrap.Modal(warnModal);
+            const confirmBtn = document.getElementById('editValidatedLaporanConfirmBtn');
+            // Remove previous handler and add fresh one
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            newConfirmBtn.addEventListener('click', function() {
+              bsWarn.hide();
+              warnModal.addEventListener('hidden.bs.modal', function handler() {
+                warnModal.removeEventListener('hidden.bs.modal', handler);
+                _doOpenRealisasiModal(triwulan, forceEmpty);
+              });
+            });
+            bsWarn.show();
+            return;
+          }
+        }
+      }
+      _doOpenRealisasiModal(triwulan, forceEmpty);
+    }
     // Expose function globally for onclick handlers
     window.openRealisasiModal = openRealisasiModal;
 
     const triwulanAktif   = Number(<?php echo e($triwulanAktif ?? 1); ?>);
     const EDIT_LAPORAN_ID = <?php echo e(isset($editLaporanId) ? $editLaporanId : 'null'); ?>;
+    const SOURCE_FROM     = '<?php echo e($sourceFrom ?? ''); ?>';
     const perjanjianData = {
       id: <?php echo e($perjanjian ? $perjanjian->id : 'null'); ?>,
       nama: "<?php echo e($perjanjian ? $perjanjian->pihak1_name : ''); ?>",
@@ -2527,6 +2578,11 @@
           computed.value = formatNumberValue(row.realisasi);
           setPercentageForRow(row.row, parseNumberValue(row.realisasi), parseNumberValue(computed.dataset.target || '0'), 'positif');
         }
+        // Populate ket select for anggaran rows
+        if (row.ket && row.row && row.row.startsWith('anggaran-')) {
+          const ketSel = document.querySelector('.row-ket-select[data-row="' + row.row + '"]');
+          if (ketSel) ketSel.value = row.ket;
+        }
       });
       refreshComputedAnggaranRows();
       // Update summary otomatis setelah data di-load
@@ -2620,9 +2676,37 @@
 
     function proceedToRencana() {
       const realisasi = document.getElementById('realisasiInput').value;
-      
+
+      // Clear previous error highlights
+      document.querySelectorAll('.row-realisasi-input.realisasi-error').forEach(inp => {
+        inp.classList.remove('realisasi-error');
+      });
+
+      // Validate all editable realisasi inputs (kinerja + anggaran leaf nodes)
+      const emptyInputs = Array.from(document.querySelectorAll('.row-realisasi-input'))
+        .filter(inp => inp.value.trim() === '');
+
+      if (emptyInputs.length > 0) {
+        emptyInputs.forEach(inp => inp.classList.add('realisasi-error'));
+        const firstEmpty = emptyInputs[0];
+        const rawLabel = firstEmpty.dataset.label || '';
+        const label = rawLabel
+          ? '"' + (rawLabel.length > 45 ? rawLabel.substring(0, 45) + '…' : rawLabel) + '"'
+          : (firstEmpty.dataset.row || 'kolom ini');
+        const rowNum = firstEmpty.dataset.index ? ' (No. ' + firstEmpty.dataset.index + ')' : '';
+        showAlert('Realisasi ' + label + rowNum + ' belum diisi. Silakan lengkapi terlebih dahulu.', 'error');
+        const modalBody = document.querySelector('#realisasiModal .modal-body');
+        if (modalBody) {
+          const offset = firstEmpty.getBoundingClientRect().top - modalBody.getBoundingClientRect().top + modalBody.scrollTop - 80;
+          modalBody.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+        firstEmpty.focus();
+        return;
+      }
+
       if (realisasi.trim().length < 50) {
-        alert('Evaluasi dan Analisis Kinerja minimal harus 50 karakter');
+        showAlert('Kolom Evaluasi dan Analisis Kinerja wajib diisi minimal 50 karakter.', 'error');
+        document.getElementById('realisasiInput').focus();
         return;
       }
 
@@ -2639,10 +2723,16 @@
         }
         const rawValue = element.value;
         const realisasiValue = parseNumberValue(rawValue);
+        let ketValue = '';
+        if (rowId.startsWith('anggaran-')) {
+          const ketSel = document.querySelector('.row-ket-select[data-row="' + rowId + '"]');
+          if (ketSel) ketValue = ketSel.value || '';
+        }
         tempFormData.rowRealisasi.push({
           row: rowId,
           realisasi: isNaN(realisasiValue) ? null : realisasiValue,
           target: element.dataset.target ? parseFloat(element.dataset.target) : null,
+          ket: ketValue,
         });
       });
 
@@ -2805,6 +2895,26 @@
       })
       .then(data => {
         if (data.success) {
+          window._editFormCompleted = true; // suppress cancel-redirect
+          // Reset ALL validation keys for this perjanjian+triwulan (any laporan ID)
+          try {
+            const savedTw = tempFormData.triwulan;
+            const perjId = String(getPerjanjianId() || 'unknown');
+            if (savedTw && perjId) {
+              const keysToRemove = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k) continue;
+                if (
+                  (k.startsWith('validation_done:' + perjId + ':') || k.startsWith('validation_summary:' + perjId + ':')) &&
+                  k.endsWith(':' + savedTw)
+                ) {
+                  keysToRemove.push(k);
+                }
+              }
+              keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+            }
+          } catch(e) {}
           // Close modal penutup
           hideModalSafely('kesimpulanModal');
           showAlert('Laporan kinerja berhasil disimpan.', 'success');
@@ -2821,8 +2931,8 @@
           });
 
           setTimeout(() => {
-            window.location.href = '<?php echo e(route("laporan.kinerja", ["section" => "laporan"])); ?>';
-          }, 1200);
+            window.location.href = '<?php echo e(route("dashboard.wadir", ["panel" => "laporan"])); ?>';
+          }, 400);
         } else {
           showAlert('Terjadi kesalahan: ' + data.message, 'error');
         }
@@ -2878,8 +2988,20 @@
           opacity: 1;
         }
       }
+      .realisasi-error {
+        border: 2px solid #e53e3e !important;
+        background-color: #fff5f5 !important;
+        box-shadow: 0 0 0 3px rgba(229,62,62,0.15) !important;
+      }
     `;
     document.head.appendChild(style);
+
+    // Clear realisasi error highlight when user types a value
+    document.getElementById('realisasiModal').addEventListener('input', function(e) {
+      if (e.target.classList.contains('row-realisasi-input')) {
+        e.target.classList.remove('realisasi-error');
+      }
+    });
     
     // ==================== SMART VALIDATION ====================
     
@@ -3431,31 +3553,88 @@
 
       updateValidationButtonState();
 
-      if (window.location.search.includes('section=validasi') || window.location.hash === '#validasi-laporan') {
-        document.getElementById('validationPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Tambah mode: full-screen overlay + open empty form immediately + redirect on close
+      if (EDIT_LAPORAN_ID === null && new URLSearchParams(window.location.search).get('tambah') === '1') {
+        window._editFormCompleted = false;
+
+        // Block tambah if laporan for the active triwulan already exists
+        var twKey = String(triwulanAktif);
+        var alreadyHasData = Object.values(laporanRealisasi).some(function(lData) {
+          var content = lData[twKey];
+          if (!content) return false;
+          try {
+            var parsed = JSON.parse(content);
+            return !!(parsed.text && parsed.text.trim().length > 0);
+          } catch(e) {
+            return content.trim().length > 0;
+          }
+        });
+
+        if (alreadyHasData) {
+          var overlay = document.getElementById('tambahOverlay');
+          if (overlay) overlay.style.display = 'none';
+          // Show notification modal instead of blocking redirect
+          var modalEl = document.getElementById('alreadyHasLaporanModal');
+          if (modalEl && window.bootstrap) {
+            var twLabel = document.getElementById('alreadyHasLaporanTwLabel');
+            if (twLabel) twLabel.textContent = 'Triwulan ' + triwulanAktif;
+            new bootstrap.Modal(modalEl).show();
+          } else {
+            showAlert('Laporan kinerja Triwulan ' + triwulanAktif + ' sudah ada. Gunakan tombol Edit untuk mengubah.', 'error');
+            setTimeout(function() {
+              window.location.href = '<?php echo e(route("dashboard.wadir", ["panel" => "laporan"])); ?>';
+            }, 2500);
+          }
+        } else {
+          setTimeout(function () {
+            openRealisasiModal(triwulanAktif, true); // forceEmpty = true, opens immediately
+          }, 50);
+
+          var realisasiModalTambah = document.getElementById('realisasiModal');
+          if (realisasiModalTambah) {
+            realisasiModalTambah.addEventListener('hidden.bs.modal', function () {
+              setTimeout(function () {
+                if (window._editFormCompleted) return;
+                var anyOpen = document.querySelector(
+                  '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
+                );
+                if (!anyOpen) {
+                  window.location.href = '<?php echo e(route("dashboard.wadir", ["panel" => "laporan"])); ?>';
+                }
+              }, 150);
+            });
+          }
+        }
       }
 
       // Edit mode: auto-open the realisasi modal pre-filled with existing data
       if (EDIT_LAPORAN_ID !== null) {
+        // Flag: set to true after successful submission so cancel-redirect is suppressed
+        window._editFormCompleted = false;
+
         setTimeout(function () {
           openRealisasiModal(triwulanAktif);
-        }, 400);
+        }, 150);
 
         // When realisasiModal closes in edit mode, redirect — BUT only if no
-        // laporan-entry modal (rencana / penutup) opened as continuation.
+        // laporan-entry modal (rencana / penutup) opened as continuation, and
+        // only if the form was NOT successfully submitted (success has its own redirect).
         var realisasiModalEl = document.getElementById('realisasiModal');
         if (realisasiModalEl) {
           realisasiModalEl.addEventListener('hidden.bs.modal', function () {
-            // Delay to allow the next modal (rencanaTindakLanjutModal / kesimpulanModal)
-            // to become visible before we decide to redirect.
             setTimeout(function () {
+              if (window._editFormCompleted) return;
               var anyOpen = document.querySelector(
                 '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
               );
               if (!anyOpen) {
-                window.location.href = '<?php echo e(route("laporan.wadir.index", ["from" => "dashboard_wadir_laporan"])); ?>';
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = '<?php echo e(route("laporan.wadir.index", ["from" => "dashboard_wadir_laporan"])); ?>';
+                }
               }
-            }, 700);
+            }, 150);
           });
         }
       }

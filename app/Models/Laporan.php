@@ -38,6 +38,8 @@ class Laporan extends Model
         'realisasi_tb2',
         'realisasi_tb3',
         'realisasi_tb4',
+        'validation_results',
+        'validation_timestamp',
     ];
 
     protected $casts = [
@@ -48,7 +50,45 @@ class Laporan extends Model
         'realisasi_tb2' => 'array',
         'realisasi_tb3' => 'array',
         'realisasi_tb4' => 'array',
+        'validation_results' => 'array',
     ];
+
+    public function getValidationResults(): array
+    {
+        $results = $this->validation_results;
+        if (is_string($results)) {
+            $results = json_decode($results, true);
+        }
+
+        return is_array($results) ? $results : [];
+    }
+
+    public function getValidationResult(?int $tw = null): ?array
+    {
+        if ($tw === null) {
+            $tw = $this->triwulan_aktif;
+        }
+
+        if (!$tw) {
+            return null;
+        }
+
+        $results = $this->getValidationResults();
+        if (isset($results[$tw])) {
+            return $results[$tw];
+        }
+
+        if (isset($results['tw_' . $tw])) {
+            return $results['tw_' . $tw];
+        }
+
+        return null;
+    }
+
+    public function hasValidationForTriwulan(?int $tw = null): bool
+    {
+        return $this->getValidationResult($tw) !== null;
+    }
 
     public function perjanjian()
     {

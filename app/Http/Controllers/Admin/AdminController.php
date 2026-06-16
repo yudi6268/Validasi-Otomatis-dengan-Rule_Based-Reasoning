@@ -133,6 +133,29 @@ class AdminController extends Controller
         // Get jabatan statistics
         $jabatanStats = Jabatan::withCount('users')->get();
 
+        // Get ALL perjanjian for dashboard modal (with status)
+        $allPerjanjianModal = Perjanjian::with('user')->latest()->get()->map(function ($p) {
+            if (!empty($p->rejected) && $p->rejected == true) {
+                $statusText = 'Ditolak';
+                $badgeClass = 'bg-danger';
+            } elseif (!empty($p->pihak2_signature)) {
+                $statusText = 'Disetujui';
+                $badgeClass = 'bg-success';
+            } else {
+                $statusText = 'Menunggu';
+                $badgeClass = 'bg-warning text-dark';
+            }
+            return [
+                'id'         => $p->id,
+                'nama'       => $p->pihak1_name ?? ($p->user->nama ?? 'N/A'),
+                'jabatan'    => $p->pihak1_jabatan ?? ($p->user->jabatan ?? '-'),
+                'tahun'      => $p->tahun ?? '-',
+                'tanggal'    => $p->created_at ? $p->created_at->format('d/m/Y') : '-',
+                'statusText' => $statusText,
+                'badgeClass' => $badgeClass,
+            ];
+        })->toArray();
+
         return view('admin.dashboard', compact(
             'activeSection',
             'totalUsers',
@@ -147,7 +170,8 @@ class AdminController extends Controller
             'jabatanStats',
             'allPrograms',
             'allKegiatan',
-            'allSubKegiatan'
+            'allSubKegiatan',
+            'allPerjanjianModal'
         ));
     }
 }

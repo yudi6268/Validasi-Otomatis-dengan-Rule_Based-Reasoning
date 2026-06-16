@@ -415,51 +415,81 @@
         </div>
         <nav class="sidebar-nav">
             <ul class="nav flex-column">
+                {{-- 1. Dashboard --}}
                 <li class="nav-item">
-                    <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') && request()->query('section', 'dashboard') === 'dashboard' ? 'active' : '' }}">
+                    <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') && !request()->query('section') ? 'active' : '' }}">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
                     </a>
                 </li>
+
+                {{-- 2. Kelola Pengguna (termasuk persetujuan) --}}
                 <li class="nav-item">
-                    <a href="{{ route('admin.dashboard', ['section' => 'profile']) }}" class="nav-link {{ request()->routeIs('admin.dashboard') && request()->query('section') === 'profile' ? 'active' : '' }}">
-                        <i class="fas fa-user"></i> Profil
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.index') || request()->routeIs('admin.users.edit') || request()->routeIs('admin.users.create') ? 'active' : '' }}">
+                    <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.index', 'admin.users.create', 'admin.users.edit', 'admin.users.pending') ? 'active' : '' }}">
                         <i class="fas fa-users"></i> Kelola Pengguna
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('admin.users.pending') }}" class="nav-link {{ request()->routeIs('admin.users.pending') ? 'active' : '' }}">
-                        <i class="fas fa-user-clock"></i> Persetujuan User
-                        @php
-                            $pendingCount = \App\Models\User::where('status', 'pending')->count();
-                        @endphp
+                        @php $pendingCount = \App\Models\User::where('status', 'pending')->count(); @endphp
                         @if($pendingCount > 0)
                             <span class="badge bg-warning text-dark ms-auto">{{ $pendingCount }}</span>
                         @endif
                     </a>
                 </li>
+
+                {{-- 3. Kelola Jabatan --}}
                 <li class="nav-item">
                     <a href="{{ route('admin.jabatan.index') }}" class="nav-link {{ request()->routeIs('admin.jabatan.*') ? 'active' : '' }}">
                         <i class="fas fa-briefcase"></i> Kelola Jabatan
                     </a>
                 </li>
+
+                {{-- 4. Kelola Program/Kegiatan --}}
                 <li class="nav-item">
                     <a href="{{ route('admin.program.index') }}" class="nav-link {{ request()->routeIs('admin.program.*', 'admin.kegiatan.*', 'admin.sub-kegiatan.*') ? 'active' : '' }}">
-                        <i class="fas fa-sitemap"></i> Kelola Program
+                        <i class="fas fa-sitemap"></i> Kelola Program/Kegiatan
                     </a>
                 </li>
+
+                {{-- 5. Kelola Perjanjian Kinerja --}}
                 <li class="nav-item">
-                    <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
-                        <i class="fas fa-cog"></i> Pengaturan Tahun
+                    <a href="{{ route('admin.perjanjian.index') }}" class="nav-link {{ request()->routeIs('admin.perjanjian.*') ? 'active' : '' }}">
+                        <i class="fas fa-file-contract"></i> Kelola Perjanjian
                     </a>
                 </li>
-                
-                <li class="nav-item" style="margin-top: 25px;">
-                    <a href="#" onclick="showLogoutModal(); return false;" class="nav-link">
-                        <i class="fas fa-sign-out-alt"></i> Logout
+
+                {{-- 6. Kelola Laporan Kinerja --}}
+                <li class="nav-item">
+                    <a href="{{ route('admin.laporan.index') }}" class="nav-link {{ request()->routeIs('admin.laporan.*') ? 'active' : '' }}">
+                        <i class="fas fa-chart-line"></i> Kelola Laporan
+                    </a>
+                </li>
+
+                {{-- 7. Kelola Tahun Perjanjian/Laporan --}}
+                <li class="nav-item">
+                    <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*', 'admin.triwulan.*') ? 'active' : '' }}">
+                        <i class="fas fa-calendar-alt"></i> Kelola Tahun
+                    </a>
+                </li>
+
+                {{-- 8. Kelola Pesan/Notifikasi --}}
+                <li class="nav-item">
+                    <a href="{{ route('admin.notifications.index') }}" class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
+                        <i class="fas fa-bell"></i> Kelola Notifikasi
+                        @php $unreadNotif = \App\Models\Notification::whereNull('read_at')->count(); @endphp
+                        @if($unreadNotif > 0)
+                            <span class="badge bg-danger ms-auto">{{ $unreadNotif }}</span>
+                        @endif
+                    </a>
+                </li>
+
+                {{-- 9. Profil --}}
+                <li class="nav-item">
+                    <a href="{{ route('admin.dashboard', ['section' => 'profile']) }}" class="nav-link {{ request()->routeIs('admin.dashboard') && request()->query('section') === 'profile' ? 'active' : '' }}">
+                        <i class="fas fa-user"></i> Profil
+                    </a>
+                </li>
+
+                {{-- 10. Keluar (merah) --}}
+                <li class="nav-item" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                    <a href="#" onclick="showLogoutModal(); return false;" class="nav-link" style="color:#ff6b6b;">
+                        <i class="fas fa-sign-out-alt" style="color:#ff6b6b;"></i> Keluar
                     </a>
                 </li>
             </ul>

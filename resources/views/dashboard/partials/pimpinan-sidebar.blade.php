@@ -17,7 +17,7 @@
             <i class="fas fa-user"></i>
             Profil
         </a>
-        <a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+        <a href="#" class="logout-link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
             <i class="fas fa-right-from-bracket"></i>
             Keluar
         </a>

@@ -74,7 +74,8 @@
       display: flex;
       flex: 1;
       gap: 0;
-      min-height: calc(100vh - 142px);
+      min-height: 0;
+      overflow: hidden;
     }
 
     .sidebar {
@@ -121,6 +122,10 @@
       border-inline-start-color: #00B5A0;
       color: #008872;
     }
+
+    .sidebar-menu a.logout-link { color: #e53e3e; }
+    .sidebar-menu a.logout-link i { color: #e53e3e; }
+    .sidebar-menu a.logout-link:hover { background: #fff5f5; border-inline-start-color: #e53e3e; color: #e53e3e; }
 
     .sidebar-menu i {
       width: 20px;
@@ -467,6 +472,7 @@
       font-weight: 700;
       border: 1px solid transparent;
       transition: all 0.2s ease;
+      cursor: pointer;
     }
 
     .panel-action-btn.primary {
@@ -562,6 +568,145 @@
       opacity: 0.82;
       color: #fff;
     }
+
+    /* ---- Validasi Drawer (right-side panel) ---- */
+    .validasi-drawer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(0,0,0,0.28);
+    }
+    .validasi-drawer-overlay.open { display: block; }
+    .validasi-drawer {
+      position: fixed;
+      top: 0;
+      right: -420px;
+      width: min(420px, 95vw);
+      height: 100vh;
+      background: #fff;
+      box-shadow: -4px 0 32px rgba(0,0,0,0.18);
+      z-index: 9999;
+      transition: right 0.28s cubic-bezier(.4,0,.2,1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .validasi-drawer.open { right: 0; }
+    .validasi-drawer-header {
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid #e8eff4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .validasi-drawer-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1B2A41;
+    }
+    .validasi-drawer-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      color: #aaa;
+      padding: 0 4px;
+      transition: color .15s;
+    }
+    .validasi-drawer-close:hover { color: #333; }
+    .validasi-drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+    .validasi-drawer-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    .validasi-drawer-status-badge.validated { background: #e8f5e9; color: #2e7d32; }
+    .validasi-drawer-status-badge.not-validated { background: #f3f8f7; color: #607d8b; }
+    .validasi-drawer-score-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .validasi-drawer-metric {
+      background: #f8fcfb;
+      border: 1px solid #e4eeea;
+      border-radius: 10px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .validasi-drawer-metric .num {
+      font-size: 24px;
+      font-weight: 800;
+      color: #00B5A0;
+    }
+    .validasi-drawer-metric .lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: #667085;
+      margin-top: 2px;
+    }
+    .validasi-drawer-summary {
+      background: #f8fcfb;
+      border: 1px solid #e4eeea;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.7;
+      margin-bottom: 18px;
+    }
+    .validasi-drawer-footer {
+      padding: 14px 22px 18px;
+      border-top: 1px solid #e8eff4;
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .validasi-drawer-btn-primary {
+      flex: 1;
+      background: #00B5A0;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 0;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+      transition: background .2s;
+    }
+    .validasi-drawer-btn-primary:hover { background: #00977f; color: #fff; }
+    .validasi-drawer-btn-secondary {
+      background: #f0f0f0;
+      color: #555;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .validasi-drawer-btn-secondary:hover { background: #e0e0e0; }
+    .panel-stat-card.validasi-done { background: linear-gradient(135deg, #e8f5e9 0%, #f0fbf7 100%); border: 1.5px solid #a5d6a7; }
+    .panel-stat-card.validasi-done .panel-stat-number { color: #2e7d32; }
+    .panel-stat-card.validasi-pending { background: linear-gradient(135deg, #f3f8f7 0%, #edf2f4 100%); border: 1.5px solid #cfd8dc; }
+    .panel-stat-card.validasi-pending .panel-stat-number { color: #607d8b; }
   </style>
 </head>
 <body>
@@ -713,13 +858,60 @@
             </div>
 
             <div class="panel-actions">
-              <a href="<?php echo e(route('laporan.kinerja', ['section' => 'laporan', 'from' => 'dashboard_wadir_laporan'])); ?>" class="panel-action-btn primary">
+              <?php $twAktifDash = (int) (\App\Models\Setting::where('key','triwulan_aktif')->value('value') ?? 1); ?>
+              <button type="button" class="panel-action-btn primary" onclick="handleTambahLaporan(<?php echo e($twAktifDash); ?>)">
                 <i class="fas fa-plus-circle"></i>
                 Tambah Laporan
-              </a>
+              </button>
               
             </div>
           </div>
+        <?php elseif($panel === 'validasi'): ?>
+          
+          <div class="page-header">
+            <h1>Validasi Laporan</h1>
+          </div>
+
+          <div class="panel-shell">
+            <div class="panel-stat-grid" id="validasiStatGrid">
+              <div class="panel-stat-card panel-stat-green" id="validasiCard1" style="cursor:pointer;" onclick="openValidasiDrawer(1)">
+                <div class="panel-stat-number" id="validasiNum1">—</div>
+                <div class="panel-stat-label">Triwulan I</div>
+                <button type="button" id="validasiBtn1" class="panel-stat-btn" onclick="event.preventDefault();event.stopPropagation();openValidasiDrawer(1)" style="border:none;cursor:pointer;">Lihat</button>
+              </div>
+              <div class="panel-stat-card panel-stat-yellow" id="validasiCard2" style="cursor:pointer;" onclick="openValidasiDrawer(2)">
+                <div class="panel-stat-number" id="validasiNum2">—</div>
+                <div class="panel-stat-label">Triwulan II</div>
+                <button type="button" id="validasiBtn2" class="panel-stat-btn" onclick="event.preventDefault();event.stopPropagation();openValidasiDrawer(2)" style="border:none;cursor:pointer;">Lihat</button>
+              </div>
+              <div class="panel-stat-card panel-stat-red" id="validasiCard3" style="cursor:pointer;" onclick="openValidasiDrawer(3)">
+                <div class="panel-stat-number" id="validasiNum3">—</div>
+                <div class="panel-stat-label">Triwulan III</div>
+                <button type="button" id="validasiBtn3" class="panel-stat-btn" onclick="event.preventDefault();event.stopPropagation();openValidasiDrawer(3)" style="border:none;cursor:pointer;">Lihat</button>
+              </div>
+              <div class="panel-stat-card panel-stat-blue" id="validasiCard4" style="cursor:pointer;" onclick="openValidasiDrawer(4)">
+                <div class="panel-stat-number" id="validasiNum4">—</div>
+                <div class="panel-stat-label">Triwulan IV</div>
+                <button type="button" id="validasiBtn4" class="panel-stat-btn" onclick="event.preventDefault();event.stopPropagation();openValidasiDrawer(4)" style="border:none;cursor:pointer;">Lihat</button>
+              </div>
+            </div>
+
+            <div class="panel-actions" style="margin-top:16px;">
+              <button type="button" id="openValidasiBtn" class="panel-action-btn primary"
+                <?php if($isActiveTrwValidated): ?>
+                  disabled style="opacity:0.5;cursor:not-allowed;"
+                <?php else: ?>
+                  onclick="openValidasiSelectModal()"
+                <?php endif; ?>
+              >
+                <i class="fas fa-shield-alt"></i>
+                <?php echo e($isActiveTrwValidated ? 'Sudah Divalidasi' : 'Validasi Laporan'); ?>
+
+              </button>
+            </div>
+
+          </div>
+
         <?php elseif($panel === 'profil'): ?>
           <div class="page-header">
             <h1>Profil <?php echo e(auth()->user()->jabatan ?? 'Pengguna'); ?></h1>
@@ -736,7 +928,7 @@
     </main>
   </div>
 
-  <footer style="margin-top:0;background:#fff;text-align:center;font-size:12px;font-weight:700;line-height:1.4;padding:10px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;">© 2026 RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
+  <footer style="margin-top:0;background:#fff;text-align:center;font-size:13px;font-weight:700;line-height:1.4;padding:14px 12px;border-top:1px solid #dbe2ea;color:#1B2A41;font-family:'Segoe UI',Tahoma,sans-serif;flex-shrink:0;">© <?php echo e(date('Y')); ?> RSUD Bangil | Validasi Otomatis Laporan Kinerja RSUD Bangil</footer>
 
   <?php echo $__env->make('components.logout-modal', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 
@@ -789,6 +981,79 @@
       <p style="margin-top:8px;">Jumlah laporan yang menunggu reviu: <strong><?php echo e($laporanWaitingReviewCount ?? 0); ?></strong></p>
       <div class="logout-buttons">
         <button class="btn-logout" onclick="closeModal('modalMenungguReviu')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Validasi Drawer Overlay -->
+  <div id="validasiDrawerOverlay" class="validasi-drawer-overlay" onclick="closeValidasiDrawer()"></div>
+
+  <!-- Validasi Drawer Panel (shared, populated by JS) -->
+  <div id="validasiDrawer" class="validasi-drawer">
+    <div class="validasi-drawer-header">
+      <div class="validasi-drawer-title" id="validasiDrawerTitle">Triwulan I</div>
+      <button class="validasi-drawer-close" onclick="closeValidasiDrawer()" aria-label="Tutup">&times;</button>
+    </div>
+    <div class="validasi-drawer-body">
+      <div id="validasiDrawerStatusBadge" class="validasi-drawer-status-badge not-validated">
+        <i class="fas fa-circle-xmark"></i> <span id="validasiDrawerStatusText">Belum Divalidasi</span>
+      </div>
+      <div id="validasiDrawerScoreSection" style="display:none;">
+        <div class="validasi-drawer-score-grid">
+          <div class="validasi-drawer-metric"><div class="num" id="vdScore">-</div><div class="lbl">Skor</div></div>
+          <div class="validasi-drawer-metric"><div class="num" id="vdIssues">0</div><div class="lbl">Issues</div></div>
+          <div class="validasi-drawer-metric"><div class="num" id="vdWarnings">0</div><div class="lbl">Peringatan</div></div>
+          <div class="validasi-drawer-metric"><div class="num" id="vdSuggestions">0</div><div class="lbl">Saran</div></div>
+        </div>
+        <div class="validasi-drawer-summary" id="vdSummaryText">-</div>
+        <p id="vdUpdatedAt" style="font-size:11px;color:#aaa;margin-bottom:0;"></p>
+      </div>
+      <div id="validasiDrawerEmptyNote" style="color:#777;font-size:13px;line-height:1.7;display:none;">
+        Laporan triwulan ini belum divalidasi. Buka halaman Validasi Laporan untuk menjalankan validasi.
+      </div>
+    </div>
+    <div class="validasi-drawer-footer">
+      <button id="pdfPreviewBtn" class="validasi-drawer-btn-primary" style="flex:1;display:none;" onclick="var tw = currentTwForDrawer; if (tw) openPdfPreviewModal(tw);"><i class="fas fa-file-pdf" style="margin-right:8px;"></i> Lihat Ringkasan</button>
+      <button class="validasi-drawer-btn-secondary" style="flex:1;" onclick="closeValidasiDrawer()">Tutup</button>
+    </div>
+  </div>
+
+  <!-- PDF Preview Modal -->
+  <div id="modalValidasiSelect" class="logout-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+    <div class="logout-box" style="background:#fff;padding:28px 28px 24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);min-width:320px;max-width:420px;text-align:left;">
+      <h3 style="margin-bottom:16px;font-size:16px;font-weight:600;color:#1a2a25;">Pilih Triwulan untuk Validasi</h3>
+      <div id="validasiSelectContent" style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;">
+        <p style="color:#999;margin:0;">Memuat daftar triwulan...</p>
+      </div>
+      <div class="logout-buttons" style="display:flex;justify-content:flex-end;">
+        <button class="btn-logout" style="background:#eef0f3;color:#333;padding:10px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;" onclick="closeModal('modalValidasiSelect')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pdfPreviewModal" class="logout-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.25);width:min(920px,95vw);max-height:90vh;display:flex;flex-direction:column;">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #e0e0e0;flex-shrink:0;">
+        <div>
+          <h3 id="pdfModalTitle" style="font-size:18px;font-weight:700;color:#1B2A41;margin:0;">Preview Laporan Kinerja</h3>
+          <p id="pdfModalSubtitle" style="font-size:12px;color:#999;margin:4px 0 0 0;">Ringkasan Validasi</p>
+        </div>
+        <button onclick="closePdfPreviewModal()" style="background:none;border:none;font-size:24px;line-height:1;cursor:pointer;color:#aaa;padding:0 4px;">&times;</button>
+      </div>
+      
+      <!-- Body -->
+      <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;background:#f5f5f5;padding:20px;">
+        <div id="pdfPreviewContent" style="background:#fff;border-radius:8px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:800px;width:100%;">
+          <div style="text-align:center;padding:20px;color:#999;">
+            <p style="font-size:14px;margin:0;">Memuat ringkasan validasi...</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div style="display:flex;gap:10px;padding:20px 24px;border-top:1px solid #e0e0e0;flex-shrink:0;justify-content:flex-end;">
+        <button onclick="closePdfPreviewModal()" style="background:#eee;color:#333;padding:10px 24px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Tutup</button>
       </div>
     </div>
   </div>
@@ -1113,6 +1378,409 @@
     // ---- Laporan preview modal ----
     const LAPORAN_ITEMS = <?php echo json_encode($laporanItems ?? [], 15, 512) ?>;
     const LAPORAN_KINERJA_URL = "<?php echo e(route('laporan.kinerja')); ?>";
+    const OWN_LAPORAN_TRIWULANS = <?php echo json_encode($ownLaporanTriwulans ?? [], 15, 512) ?>;
+
+    // ---- Validasi Drawer ----
+    const VALIDASI_TW_LABELS = { 1: 'Triwulan I', 2: 'Triwulan II', 3: 'Triwulan III', 4: 'Triwulan IV' };
+    const VALIDASI_TW_PERIODS = { 1: 'Januari – Maret', 2: 'April – Juni', 3: 'Juli – September', 4: 'Oktober – Desember' };
+
+    function getValidationStateKeyDashboard(perjanjianId, laporanId, tw) {
+      return 'validation_done:' + perjanjianId + ':' + (laporanId || 'none') + ':' + tw;
+    }
+    function getValidationSummaryKeyDashboard(perjanjianId, laporanId, tw) {
+      return 'validation_summary:' + perjanjianId + ':' + (laporanId || 'none') + ':' + tw;
+    }
+
+    function findLaporanForTw(tw) {
+      // Find the laporan item whose triwulan_aktif matches
+      return LAPORAN_ITEMS.find(function(i) { return Number(i.triwulan_aktif) === Number(tw); }) || null;
+    }
+
+    function isValidatedForTw(tw) {
+      var laporan = findLaporanForTw(tw);
+      if (!laporan) return false;
+      try {
+        var key = getValidationStateKeyDashboard(laporan.perjanjian_id, laporan.id, tw);
+        return localStorage.getItem(key) === '1';
+      } catch(e) { return false; }
+    }
+
+    function getSummaryForTw(tw) {
+      var laporan = findLaporanForTw(tw);
+      if (!laporan) return null;
+      try {
+        var key = getValidationSummaryKeyDashboard(laporan.perjanjian_id, laporan.id, tw);
+        var raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch(e) { return null; }
+    }
+
+    // Open triwulan selection modal for validation (shows validated state)
+    function openValidasiSelectModal() {
+      var modal = document.getElementById('modalValidasiSelect');
+      var contentEl = document.getElementById('validasiSelectContent');
+      if (!modal || !contentEl) return;
+      contentEl.innerHTML = '<p style="color:#999;margin:0;">Memuat daftar triwulan...</p>';
+
+      var twList = [1,2,3,4];
+      var checks = twList.map(function(tw) {
+        return new Promise(function(resolve) {
+          var laporan = findLaporanForTw(tw);
+          if (!laporan || !laporan.id) {
+            resolve({ tw: tw, available: false });
+            return;
+          }
+          fetch('/api/validasi-laporan/' + laporan.id + '/' + tw)
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+              resolve({ tw: tw, available: true, validated: !!data.validated });
+            })
+            .catch(function(){ resolve({ tw: tw, available: true, validated: false }); });
+        });
+      });
+
+      Promise.all(checks).then(function(results) {
+          var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+        results.forEach(function(r) {
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #eef2f7;">';
+          html += '<div><strong style="font-size:14px;color:#111827;">Triwulan ' + r.tw + '</strong><div style="font-size:13px;color:#6b7280;margin-top:4px;">';
+          if (!r.available) html += 'Tidak ada laporan untuk triwulan ini.';
+          else if (r.validated) html += '<span style="color:#16a34a;">Tervalidasi</span>';
+          else html += '<span style="color:#374151;">Belum divalidasi</span>';
+          html += '</div></div>';
+
+          if (!r.available) {
+            html += '<button class="btn-logout" disabled style="background:#f3f4f6;color:#9ca3af;padding:10px 18px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:not-allowed;">Tidak tersedia</button>';
+          } else if (r.validated) {
+            html += '<button class="btn-logout" disabled style="background:#dcfce7;color:#166534;padding:10px 18px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:not-allowed;">Tervalidasi</button>';
+          } else {
+            html += '<button class="btn-logout" style="background:#0f766e;color:#fff;padding:10px 18px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" onclick="window.location.href=\'/laporan-kinerja/validasi-summary?tw=' + r.tw + '\';">Validasi</button>';
+          }
+
+          html += '</div>';
+        });
+        html += '</div>';
+        contentEl.innerHTML = html;
+        openModal('modalValidasiSelect');
+      });
+    }
+
+    function updateValidasiCards() {
+      for (var tw = 1; tw <= 4; tw++) {
+        var card = document.getElementById('validasiCard' + tw);
+        var numEl = document.getElementById('validasiNum' + tw);
+        var btnEl = document.getElementById('validasiBtn' + tw);
+        if (!card || !numEl) continue;
+        var done = isValidatedForTw(tw);
+        var summary = done ? getSummaryForTw(tw) : null;
+        var displayVal = '—';
+        var btnText = 'Lihat';
+        if (done) {
+          displayVal = (summary && summary.score != null) ? String(summary.score) : '✓';
+          btnText = 'Tervalidasi';
+        }
+        numEl.textContent = displayVal;
+        if (btnEl) btnEl.textContent = btnText;
+      }
+    }
+
+    function openValidasiDrawer(tw) {
+      var drawer = document.getElementById('validasiDrawer');
+      var overlay = document.getElementById('validasiDrawerOverlay');
+      if (!drawer) return;
+
+      // Set title
+      var titleEl = document.getElementById('validasiDrawerTitle');
+      if (titleEl) titleEl.textContent = (VALIDASI_TW_LABELS[tw] || 'Triwulan ' + tw) + ' — ' + (VALIDASI_TW_PERIODS[tw] || '');
+
+      var done = isValidatedForTw(tw);
+      var summary = getSummaryForTw(tw);
+
+      // Status badge
+      var badge = document.getElementById('validasiDrawerStatusBadge');
+      var statusText = document.getElementById('validasiDrawerStatusText');
+      if (badge) {
+        badge.className = 'validasi-drawer-status-badge ' + (done ? 'validated' : 'not-validated');
+        badge.querySelector('i').className = done ? 'fas fa-circle-check' : 'fas fa-circle-xmark';
+      }
+      if (statusText) statusText.textContent = done ? 'Tervalidasi' : 'Belum Divalidasi';
+
+      // Score section
+      var scoreSection = document.getElementById('validasiDrawerScoreSection');
+      var emptyNote = document.getElementById('validasiDrawerEmptyNote');
+      if (done && summary) {
+        if (scoreSection) scoreSection.style.display = '';
+        if (emptyNote) emptyNote.style.display = 'none';
+        var el = function(id) { return document.getElementById(id); };
+        el('vdScore').textContent = summary.score != null ? summary.score : '-';
+        el('vdIssues').textContent = summary.issues != null ? summary.issues : '0';
+        el('vdWarnings').textContent = summary.warnings != null ? summary.warnings : '0';
+        el('vdSuggestions').textContent = summary.suggestions != null ? summary.suggestions : '0';
+        el('vdSummaryText').textContent = summary.summary || 'Tidak ada ringkasan.';
+        var updatedAt = el('vdUpdatedAt');
+        if (updatedAt) {
+          if (summary.updatedAt) {
+            var d = new Date(summary.updatedAt);
+            updatedAt.textContent = 'Divalidasi: ' + d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+          } else {
+            updatedAt.textContent = '';
+          }
+        }
+      } else if (done) {
+        if (scoreSection) scoreSection.style.display = 'none';
+        if (emptyNote) { emptyNote.style.display = ''; emptyNote.textContent = 'Laporan triwulan ini sudah divalidasi, namun ringkasan tidak tersedia.'; }
+      } else {
+        if (scoreSection) scoreSection.style.display = 'none';
+        if (emptyNote) { emptyNote.style.display = ''; emptyNote.textContent = 'Laporan triwulan ini belum divalidasi. Buka halaman Validasi Laporan untuk menjalankan validasi.'; }
+      }
+
+      // Open drawer
+      if (overlay) overlay.classList.add('open');
+      drawer.classList.add('open');
+    }
+
+    function closeValidasiDrawer() {
+      var drawer = document.getElementById('validasiDrawer');
+      var overlay = document.getElementById('validasiDrawerOverlay');
+      if (drawer) drawer.classList.remove('open');
+      if (overlay) overlay.classList.remove('open');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      updateValidasiCards();
+    });
+
+    // === ASYNC VALIDATION FUNCTIONS ===
+    var validationCache = {};
+    var validationCacheTime = {};
+
+    function getCachedValidation(tw) {
+      var now = Date.now();
+      if (validationCache[tw] && validationCacheTime[tw] && (now - validationCacheTime[tw]) < 5000) {
+        return validationCache[tw];
+      }
+      return null;
+    }
+
+    function setCachedValidation(tw, data) {
+      validationCache[tw] = data;
+      validationCacheTime[tw] = Date.now();
+    }
+
+    function fetchValidationFromDB(tw) {
+      var laporan = findLaporanForTw(tw);
+      if (!laporan || !laporan.id) {
+        return Promise.resolve(null);
+      }
+
+      var cached = getCachedValidation(tw);
+      if (cached) {
+        return Promise.resolve(cached);
+      }
+
+      return fetch('/api/validasi-laporan/' + laporan.id + '/' + tw)
+        .then(r => r.json())
+        .then(data => {
+          if (data.validated) {
+            setCachedValidation(tw, {
+              score: data.score,
+              issues: data.issues,
+              warnings: data.warnings,
+              suggestions: data.suggestions,
+              updatedAt: data.validated_at,
+              summary: 'Validasi Triwulan ' + tw + ' selesai'
+            });
+            try {
+              var laporan = findLaporanForTw(tw);
+              if (laporan) {
+                var key = getValidationStateKeyDashboard(laporan.perjanjian_id, laporan.id, tw);
+                var summaryKey = getValidationSummaryKeyDashboard(laporan.perjanjian_id, laporan.id, tw);
+                localStorage.setItem(key, '1');
+                localStorage.setItem(summaryKey, JSON.stringify({
+                  score: data.score,
+                  issues: data.issues,
+                  warnings: data.warnings,
+                  suggestions: data.suggestions,
+                  summary: 'Validasi Triwulan ' + tw + ' selesai',
+                  updatedAt: data.validated_at
+                }));
+              }
+            } catch(e) {}
+            return validationCache[tw];
+          }
+          return null;
+        })
+        .catch(e => {
+          console.warn('Fetch validation error:', e);
+          return null;
+        });
+    }
+
+    function updateValidasiCardsAsync() {
+      for (var tw = 1; tw <= 4; tw++) {
+        (function(twNum) {
+          fetchValidationFromDB(twNum).then(summary => {
+            var numEl = document.getElementById('validasiNum' + twNum);
+            var btnEl = document.getElementById('validasiBtn' + twNum);
+            if (!numEl) return;
+            var displayVal = '—';
+            var btnText = 'Lihat';
+            if (summary) {
+              displayVal = (summary.score != null) ? String(summary.score) : '✓';
+              btnText = 'Tervalidasi';
+            }
+            numEl.textContent = displayVal;
+            if (btnEl) btnEl.textContent = btnText;
+          });
+        })(tw);
+      }
+    }
+
+    function openValidasiDrawerAsync(tw) {
+      var drawer = document.getElementById('validasiDrawer');
+      var overlay = document.getElementById('validasiDrawerOverlay');
+      if (!drawer) return;
+
+      // Store current tw for PDF preview button
+      window.currentTwForDrawer = tw;
+
+      fetchValidationFromDB(tw).then(data => {
+        var titleEl = document.getElementById('validasiDrawerTitle');
+        if (titleEl) titleEl.textContent = (VALIDASI_TW_LABELS[tw] || 'Triwulan ' + tw) + ' — ' + (VALIDASI_TW_PERIODS[tw] || '');
+
+        var done = data !== null;
+        var summary = data;
+
+        // Show/hide PDF preview button
+        var pdfBtn = document.getElementById('pdfPreviewBtn');
+        if (pdfBtn) {
+          pdfBtn.style.display = done ? '' : 'none';
+        }
+
+        var badge = document.getElementById('validasiDrawerStatusBadge');
+        var statusText = document.getElementById('validasiDrawerStatusText');
+        if (badge) {
+          badge.className = 'validasi-drawer-status-badge ' + (done ? 'validated' : 'not-validated');
+          badge.querySelector('i').className = done ? 'fas fa-circle-check' : 'fas fa-circle-xmark';
+        }
+        if (statusText) statusText.textContent = done ? 'Tervalidasi' : 'Belum Divalidasi';
+
+        var scoreSection = document.getElementById('validasiDrawerScoreSection');
+        var emptyNote = document.getElementById('validasiDrawerEmptyNote');
+        if (done && summary) {
+          if (scoreSection) scoreSection.style.display = '';
+          if (emptyNote) emptyNote.style.display = 'none';
+          var el = function(id) { return document.getElementById(id); };
+          el('vdScore').textContent = summary.score != null ? summary.score : '-';
+          el('vdIssues').textContent = summary.issues != null ? summary.issues : '0';
+          el('vdWarnings').textContent = summary.warnings != null ? summary.warnings : '0';
+          el('vdSuggestions').textContent = summary.suggestions != null ? summary.suggestions : '0';
+          el('vdSummaryText').textContent = summary.summary || 'Tidak ada ringkasan.';
+          var updatedAt = el('vdUpdatedAt');
+          if (updatedAt) {
+            if (summary.updatedAt) {
+              var d = new Date(summary.updatedAt);
+              updatedAt.textContent = 'Divalidasi: ' + d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+            } else {
+              updatedAt.textContent = '';
+            }
+          }
+        } else if (done) {
+          if (scoreSection) scoreSection.style.display = 'none';
+          if (emptyNote) { emptyNote.style.display = ''; emptyNote.textContent = 'Laporan triwulan ini sudah divalidasi, namun ringkasan tidak tersedia.'; }
+        } else {
+          if (scoreSection) scoreSection.style.display = 'none';
+          if (emptyNote) { emptyNote.style.display = ''; emptyNote.textContent = 'Laporan triwulan ini belum divalidasi. Buka halaman Validasi Laporan untuk menjalankan validasi.'; }
+        }
+
+        if (overlay) overlay.classList.add('open');
+        drawer.classList.add('open');
+      });
+    }
+
+    // Override openValidasiDrawer to use async version
+    window.openValidasiDrawer = function(tw) {
+      openValidasiDrawerAsync(tw);
+    };
+
+    // ===== PDF Preview Modal Functions =====
+    function openPdfPreviewModal(tw) {
+      var modal = document.getElementById('pdfPreviewModal');
+      var titleEl = document.getElementById('pdfModalTitle');
+      var subtitleEl = document.getElementById('pdfModalSubtitle');
+      var contentEl = document.getElementById('pdfPreviewContent');
+      
+      if (!modal) return;
+      
+      // Set title
+      if (titleEl) titleEl.textContent = 'Ringkasan Validasi Laporan';
+      
+      // Fetch validation data for this triwulan
+      var laporan = findLaporanForTw(tw);
+      if (!laporan || !laporan.id) {
+        contentEl.innerHTML = '<p style="text-align:center;color:#999;">Laporan tidak ditemukan.</p>';
+        modal.style.display = 'flex';
+        return;
+      }
+      
+      // Fetch from API
+      fetch('/api/validasi-laporan/' + laporan.id + '/' + tw)
+        .then(r => r.json())
+        .then(data => {
+          if (data.validated) {
+            // Build validation summary HTML
+            var html = '<div style="text-align:left;">' +
+              '<div style="margin-bottom:18px;text-align:center;">' +
+                '<div style="display:inline-flex;align-items:center;gap:8px;background:#e8f5e9;color:#2e7d32;padding:8px 16px;border-radius:8px;font-weight:600;">' +
+                  '<i class="fas fa-circle-check"></i> Tervalidasi' +
+                '</div>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px;">' +
+                '<div style="background:#f8fcfb;border:1px solid #e4eeea;border-radius:8px;padding:12px;text-align:center;">' +
+                  '<div style="font-size:24px;font-weight:800;color:#00B5A0;">' + (data.score || '0') + '</div>' +
+                  '<div style="font-size:12px;font-weight:600;color:#667085;margin-top:4px;">Skor</div>' +
+                '</div>' +
+                '<div style="background:#f8fcfb;border:1px solid #e4eeea;border-radius:8px;padding:12px;text-align:center;">' +
+                  '<div style="font-size:24px;font-weight:800;color:#00B5A0;">' + (data.issues || '0') + '</div>' +
+                  '<div style="font-size:12px;font-weight:600;color:#667085;margin-top:4px;">Issues</div>' +
+                '</div>' +
+                '<div style="background:#f8fcfb;border:1px solid #e4eeea;border-radius:8px;padding:12px;text-align:center;">' +
+                  '<div style="font-size:24px;font-weight:800;color:#00B5A0;">' + (data.warnings || '0') + '</div>' +
+                  '<div style="font-size:12px;font-weight:600;color:#667085;margin-top:4px;">Peringatan</div>' +
+                '</div>' +
+                '<div style="background:#f8fcfb;border:1px solid #e4eeea;border-radius:8px;padding:12px;text-align:center;">' +
+                  '<div style="font-size:24px;font-weight:800;color:#00B5A0;">' + (data.suggestions || '0') + '</div>' +
+                  '<div style="font-size:12px;font-weight:600;color:#667085;margin-top:4px;">Saran</div>' +
+                '</div>' +
+              '</div>' +
+              '<div style="background:#f9f9f9;border-left:4px solid #00B5A0;padding:12px 14px;border-radius:4px;margin-bottom:18px;">' +
+                '<p style="margin:0;font-size:13px;color:#333;">Laporan triwulan telah melewati proses validasi otomatis dengan hasil yang memuaskan.</p>' +
+              '</div>';
+            
+            if (data.validated_at) {
+              var d = new Date(data.validated_at);
+              html += '<p style="font-size:12px;color:#999;margin:0;text-align:right;">Divalidasi: ' + d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) + '</p>';
+            }
+            
+            html += '</div>';
+            contentEl.innerHTML = html;
+          } else {
+            contentEl.innerHTML = '<p style="text-align:center;color:#999;">Laporan belum divalidasi.</p>';
+          }
+          modal.style.display = 'flex';
+        })
+        .catch(err => {
+          console.error('Error fetching validation:', err);
+          contentEl.innerHTML = '<p style="text-align:center;color:#999;">Gagal memuat data validasi.</p>';
+          modal.style.display = 'flex';
+        });
+    }
+
+    function closePdfPreviewModal() {
+      var modal = document.getElementById('pdfPreviewModal');
+      if (modal) modal.style.display = 'none';
+    }
+
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -1172,6 +1840,34 @@
       });
 
       openModal('modalLaporanPreview');
+    }
+  </script>
+
+  <!-- Modal: Laporan Triwulan Sudah Ada (dashboard check) -->
+  <div id="dashAlreadyLaporanModal" class="logout-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+    <div class="logout-box" style="background:#fff;padding:32px 24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);min-width:300px;max-width:420px;text-align:center;">
+      <h3 style="margin-bottom:12px;"><i class="fas fa-info-circle" style="color:#FFA500;margin-right:8px;"></i> Laporan Sudah Ada</h3>
+      <p style="margin:0 0 6px 0; color:#444;">Laporan kinerja <strong id="dashAlreadyLaporanTwLabel">Triwulan ini</strong> sudah pernah diisi.</p>
+      <p style="margin:0 0 20px 0; color:#666; font-size:13px;">Gunakan tombol <strong>Edit</strong> pada tabel laporan untuk mengubah data yang sudah ada.</p>
+      <div class="logout-buttons" style="display:flex;gap:16px;justify-content:center;">
+        <button type="button" onclick="closeModal('dashAlreadyLaporanModal')" style="background:#eee;color:#333;padding:8px 24px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function handleTambahLaporan(twAktif) {
+      var twNames = { 1: 'Triwulan I', 2: 'Triwulan II', 3: 'Triwulan III', 4: 'Triwulan IV' };
+      var alreadyExists = OWN_LAPORAN_TRIWULANS.some(function(tw) {
+        return Number(tw) === Number(twAktif);
+      });
+      if (alreadyExists) {
+        var lbl = document.getElementById('dashAlreadyLaporanTwLabel');
+        if (lbl) lbl.textContent = twNames[twAktif] || ('Triwulan ' + twAktif);
+        openModal('dashAlreadyLaporanModal');
+      } else {
+        window.location.href = LAPORAN_KINERJA_URL + '?section=laporan&tambah=1';
+      }
     }
   </script>
 </body>

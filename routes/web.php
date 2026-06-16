@@ -46,12 +46,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/direktur', [App\Http\Controllers\DirekturDashboardController::class, 'index'])->name('dashboard.direktur');
         Route::get('/dashboard/direktur/perjanjian-kinerja', [App\Http\Controllers\DirekturDashboardController::class, 'perjanjianKinerja'])->name('direktur.perjanjian');
         Route::get('/dashboard/direktur/perjanjian-list', [App\Http\Controllers\DirekturDashboardController::class, 'perjanjianList'])->name('direktur.perjanjian.list');
+        Route::get('/dashboard/direktur/laporan-list', [App\Http\Controllers\DirekturDashboardController::class, 'laporanList'])->name('direktur.laporan.list');
         Route::get('/dashboard/direktur/perjanjian/{id}', [App\Http\Controllers\DirekturDashboardController::class, 'showPerjanjian'])->name('direktur.perjanjian.show');
         Route::get('/dashboard/direktur/perjanjian/{id}/print', [App\Http\Controllers\DirekturDashboardController::class, 'printPerjanjian'])->name('direktur.perjanjian.print');
         Route::get('/dashboard/direktur/perjanjian/{id}/download', [App\Http\Controllers\DirekturDashboardController::class, 'downloadPerjanjian'])->name('direktur.perjanjian.download');
         Route::get('/dashboard/direktur/laporan-kinerja', [App\Http\Controllers\DirekturDashboardController::class, 'laporanKinerja'])->name('direktur.laporan');
         Route::post('/dashboard/direktur/perjanjian/{id}/approve', [App\Http\Controllers\DirekturDashboardController::class, 'approvePerjanjian'])->name('direktur.perjanjian.approve');
         Route::post('/dashboard/direktur/perjanjian/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectPerjanjian'])->name('direktur.perjanjian.reject');
+        Route::post('/dashboard/direktur/laporan/{id}/approve', [App\Http\Controllers\DirekturDashboardController::class, 'approveLaporan'])->name('direktur.laporan.approve');
+        Route::post('/dashboard/direktur/laporan/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectLaporan'])->name('direktur.laporan.reject');
     });
 
     // Dashboard Wadir (Umum, Pelayanan, dan Perencanaan/Keuangan digabung)
@@ -71,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'index'])->name('perjanjian.index');
     Route::get('/laporan-kinerja', [App\Http\Controllers\LaporanKinerjaController::class, 'index'])->name('laporan.kinerja');
     Route::get('/laporan-kinerja/wadir', [App\Http\Controllers\LaporanKinerjaController::class, 'wadirIndex'])->name('laporan.wadir.index');
+    Route::get('/laporan-kinerja/validasi-summary', [App\Http\Controllers\LaporanKinerjaController::class, 'validasiSummaryPage'])->name('laporan.validasi.summary');
     Route::get('/laporan/{id}/pdf/preview', [App\Http\Controllers\LaporanKinerjaController::class, 'pdfPreview'])->name('laporan.pdf.preview');
     Route::delete('/laporan/{id}', [App\Http\Controllers\LaporanKinerjaController::class, 'destroy'])->name('laporan.destroy');
     Route::post('/api/realisasi/perjanjian', [App\Http\Controllers\LaporanKinerjaController::class, 'saveRealisasi'])->name('api.realisasi.perjanjian');
@@ -80,6 +84,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/laporan/by-perjanjian/{perjanjianId}', [App\Http\Controllers\LaporanKinerjaController::class, 'getLaporanByPerjanjian'])->name('api.laporan.by-perjanjian');
     Route::post('/api/laporan/{id}/smart-validate', [App\Http\Controllers\LaporanKinerjaController::class, 'smartValidate'])->name('api.laporan.smart-validate');
     Route::post('/api/laporan/quick-validate', [App\Http\Controllers\LaporanKinerjaController::class, 'quickValidate'])->name('api.laporan.quick-validate');
+    
+    // Validation Result Persistence API
+    Route::post('/api/validasi-laporan', [App\Http\Controllers\LaporanKinerjaController::class, 'saveValidasiResult'])->name('api.validasi.save');
+    Route::get('/api/validasi-laporan/{laporanId}/{tw}', [App\Http\Controllers\LaporanKinerjaController::class, 'getValidasiResult'])->name('api.validasi.get');
     Route::get('/perjanjian/create', [App\Http\Controllers\PerjanjianController::class, 'create'])->name('perjanjian.create');
     Route::post('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'store'])->name('perjanjian.store');
     Route::post('/perjanjian/save', [App\Http\Controllers\PerjanjianController::class, 'savePerjanjian'])->name('perjanjian.save');
@@ -223,6 +231,22 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     // Routes untuk PDF (Browsershot)
     Route::get('/perjanjian-kinerja/{id}/pdf/download', [BrowsershotPdfController::class, 'download'])->name('perjanjian.pdf.download');
     Route::get('/perjanjian-kinerja/{id}/pdf/preview', [BrowsershotPdfController::class, 'preview'])->name('perjanjian.pdf.preview');
+
+    /* ================= PERJANJIAN (ADMIN) ================= */
+    Route::get('/perjanjian', [App\Http\Controllers\Admin\PerjanjianController::class, 'index'])->name('perjanjian.index');
+    Route::post('/perjanjian/{id}/revisi', [App\Http\Controllers\Admin\PerjanjianController::class, 'revisiStatus'])->name('perjanjian.revisi');
+    Route::delete('/perjanjian/{id}', [App\Http\Controllers\Admin\PerjanjianController::class, 'destroy'])->name('perjanjian.destroy');
+
+    /* ================= LAPORAN (ADMIN) ================= */
+    Route::get('/laporan', [App\Http\Controllers\Admin\LaporanController::class, 'index'])->name('laporan.index');
+    Route::post('/laporan/{id}/revisi', [App\Http\Controllers\Admin\LaporanController::class, 'revisiStatus'])->name('laporan.revisi');
+    Route::delete('/laporan/{id}', [App\Http\Controllers\Admin\LaporanController::class, 'destroy'])->name('laporan.destroy');
+
+    /* ================= NOTIFICATIONS ================= */
+    Route::get('/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/create', [App\Http\Controllers\Admin\NotificationController::class, 'create'])->name('notifications.create');
+    Route::post('/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'store'])->name('notifications.store');
+    Route::delete('/notifications/{notification}', [App\Http\Controllers\Admin\NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     /* ================= SETTINGS ================= */
     Route::get('/settings', [App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
