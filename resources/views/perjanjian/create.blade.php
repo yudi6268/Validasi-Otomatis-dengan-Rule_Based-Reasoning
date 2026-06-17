@@ -1,6 +1,8 @@
-@php($hideHeaderActions = true)
-
 @extends('layouts.app')
+
+@php
+    $hideHeaderActions = true;
+@endphp
 
 @section('title', 'Form Perjanjian')
 
@@ -801,7 +803,7 @@ console.log('=== Global functions loaded ===');
                 type="text"
                 name="jabatan_pelaksana"
                 id="jabatan_pelaksana"
-                value="{{ isset($jabatanData) && $jabatanData ? $jabatanData->nama_jabatan : '' }}"
+                value="{{ old('jabatan_pelaksana', isset($jabatanData) && $jabatanData ? $jabatanData->nama_jabatan : '') }}"
                 readonly
                 style="
                     width: 100%;
@@ -815,6 +817,24 @@ console.log('=== Global functions loaded ===');
 
         <div style="margin-bottom: 12px;">
             <label style="font-weight: 600;">Tugas</label>
+            @php
+                $tugasValue = old('tugas_pelaksana', isset($jabatanData) && $jabatanData ? $jabatanData->tugas : '');
+                if ($tugasValue === null) {
+                    $tugasValue = '';
+                }
+                if (is_array($tugasValue)) {
+                    $tugasValue = implode("\n", array_values(array_filter($tugasValue, function ($item) {
+                        return $item !== null && $item !== '';
+                    })));
+                } elseif (is_string($tugasValue)) {
+                    $decodedTugas = json_decode($tugasValue, true);
+                    if (is_array($decodedTugas)) {
+                        $tugasValue = implode("\n", array_values(array_filter($decodedTugas, function ($item) {
+                            return $item !== null && $item !== '';
+                        })));
+                    }
+                }
+            @endphp
             <textarea
                 name="tugas_pelaksana"
                 id="tugas_pelaksana"
@@ -827,12 +847,22 @@ console.log('=== Global functions loaded ===');
                     border-radius: 6px;
                     background: #e9ecef;
                 "
-            >{{ isset($jabatanData) && $jabatanData ? $jabatanData->tugas : '' }}</textarea>
+            >{{ isset($tugasValue) ? trim($tugasValue) : '' }}</textarea>
             {{-- Tidak tampilkan notifikasi jika tugas tidak ditemukan --}}
         </div>
 
         <div>
             <label style="font-weight: 600;">Fungsi</label>
+            @php
+                $fungsiValue = old('fungsi_pelaksana', isset($jabatanData) && $jabatanData ? $jabatanData->fungsi : null);
+                if (is_string($fungsiValue) && (strpos($fungsiValue, '[') === 0 || strpos($fungsiValue, '{') === 0)) {
+                    $decodedFungsi = json_decode($fungsiValue, true);
+                    if (is_array($decodedFungsi)) {
+                        $fungsiValue = $decodedFungsi;
+                    }
+                }
+                $visibleFungsi = $fungsiValue;
+            @endphp
             <div id="fungsi_container" style="
                 width: 100%;
                 padding: 8px;
@@ -841,20 +871,27 @@ console.log('=== Global functions loaded ===');
                 background: #e9ecef;
                 min-height: 60px;
             ">
-                @if(isset($jabatanData) && $jabatanData && $jabatanData->fungsi)
-                    @if(is_array($jabatanData->fungsi))
+                @if($visibleFungsi)
+                    @if(is_array($visibleFungsi))
                         <ol style="margin: 0; padding-left: 20px;">
-                            @foreach($jabatanData->fungsi as $fungsi)
+                            @foreach($visibleFungsi as $fungsi)
                                 <li style="margin-bottom: 4px;">{{ $fungsi }}</li>
                             @endforeach
                         </ol>
                     @else
-                        {{ $jabatanData->fungsi }}
+                        {{ $visibleFungsi }}
                     @endif
                 @endif
             </div>
+            @php
+                if (is_array($fungsiValue)) {
+                    $fungsiValue = json_encode(array_values(array_filter($fungsiValue, function ($item) {
+                        return $item !== null && $item !== '';
+                    })));
+                }
+            @endphp
             <input type="hidden" name="fungsi_pelaksana" id="fungsi_pelaksana" 
-                   value="{{ isset($jabatanData) && $jabatanData && is_array($jabatanData->fungsi ?? null) ? json_encode($jabatanData->fungsi) : (isset($jabatanData) && $jabatanData ? $jabatanData->fungsi : '') }}">
+                   value="{{ $fungsiValue }}">
         </div>
     </div>
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class Laporan extends Model
@@ -93,5 +94,10 @@ class Laporan extends Model
     public function perjanjian()
     {
         return $this->belongsTo(Perjanjian::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

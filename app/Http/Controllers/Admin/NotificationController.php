@@ -37,35 +37,56 @@ class NotificationController extends Controller
     {
         $validated = $request->validate([
             'recipient_type' => 'required|in:all,specific',
-            'user_id' => 'required_if:recipient_type,specific|exists:users,id',
-            'title' => 'required|string|max:255',
-            'message' => 'required|string',
-            'type' => 'required|in:info,success,warning,danger'
+            'user_ids' => 'required_if:recipient_type,specific|array|min:1',
+            'user_ids.*' => 'exists:users,id',
+            'jenis' => 'required|in:laporan,perjanjian',
+            'tahun' => 'required|integer|min:2000',
+            'triwulan' => 'required_if:jenis,laporan|in:1,2,3,4',
+            'tanggal_batas' => 'required|date',
+            'type' => 'required|in:info,warning,danger',
+            'pesan_tambahan' => 'nullable|string'
         ]);
+
+        $twLabels = ['1' => 'I', '2' => 'II', '3' => 'III', '4' => 'IV'];
+        $title = $validated['jenis'] === 'laporan'
+            ? "Batas Laporan Kinerja Triwulan {$twLabels[$validated['triwulan']]} - {$validated['tahun']}"
+            : "Batas Perjanjian Kinerja - {$validated['tahun']}";
+
+        $message = $validated['jenis'] === 'laporan'
+            ? "Segera selesaikan laporan kinerja Triwulan {$twLabels[$validated['triwulan']]} Tahun {$validated['tahun']} sebelum " . date('d M Y', strtotime($validated['tanggal_batas'])) . "."
+            : "Segera buat perjanjian kinerja Tahun {$validated['tahun']} sebelum " . date('d M Y', strtotime($validated['tanggal_batas'])) . ".";
+
+        if (!empty($validated['pesan_tambahan'])) {
+            $message .= ' ' . $validated['pesan_tambahan'];
+        }
 
         if ($validated['recipient_type'] === 'all') {
             // Broadcast to all users
             Notification::create([
                 'user_id' => null,
-                'title' => $validated['title'],
-                'message' => $validated['message'],
-                'type' => $validated['type']
+                'title' => $title,
+                'message' => $message,
+                'type' => $validated['type'],
+                'is_read' => false
             ]);
 
             return redirect()->route('admin.notifications.index')
                 ->with('success', 'Notifikasi berhasil dikirim ke semua pengguna');
-        } else {
-            // Send to specific user
-            Notification::create([
-                'user_id' => $validated['user_id'],
-                'title' => $validated['title'],
-                'message' => $validated['message'],
-                'type' => $validated['type']
-            ]);
-
-            return redirect()->route('admin.notifications.index')
-                ->with('success', 'Notifikasi berhasil dikirim');
         }
+
+        // Send to one or more specific users
+        foreach ($validated['user_ids'] as $userId) {
+            Notification::create([
+                'user_id' => $userId,
+                'title' => $title,
+                'message' => $message,
+                'type' => $validated['type'],
+                'is_read' => false
+            ]);
+        }
+
+        return redirect()->route('admin.notifications.index')
+            ->with('success', 'Notifikasi berhasil dikirim ke pengguna yang dipilih');
     }
 
     /**

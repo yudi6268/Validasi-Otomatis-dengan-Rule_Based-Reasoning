@@ -468,17 +468,6 @@
                     </a>
                 </li>
 
-                {{-- 8. Kelola Pesan/Notifikasi --}}
-                <li class="nav-item">
-                    <a href="{{ route('admin.notifications.index') }}" class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
-                        <i class="fas fa-bell"></i> Kelola Notifikasi
-                        @php $unreadNotif = \App\Models\Notification::whereNull('read_at')->count(); @endphp
-                        @if($unreadNotif > 0)
-                            <span class="badge bg-danger ms-auto">{{ $unreadNotif }}</span>
-                        @endif
-                    </a>
-                </li>
-
                 {{-- 9. Profil --}}
                 <li class="nav-item">
                     <a href="{{ route('admin.dashboard', ['section' => 'profile']) }}" class="nav-link {{ request()->routeIs('admin.dashboard') && request()->query('section') === 'profile' ? 'active' : '' }}">
@@ -536,6 +525,7 @@
 
     @include('components.logout-modal')
     @include('components.status-modal')
+    @include('components.delete-confirm-modal')
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>

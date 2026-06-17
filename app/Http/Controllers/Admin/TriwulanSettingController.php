@@ -53,10 +53,17 @@ class TriwulanSettingController extends Controller
             ]);
         }
 
-        return response()->json([
+        $response = [
             'success' => true,
             'message' => 'Triwulan aktif berhasil diubah menjadi Triwulan ' . $validated['triwulan'],
             'triwulan' => $validated['triwulan']
-        ]);
+        ];
+
+        // Jika request AJAX/Expect JSON, kembalikan JSON. Untuk form biasa, redirect kembali dengan flash.
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json($response);
+        }
+
+        return redirect()->back()->with('success', $response['message']);
     }
 }

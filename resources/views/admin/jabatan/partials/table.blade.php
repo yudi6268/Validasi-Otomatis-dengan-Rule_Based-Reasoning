@@ -13,6 +13,7 @@
                 <th>Nama Jabatan</th>
                 <th>Tugas</th>
                 <th>Fungsi</th>
+                <th>Membawahi</th>
                 <th>Status</th>
                 <th>Aksi</th>
             </tr>
@@ -25,15 +26,32 @@
                 <td>{{ \Illuminate\Support\Str::limit($item['tugas'] ?? '-', 60) }}</td>
                 <td>
                     @php
-                        $fungsi = $item['fungsi'];
+                        $fungsi = $item['fungsi'] ?? [];
                         if (is_string($fungsi)) {
-                            $fungsi = json_decode($fungsi, true);
+                            $fungsi = json_decode($fungsi, true) ?: [];
                         }
                     @endphp
                     @if(!empty($fungsi) && is_array($fungsi))
                         <ul class="mb-0">
                             @foreach($fungsi as $f)
                                 <li>{{ $f }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        -
+                    @endif
+                </td>
+                <td>
+                    @php
+                        $membawahi = $item['membawahi'] ?? [];
+                        if (is_string($membawahi)) {
+                            $membawahi = json_decode($membawahi, true) ?: [];
+                        }
+                    @endphp
+                    @if(!empty($membawahi) && is_array($membawahi))
+                        <ul class="mb-0">
+                            @foreach($membawahi as $unit)
+                                <li>{{ $unit }}</li>
                             @endforeach
                         </ul>
                     @else
@@ -48,8 +66,8 @@
                     <form action="{{ route('admin.jabatan.destroy', $item['id']) }}"
                           method="POST" style="display:inline">
                         @csrf @method('DELETE')
-                        <button class="btn btn-danger btn-sm"
-                                onclick="return confirm('Hapus data ini?')">
+                        <button type="button" class="btn btn-danger btn-sm"
+                                onclick="showDeleteConfirmModal(this.closest('form'), 'Apakah Anda yakin ingin menghapus jabatan {{ $item['nama_jabatan'] }}?')">
                             Hapus
                         </button>
                     </form>

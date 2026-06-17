@@ -32,7 +32,9 @@
     <div class="row g-2 g-md-4 mb-3 mb-md-4">
     <!-- Atas -->
     <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
-        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="border-inline-start: 4px solid #00B5A0; background: linear-gradient(135deg, #E6F6F2, #CFF2E9); min-height: 120px;">
+        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+             style="border-inline-start: 4px solid #00B5A0; background: linear-gradient(135deg, #E6F6F2, #CFF2E9); min-height: 120px;"
+             data-bs-toggle="modal" data-bs-target="#usersModal">
             <div class="icon mb-2" style="background: #00B5A0; color: white; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.5rem;">
                 <i class="fas fa-users"></i>
             </div>
@@ -42,18 +44,19 @@
     </div>
     <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
         <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center"
-             style="border-inline-start: 4px solid #1E88E5; background: linear-gradient(135deg, #E3F2FD, #BBDEFB); min-height: 120px; cursor: pointer;"
+             style="border-inline-start: 4px solid #1E88E5; background: linear-gradient(135deg, #E3F2FD, #BBDEFB); min-height: 120px;"
              data-bs-toggle="modal" data-bs-target="#perjanjianModal">
             <div class="icon mb-2" style="background: #1E88E5; color: white; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.5rem;">
                 <i class="fas fa-file-contract"></i>
             </div>
             <div style="font-size: 1rem; color: #1E88E5; font-weight: 700;">Total Perjanjian</div>
             <div style="font-size: 1.3rem; color: #1E88E5; font-weight: 700;">{{ $totalPerjanjian }}</div>
-            <div style="font-size: 0.75rem; color: #1E88E5; opacity: 0.8; margin-top: 4px;"><i class="fas fa-mouse-pointer"></i> Klik untuk detail</div>
         </div>
     </div>
     <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
-        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" style="border-inline-start: 4px solid #FF9800; background: linear-gradient(135deg, #FFF3E0, #FFE0B2); min-height: 120px;">
+        <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+             style="border-inline-start: 4px solid #FF9800; background: linear-gradient(135deg, #FFF3E0, #FFE0B2); min-height: 120px;"
+             data-bs-toggle="modal" data-bs-target="#jabatanModal">
             <div class="icon mb-2" style="background: #FF9800; color: white; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.5rem;">
                 <i class="fas fa-briefcase"></i>
             </div>
@@ -331,6 +334,104 @@
                     <div class="text-center text-muted py-4">
                         <i class="fas fa-file-contract fa-3x mb-3"></i>
                         <p>Belum ada data perjanjian</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Users -->
+<div class="modal fade" id="usersModal" tabindex="-1" aria-labelledby="usersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #00B5A0; color: white;">
+                <h5 class="modal-title" id="usersModalLabel">
+                    <i class="fas fa-users"></i> Daftar Pengguna ({{ $totalUsers }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if($allUsers->isNotEmpty())
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 35%;">Nama</th>
+                                    <th style="width: 25%;">Jabatan</th>
+                                    <th style="width: 20%;">Role</th>
+                                    <th style="width: 15%;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allUsers as $index => $user)
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td><strong>{{ $user->nama }}</strong></td>
+                                        <td>{{ $user->jabatan ?? '-' }}</td>
+                                        <td><span class="badge bg-primary">{{ $user->role }}</span></td>
+                                        <td>{{ ucfirst($user->status ?? 'aktif') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-users fa-3x mb-3"></i>
+                        <p>Belum ada pengguna terdaftar.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Jabatan -->
+<div class="modal fade" id="jabatanModal" tabindex="-1" aria-labelledby="jabatanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #FF9800; color: white;">
+                <h5 class="modal-title" id="jabatanModalLabel">
+                    <i class="fas fa-briefcase"></i> Daftar Jabatan ({{ $jabatanStats->count() }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if($jabatanStats->isNotEmpty())
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50%;">Nama Jabatan</th>
+                                    <th style="width: 25%;">Tugas</th>
+                                    <th style="width: 15%;">Pengguna</th>
+                                    <th style="width: 10%;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($jabatanStats as $jabatan)
+                                    <tr>
+                                        <td><strong>{{ $jabatan->nama_jabatan }}</strong></td>
+                                        <td>{{ Str::limit($jabatan->tugas ?? '-', 50) }}</td>
+                                        <td><span class="badge bg-primary">{{ $jabatan->users_count ?? 0 }}</span></td>
+                                        <td>
+                                            @if($jabatan->is_active)
+                                                <span class="badge bg-success">Aktif</span>
+                                            @else
+                                                <span class="badge bg-secondary">Nonaktif</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-briefcase fa-3x mb-3"></i>
+                        <p>Belum ada jabatan terdaftar.</p>
                     </div>
                 @endif
             </div>

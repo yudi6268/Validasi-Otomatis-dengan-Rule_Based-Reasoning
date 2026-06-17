@@ -28,14 +28,10 @@ class Setting extends Model
         );
     }
 
-    /**
-     * Get available years for perjanjian
-     */
     public static function getAvailableYears()
     {
         $year1 = self::get('tahun_perjanjian_1', date('Y'));
-        $year2 = self::get('tahun_perjanjian_2', date('Y') + 1);
         
-        return [$year1, $year2];
+        return [$year1];
     }
 }

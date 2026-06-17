@@ -83,39 +83,345 @@ class DirekturDashboardController extends Controller
             'ditolak'   => $laporanItems->where('status', 'ditolak')->count(),
         ];
 
-        // Build monthly chart data
-        $months         = [];
-        $pkDisetujui    = array_fill(0, 12, 0);
-        $pkDitolak      = array_fill(0, 12, 0);
-        $pkMenunggu     = array_fill(0, 12, 0);
-        $lkDisetujui    = array_fill(0, 12, 0);
-        $lkMenunggu     = array_fill(0, 12, 0);
-        for ($m = 1; $m <= 12; $m++) {
-            $months[] = \Carbon\Carbon::create(null, $m)->locale('id')->translatedFormat('M');
-        }
-        foreach ($allPerjanjians as $p) {
-            $idx = (int) optional($p->created_at)->format('n') - 1;
-            if ($idx < 0 || $idx > 11) continue;
-            $s = $this->isRejectedValue($p->rejected) ? 'ditolak'
-                : (!empty($p->pihak2_signature) ? 'disetujui' : 'menunggu');
-            if ($s === 'disetujui') $pkDisetujui[$idx]++;
-            elseif ($s === 'ditolak') $pkDitolak[$idx]++;
-            else $pkMenunggu[$idx]++;
-        }
-        foreach ($allLaporans as $l) {
-            $idx = (int) optional($l->created_at)->format('n') - 1;
-            if ($idx < 0 || $idx > 11) continue;
-            if (!empty($l->pihak2_signature)) $lkDisetujui[$idx]++;
-            else $lkMenunggu[$idx]++;
-        }
-
-        $chartData = compact('months', 'pkDisetujui', 'pkDitolak', 'pkMenunggu', 'lkDisetujui', 'lkMenunggu');
+        $chartData = $this->buildDirectorChartData($allPerjanjians, $allLaporans);
 
         return view('dashboard.direktur', compact(
             'perjanjianItems', 'perjanjianCounts',
             'laporanItems', 'laporanCounts',
             'chartData'
         ));
+    }
+
+    private function buildDirectorChartData($allPerjanjians, $allLaporans): array
+    {
+        $kinerjaTargets = [0, 0, 0, 0];
+        $keuanganTargets = [0, 0, 0, 0];
+        $leafRowIds = [];
+
+        foreach ($allPerjanjians as $p) {
+            $tabelB = is_array($p->tabelB) ? $p->tabelB : json_decode($p->tabelB ?? '[]', true);
+            $tabelC = is_array($p->tabelC) ? $p->tabelC : json_decode($p->tabelC ?? '[]', true);
+
+            $kinerjaTargets = $this->addSeries($kinerjaTargets, $this->extractKinerjaTargetsByTriwulan($tabelB));
+            $keuanganTargets = $this->addSeries($keuanganTargets, $this->extractKeuanganTargetsByTriwulan($tabelC));
+            $leafRowIds = array_merge($leafRowIds, $this->collectKeuanganLeafRowIds($tabelC));
+        }
+
+        $leafRowLookup = array_fill_keys(array_unique($leafRowIds), true);
+        $latestLaporans = [];
+
+        foreach ($allLaporans as $laporan) {
+            $perjanjianId = $laporan->perjanjian_id;
+            $triwulan = (int) ($laporan->triwulan_aktif ?? 0);
+            if ($triwulan < 1 || $triwulan > 4) {
+                continue;
+            }
+
+            if (!isset($latestLaporans[$perjanjianId][$triwulan])
+                || $laporan->updated_at > $latestLaporans[$perjanjianId][$triwulan]->updated_at
+                || ($laporan->updated_at == $latestLaporans[$perjanjianId][$triwulan]->updated_at && $laporan->id > $latestLaporans[$perjanjianId][$triwulan]->id)
+            ) {
+                $latestLaporans[$perjanjianId][$triwulan] = $laporan;
+            }
+        }
+
+        $kinerjaRealisasi = [0, 0, 0, 0];
+        $keuanganRealisasi = [0, 0, 0, 0];
+
+        foreach ($latestLaporans as $triwulans) {
+            foreach ($triwulans as $triwulan => $laporan) {
+                $rowMap = $this->extractRealisasiRowMap($laporan->{'realisasi_tb' . $triwulan} ?? null);
+                foreach ($rowMap as $rowKey => $value) {
+                    if (str_starts_with($rowKey, 'kinerja-')) {
+                        $kinerjaRealisasi[$triwulan - 1] += $value;
+                    }
+                    if (isset($leafRowLookup[$rowKey])) {
+                        $keuanganRealisasi[$triwulan - 1] += $value;
+                    }
+                }
+            }
+        }
+
+        $kinerjaPercent = [];
+        $keuanganPercent = [];
+        for ($idx = 0; $idx < 4; $idx++) {
+            $kinerjaPercent[] = $this->calculatePercentage($kinerjaRealisasi[$idx], $kinerjaTargets[$idx] ?? 0);
+            $keuanganPercent[] = $this->calculatePercentage($keuanganRealisasi[$idx], $keuanganTargets[$idx] ?? 0);
+        }
+
+        return [
+            'kinerja_labels' => ['Triwulan 1', 'Triwulan 2', 'Triwulan 3', 'Triwulan 4'],
+            'kinerja_targets' => $kinerjaTargets,
+            'kinerja_realisasi' => $kinerjaRealisasi,
+            'kinerja_percent' => $kinerjaPercent,
+            'keuangan_labels' => ['Triwulan 1', 'Triwulan 2', 'Triwulan 3', 'Triwulan 4'],
+            'keuangan_targets' => $keuanganTargets,
+            'keuangan_realisasi' => $keuanganRealisasi,
+            'keuangan_percent' => $keuanganPercent,
+        ];
+    }
+
+    private function calculatePercentage($actual, $target): float
+    {
+        $actualValue = $this->normalizeNumericValue($actual);
+        $targetValue = $this->normalizeNumericValue($target);
+
+        if ($targetValue <= 0) {
+            return 0.0;
+        }
+
+        return round(($actualValue / $targetValue) * 100, 2);
+    }
+
+    private function addSeries(array $base, array $addition): array
+    {
+        $result = $base;
+        foreach ($addition as $idx => $value) {
+            $result[$idx] = ($result[$idx] ?? 0) + $value;
+        }
+        return $result;
+    }
+
+    private function extractKinerjaTargetsByTriwulan($tabelB): array
+    {
+        $totals = [0, 0, 0, 0];
+        if (!is_array($tabelB) || empty($tabelB)) {
+            return $totals;
+        }
+
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $key = 'tw' . $tw;
+            if (!empty($tabelB[$key]) && is_array($tabelB[$key])) {
+                foreach ($tabelB[$key] as $value) {
+                    $totals[$tw - 1] += $this->normalizeNumericValue($value);
+                }
+            }
+        }
+
+        if (array_sum($totals) > 0) {
+            return $totals;
+        }
+
+        if (!empty($tabelB[0]) && is_array($tabelB[0])) {
+            foreach ($tabelB as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                for ($tw = 1; $tw <= 4; $tw++) {
+                    $key = 'tw' . $tw;
+                    if (array_key_exists($key, $row)) {
+                        $totals[$tw - 1] += $this->normalizeNumericValue($row[$key]);
+                    }
+                }
+            }
+        }
+
+        return $totals;
+    }
+
+    private function extractKeuanganTargetsByTriwulan($tabelC): array
+    {
+        $totals = [0, 0, 0, 0];
+        if (!is_array($tabelC) || empty($tabelC)) {
+            return $totals;
+        }
+
+        $normalized = $this->normalizeTabelCPrograms($tabelC);
+        if (!empty($normalized['programs']) && is_array($normalized['programs'])) {
+            foreach ($normalized['programs'] as $program) {
+                $this->accumulateKeuanganNodeTargets($program, $totals);
+            }
+
+            if (array_sum($totals) > 0) {
+                return $totals;
+            }
+        }
+
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $key = 'tw' . $tw;
+            if (!empty($tabelC[$key]) && is_array($tabelC[$key])) {
+                foreach ($tabelC[$key] as $value) {
+                    $totals[$tw - 1] += $this->normalizeNumericValue($value);
+                }
+            }
+        }
+
+        return $totals;
+    }
+
+    private function extractRealisasiRowMap($raw): array
+    {
+        $totals = [];
+        if (empty($raw)) {
+            return $totals;
+        }
+
+        $parsed = is_string($raw) ? json_decode($raw, true) : $raw;
+        if (!is_array($parsed)) {
+            return $totals;
+        }
+
+        $rows = $parsed['rows'] ?? [];
+        if (!is_array($rows) || empty($rows)) {
+            return $totals;
+        }
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $rowKey = strtolower(trim((string) ($row['row'] ?? '')));
+            if ($rowKey === '') {
+                continue;
+            }
+
+            $value = $this->normalizeNumericValue($row['realisasi'] ?? null);
+            if (!isset($totals[$rowKey])) {
+                $totals[$rowKey] = 0.0;
+            }
+
+            $totals[$rowKey] += $value;
+        }
+
+        return $totals;
+    }
+
+    private function collectKeuanganLeafRowIds(array $tabelC): array
+    {
+        $normalized = $this->normalizeTabelCPrograms($tabelC);
+        $rowIds = [];
+
+        foreach ($normalized['programs'] ?? [] as $program) {
+            if (is_array($program)) {
+                $this->collectKeuanganLeafRowIdsFromNode($program, $rowIds);
+            }
+        }
+
+        return array_values(array_unique($rowIds));
+    }
+
+    private function collectKeuanganLeafRowIdsFromNode(array $node, array &$rowIds): void
+    {
+        $hasKegiatan = !empty($node['kegiatan']) && is_array($node['kegiatan']);
+        $hasSubKegiatan = !empty($node['subKegiatan']) && is_array($node['subKegiatan']);
+
+        if ($hasKegiatan || $hasSubKegiatan) {
+            foreach ($node['kegiatan'] ?? [] as $kegiatan) {
+                if (is_array($kegiatan)) {
+                    $this->collectKeuanganLeafRowIdsFromNode($kegiatan, $rowIds);
+                }
+            }
+
+            foreach ($node['subKegiatan'] ?? [] as $subKegiatan) {
+                if (is_array($subKegiatan)) {
+                    $this->collectKeuanganLeafRowIdsFromNode($subKegiatan, $rowIds);
+                }
+            }
+
+            return;
+        }
+
+        $no = trim((string) ($node['no'] ?? ''));
+        if ($no !== '') {
+            $rowIds[] = 'anggaran-' . $no;
+        }
+    }
+
+    private function normalizeTabelCPrograms(array $tabelC): array
+    {
+        if (isset($tabelC['programs']) && is_array($tabelC['programs']) && count($tabelC['programs']) > 0) {
+            return $tabelC;
+        }
+
+        if (isset($tabelC['program']) && is_array($tabelC['program'])) {
+            $programs = [];
+            $count = max(
+                count($tabelC['program']),
+                count($tabelC['anggaran'] ?? []),
+                count($tabelC['keterangan'] ?? [])
+            );
+
+            for ($index = 0; $index < $count; $index++) {
+                $programs[] = [
+                    'name' => $tabelC['program'][$index] ?? '',
+                    'amount' => $tabelC['anggaran'][$index] ?? 0,
+                    'source' => $tabelC['keterangan'][$index] ?? '-',
+                    'tw1' => $tabelC['tw1'][$index] ?? null,
+                    'tw2' => $tabelC['tw2'][$index] ?? null,
+                    'tw3' => $tabelC['tw3'][$index] ?? null,
+                    'tw4' => $tabelC['tw4'][$index] ?? null,
+                ];
+            }
+
+            $tabelC['programs'] = $programs;
+            return $tabelC;
+        }
+
+        if (isset($tabelC[0]) && is_array($tabelC[0])) {
+            $tabelC['programs'] = $tabelC;
+        }
+
+        return $tabelC;
+    }
+
+    private function accumulateKeuanganNodeTargets(array $node, array &$totals): void
+    {
+        $hasKegiatan = !empty($node['kegiatan']) && is_array($node['kegiatan']);
+        $hasSubKegiatan = !empty($node['subKegiatan']) && is_array($node['subKegiatan']);
+
+        if ($hasKegiatan || $hasSubKegiatan) {
+            foreach ($node['kegiatan'] ?? [] as $kegiatan) {
+                if (is_array($kegiatan)) {
+                    $this->accumulateKeuanganNodeTargets($kegiatan, $totals);
+                }
+            }
+
+            foreach ($node['subKegiatan'] ?? [] as $subKegiatan) {
+                if (is_array($subKegiatan)) {
+                    $this->accumulateKeuanganNodeTargets($subKegiatan, $totals);
+                }
+            }
+
+            return;
+        }
+
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $key = 'tw' . $tw;
+            if (array_key_exists($key, $node)) {
+                $totals[$tw - 1] += $this->normalizeNumericValue($node[$key]);
+            }
+        }
+    }
+
+    private function normalizeNumericValue($value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value)) {
+            $normalized = trim($value);
+            if ($normalized === '') {
+                return 0.0;
+            }
+
+            $normalized = preg_replace('/[^0-9,\.\-]/', '', $normalized);
+            if ($normalized === '' || $normalized === '-' || $normalized === null) {
+                return 0.0;
+            }
+
+            if (str_contains($normalized, ',') && str_contains($normalized, '.')) {
+                $normalized = str_replace('.', '', $normalized);
+                $normalized = str_replace(',', '.', $normalized);
+            } elseif (str_contains($normalized, ',') && !str_contains($normalized, '.')) {
+                $normalized = str_replace(',', '.', $normalized);
+            }
+
+            return is_numeric($normalized) ? (float) $normalized : 0.0;
+        }
+
+        return 0.0;
     }
 
     public function perjanjianList(Request $request)

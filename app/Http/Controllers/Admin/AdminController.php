@@ -29,7 +29,8 @@ class AdminController extends Controller
         // $totalTemplates = Template::count();
         $totalNotifications = Notification::count();
 
-        // Get all users (for table)
+        // Get all users for modal and dashboard table preview
+        $allUsers = User::orderBy('nama')->get();
         $users = User::latest()->take(10)->get();
 
         // Get recent perjanjian (last 5)
@@ -165,6 +166,7 @@ class AdminController extends Controller
             'totalKegiatan',
             'totalSubKegiatan',
             'users',
+            'allUsers',
             'recentPerjanjian',
             'perjanjianByStatus',
             'jabatanStats',

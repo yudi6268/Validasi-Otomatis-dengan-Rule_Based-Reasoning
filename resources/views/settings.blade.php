@@ -102,6 +102,27 @@
       color: #777;
     }
 
+    .password-container {
+      position: relative;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      color: #777;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0;
+    }
+
+    .toggle-password:focus {
+      outline: none;
+    }
+
     button {
       background-color: #009970;
       color: #fff;
@@ -274,10 +295,20 @@
 
         <input
           type="password" name="current_password" id="current_password" placeholder="Password Lama" autocomplete="current-password" required style="margin-bottom:10px;">
-        <input
-          type="password" name="new_password" id="new_password" placeholder="Password Baru (min. 8 karakter)" autocomplete="new-password" required minlength="8" style="margin-bottom:10px;">
-        <input
-          type="password" name="new_password_confirmation" id="new_password_confirmation" placeholder="Konfirmasi Password Baru" autocomplete="new-password" required style="margin-bottom:15px;">
+        <div class="password-container" style="margin-bottom:10px;">
+          <input
+            type="password" name="new_password" id="new_password" placeholder="Password Baru (min. 8 karakter)" autocomplete="new-password" required minlength="8">
+          <button type="button" class="toggle-password" data-target="new_password" aria-label="Tampilkan password baru">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+        <div class="password-container" style="margin-bottom:15px;">
+          <input
+            type="password" name="new_password_confirmation" id="new_password_confirmation" placeholder="Konfirmasi Password Baru" autocomplete="new-password" required>
+          <button type="button" class="toggle-password" data-target="new_password_confirmation" aria-label="Tampilkan konfirmasi password">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
         
         <div class="info-text">
           <i class="fa-solid fa-info-circle"></i>
@@ -307,6 +338,29 @@
       </form>
 
       <script>
+        // Password visibility toggle helper
+        function togglePassword(inputId, icon) {
+          const input = document.getElementById(inputId);
+          if (!input) return;
+          if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+          } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+          }
+        }
+
+        document.querySelectorAll('.toggle-password').forEach(button => {
+          button.addEventListener('click', function() {
+            const targetId = this.dataset.target;
+            const icon = this.querySelector('i');
+            togglePassword(targetId, icon);
+          });
+        });
+
         // Password form validation and confirmation
         const passwordForm = document.getElementById('passwordForm');
         if (passwordForm) {

@@ -878,6 +878,17 @@
         </section>
     </div>
 
+    <div id="notificationModal" class="modal-overlay" style="display: {{ !empty($shouldShowHomeNotification) && !empty($homeNotification) ? 'grid' : 'none' }};">
+        <div class="modal-box">
+            <h3>{{ $homeNotification->title ?? 'Notifikasi Baru' }}</h3>
+            <p>{{ $homeNotification->message ?? 'Anda memiliki notifikasi baru dari admin.' }}</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="closeNotificationModal">Tutup</button>
+                <button type="button" class="btn-primary" id="markNotificationReadButton">Saya Mengerti</button>
+            </div>
+        </div>
+    </div>
+
     <div id="logoutModal" class="modal-overlay">
         <div class="modal-box">
             <h3>Apa anda ingin keluar?</h3>
@@ -993,9 +1004,63 @@
             });
         }
 
+        const notificationModal = document.getElementById('notificationModal');
+        const closeNotificationModal = document.getElementById('closeNotificationModal');
+        const markNotificationReadButton = document.getElementById('markNotificationReadButton');
         const logoutButton = document.getElementById('logoutButton');
         const logoutModal = document.getElementById('logoutModal');
         const cancelModal = document.getElementById('cancelModal');
+        const csrfToken = '{{ csrf_token() }}';
+        const notificationId = @json($homeNotification->id ?? null);
+        const notificationReadUrl = notificationId ? '{{ route('notifications.markAsRead', ['id' => '__ID__']) }}'.replace('__ID__', notificationId) : null;
+
+        async function hideNotificationModal() {
+            if (notificationModal) {
+                notificationModal.style.display = 'none';
+            }
+        }
+
+        async function markNotificationAsRead() {
+            if (!notificationReadUrl) {
+                return hideNotificationModal();
+            }
+
+            try {
+                await fetch(notificationReadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+            } catch (error) {
+                console.warn('Gagal menandai notifikasi sebagai dibaca:', error);
+            }
+
+            return hideNotificationModal();
+        }
+
+        if (closeNotificationModal) {
+            closeNotificationModal.addEventListener('click', function() {
+                markNotificationAsRead();
+            });
+        }
+
+        if (markNotificationReadButton) {
+            markNotificationReadButton.addEventListener('click', function() {
+                markNotificationAsRead();
+            });
+        }
+
+        if (notificationModal) {
+            notificationModal.addEventListener('click', function(event) {
+                if (event.target === notificationModal) {
+                    markNotificationAsRead();
+                }
+            });
+        }
 
         if (logoutButton) {
             logoutButton.addEventListener('click', function(e) {

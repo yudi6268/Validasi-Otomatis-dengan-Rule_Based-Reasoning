@@ -18,6 +18,14 @@
                 @method('PUT')
                 
                 <div class="mb-3">
+                    <label for="kode_kegiatan" class="form-label">Kode Kegiatan <span class="text-danger">*</span></label>
+                    <input type="text" name="kode_kegiatan" id="kode_kegiatan" class="form-control @error('kode_kegiatan') is-invalid @enderror" placeholder="Contoh: KGT001" required value="{{ old('kode_kegiatan', $kegiatan['kode_kegiatan']) }}">
+                    @error('kode_kegiatan')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
                     <label for="nama_kegiatan" class="form-label">Nama Kegiatan <span class="text-danger">*</span></label>
                     <textarea name="nama_kegiatan" id="nama_kegiatan" class="form-control @error('nama_kegiatan') is-invalid @enderror" rows="3" required>{{ old('nama_kegiatan', $kegiatan['nama_kegiatan']) }}</textarea>
                     @error('nama_kegiatan')

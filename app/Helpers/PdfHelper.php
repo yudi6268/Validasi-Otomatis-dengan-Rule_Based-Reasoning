@@ -14,9 +14,9 @@ class PdfHelper
      * Generate PDF using Snappy (wkhtmltopdf)
      * Better for complex layouts & mixed orientation
      */
-    public static function generatePerjanjianSnappy(Perjanjian $perjanjian)
+    public static function generatePerjanjianSnappy(Perjanjian $perjanjian, $laporan = null)
     {
-        $viewData = self::prepareViewData($perjanjian);
+        $viewData = self::prepareViewData($perjanjian, $laporan);
         $viewData['for_pdf'] = true;
 
         // 1. Generate PORTRAIT part (Page 1-2)
@@ -93,7 +93,7 @@ class PdfHelper
      * @param Perjanjian $perjanjian
      * @return array
      */
-    private static function prepareViewData(Perjanjian $perjanjian)
+    private static function prepareViewData(Perjanjian $perjanjian, $laporan = null)
     {
         // Decode tabel data dari perjanjian model
         $rawTabelA = is_array($perjanjian->tabelA) ? $perjanjian->tabelA : json_decode($perjanjian->tabelA ?? '[]', true);
@@ -147,6 +147,29 @@ class PdfHelper
 
         $tanggalData = $perjanjian->agreement_date ?? $perjanjian->created_at;
         $tahun = \Carbon\Carbon::parse($tanggalData)->format('Y');
+
+        // Jika ada data Laporan (dari form yang baru disimpan), gunakan nilainya
+        // untuk menimpa bagian-bagian yang akan ditampilkan di PDF sehingga
+        // preview/download konsisten dengan input terbaru.
+        if ($laporan) {
+            try {
+                $lap = is_object($laporan) ? $laporan : (is_array($laporan) ? (object) $laporan : null);
+                if ($lap) {
+                    if (!empty($lap->bab_capaian)) $perjanjian->bab_capaian = $lap->bab_capaian;
+                    if (!empty($lap->bab_rencana)) $perjanjian->bab_rencana = $lap->bab_rencana;
+                    if (!empty($lap->kesimpulan)) $perjanjian->kesimpulan = $lap->kesimpulan;
+                    // Override realisasi triwulan jika tersedia
+                    for ($i = 1; $i <= 4; $i++) {
+                        $col = 'realisasi_tb' . $i;
+                        if (isset($lap->{$col}) && $lap->{$col} !== null) {
+                            $perjanjian->{$col} = $lap->{$col};
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore and continue with original perjanjian
+            }
+        }
 
         return [
             'perjanjian' => $perjanjian,

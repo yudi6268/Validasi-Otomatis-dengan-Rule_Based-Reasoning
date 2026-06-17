@@ -8,56 +8,42 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::table('perjanjians', function (Blueprint $table) {
+        if (!Schema::hasTable('perjanjians')) {
+            Schema::create('perjanjians', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->nullable();
+                $table->string('jabatan')->nullable();
+                $table->text('deskripsi')->nullable();
+                $table->text('indikator')->nullable();
+                $table->string('tahun')->nullable();
 
-            // Pihak 1 (dari profil user)
-            $table->string('pihak1_name')->nullable()->after('tahun');
-            $table->string('pihak1_jabatan')->nullable()->after('pihak1_name');
-            $table->longText('pihak1_ttd')->nullable()->after('pihak1_jabatan');
+                // Pihak 1 (dari profil user)
+                $table->string('pihak1_name')->nullable();
+                $table->string('pihak1_jabatan')->nullable();
+                $table->longText('pihak1_ttd')->nullable();
 
-            // Pihak 2 (input user)
-            $table->string('pihak2_name')->nullable()->after('pihak1_ttd');
-            $table->string('pihak2_jabatan')->nullable()->after('pihak2_name');
+                // Pihak 2 (input user)
+                $table->string('pihak2_name')->nullable();
+                $table->string('pihak2_jabatan')->nullable();
 
-            // Jabatan, Fungsi, Tugas
-            $table->string('jabatan_pelaksana')->nullable();
-            $table->text('tugas_pelaksana')->nullable();
-            $table->text('fungsi_pelaksana')->nullable();
+                // Jabatan, Fungsi, Tugas
+                $table->string('jabatan_pelaksana')->nullable();
+                $table->text('tugas_pelaksana')->nullable();
+                $table->text('fungsi_pelaksana')->nullable();
 
-            // Tabel A/B/C/D
-            $table->json('tabelA')->nullable()->after('jabatan');
-            $table->json('tabelB')->nullable();
-            $table->json('tabelC')->nullable();
-            $table->json('tabelD')->nullable();
-        });
+                // Tabel A/B/C/D
+                $table->json('tabelA')->nullable();
+                $table->json('tabelB')->nullable();
+                $table->json('tabelC')->nullable();
+                $table->json('tabelD')->nullable();
+
+                $table->timestamps();
+            });
+        }
     }
 
     public function down()
     {
-        $columns = [
-            'pihak1_name',
-            'pihak1_jabatan',
-            'pihak1_ttd',
-            'pihak2_name',
-            'pihak2_jabatan',
-           
-            'tabelA',
-            'tabelB',
-            'tabelC',
-            'tabelD',
-        ];
-
-        $toDrop = [];
-        foreach ($columns as $col) {
-            if (Schema::hasColumn('perjanjians', $col)) {
-                $toDrop[] = $col;
-            }
-        }
-
-        if (!empty($toDrop)) {
-            Schema::table('perjanjians', function (Blueprint $table) use ($toDrop) {
-                $table->dropColumn($toDrop);
-            });
-        }
+        Schema::dropIfExists('perjanjians');
     }
 };

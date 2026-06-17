@@ -14,7 +14,14 @@ class AdminSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create default admin user
+        // Create default admin user if not exists
+        $admin = User::where('email', 'admin@rsudbangil.com')->orWhere('role', 'admin')->first();
+
+        if ($admin) {
+            $this->command->info('✅ Admin sudah ada: ' . $admin->email . ' (role: ' . $admin->role . ')');
+            return;
+        }
+
         User::create([
             'id_pegawai' => 'ADM001',
             'nama' => 'Administrator',
@@ -24,6 +31,7 @@ class AdminSeeder extends Seeder
             'divisi' => 'IT',
             'email' => 'admin@rsudbangil.com',
             'role' => 'admin',
+            'status' => 'active',
             'password' => Hash::make('Admin123!'),
         ]);
 

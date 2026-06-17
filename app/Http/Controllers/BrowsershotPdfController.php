@@ -25,11 +25,19 @@ class BrowsershotPdfController extends Controller
    * @param int $id
    * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
    */
-  public function download($id): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+  public function download(Request $request, $id): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
   {
     try {
       $perjanjian = Perjanjian::findOrFail($id);
-      $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian);
+      $triwulan = $request->query('triwulan');
+      $laporan = null;
+      if ($triwulan) {
+        $laporan = \App\Models\Laporan::where('perjanjian_id', $perjanjian->id)
+          ->where('triwulan', $triwulan)
+          ->first();
+      }
+
+      $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian, $laporan);
       $fileName = PdfHelper::generateFilename($perjanjian);
 
       return response($pdfContent)
@@ -59,11 +67,19 @@ class BrowsershotPdfController extends Controller
    * @param int $id
    * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
    */
-  public function preview($id): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+  public function preview(Request $request, $id): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
   {
     try {
       $perjanjian = Perjanjian::findOrFail($id);
-      $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian);
+      $triwulan = $request->query('triwulan');
+      $laporan = null;
+      if ($triwulan) {
+        $laporan = \App\Models\Laporan::where('perjanjian_id', $perjanjian->id)
+          ->where('triwulan', $triwulan)
+          ->first();
+      }
+
+      $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian, $laporan);
       $fileName = PdfHelper::generateFilename($perjanjian);
 
       return response($pdfContent)
@@ -98,7 +114,15 @@ class BrowsershotPdfController extends Controller
   {
     try {
       $perjanjian = Perjanjian::findOrFail($id);
-      $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian);
+      $triwulan = $request->input('triwulan');
+      $laporan = null;
+      if ($triwulan) {
+        $laporan = \App\Models\Laporan::where('perjanjian_id', $perjanjian->id)
+          ->where('triwulan', $triwulan)
+          ->first();
+      }
+
+      $pdfContent = PdfHelper::generatePerjanjianSnappy($perjanjian, $laporan);
       $fileName = PdfHelper::generateFilename($perjanjian);
       
       $storage = $request->input('storage', 'local');
@@ -107,12 +131,24 @@ class BrowsershotPdfController extends Controller
         // Save to Supabase
         $folder = $request->input('folder', 'perjanjian-pdfs');
         $path = $folder . '/' . now('Asia/Jakarta')->format('Y/m') . '/' . $fileName;
-        
+        // Write to temp file then upload (SupabaseService expects a file path)
+        $tempDir = storage_path('app/temp/perjanjian-pdfs/' . now('Asia/Jakarta')->format('Y/m'));
+        if (!file_exists($tempDir)) {
+          @mkdir($tempDir, 0755, true);
+        }
+        $tempPath = $tempDir . '/' . $fileName;
+        file_put_contents($tempPath, $pdfContent);
+
         $result = app(\App\Services\SupabaseService::class)->uploadFile(
-          $pdfContent,
+          $tempPath,
           $fileName,
           $folder . '/' . now('Asia/Jakarta')->format('Y/m')
         );
+
+        // Clean up temp file
+        if (file_exists($tempPath)) {
+          @unlink($tempPath);
+        }
 
         if ($result['success']) {
           $perjanjian->update([

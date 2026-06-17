@@ -14,7 +14,7 @@
     .section-heading { font-size: 12pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
     .body-text { font-size: 12pt; text-align: justify; line-height: 1.15; text-indent: 2em; margin-bottom: 6pt; }
     .body-text-noindent { font-size: 12pt; text-align: justify; line-height: 1.15; margin-bottom: 4pt; }
-    .list-item { font-size: 12pt; padding-left: 2.5em; text-indent: -2.5em; margin-bottom: 3pt; line-height: 1.15; text-align: justify; word-break: break-word; }
+    .list-item { font-size: 12pt; padding-left: 2.8em; text-indent: -2.8em; margin-bottom: 4px; line-height: 1.35; text-align: justify; word-break: break-word; }
     .list-row { display:table; width:100%; margin-bottom:3pt; font-size:12pt; line-height:1.15; }
     .list-row .list-num { display:table-cell; width:2.2em; vertical-align:top; white-space:nowrap; }
     .list-row .list-text { display:table-cell; text-align:justify; vertical-align:top; word-break:break-word; overflow-wrap:break-word; }
@@ -100,8 +100,43 @@
   $relByKey = [];
   foreach ($relRows as $r) { $relByKey[$r['row'] ?? ''] = $r; }
 
+  $normalizeNumber = function($v) {
+    if ($v === null || $v === '') return null;
+    if (is_numeric($v)) return floatval($v);
+    $s = (string)$v;
+    // remove spaces and dot thousand separators, convert comma decimal to dot
+    $s = preg_replace('/[\s\.]/', '', $s);
+    $s = str_replace(',', '.', $s);
+    return is_numeric($s) ? floatval($s) : null;
+  };
+
   $fmt  = fn($v) => is_numeric($v) ? number_format((float)$v, 0, ',', '.') : ($v ?? '-');
   $fmt2 = fn($v) => is_numeric($v) ? number_format((float)$v, 2, ',', '.') : ($v ?? '-');
+  $fmtTarget = function($v) use ($fmt) {
+    if ($v === null || $v === '') {
+      return '-';
+    }
+    if (is_numeric($v)) {
+      return $fmt($v);
+    }
+    $s = trim((string)$v);
+    if (preg_match('/^(?<int>[0-9]{1,3}(?:[\.\s][0-9]{3})*|[0-9]+)(?:[\.,](?<dec>[0-9]+))?$/', $s, $m)) {
+      $integer = str_replace(['.', ' '], '', $m['int']);
+      $formattedInt = number_format((int)$integer, 0, ',', '.');
+      if (!empty($m['dec'])) {
+        $dec = $m['dec'];
+        if (strlen($dec) === 1) {
+          $dec .= '0';
+        } elseif (strlen($dec) > 2) {
+          $dec = substr($dec, 0, 2);
+        }
+        return $formattedInt . ',' . $dec;
+      }
+      return $formattedInt;
+    }
+    return $fmt($s);
+  };
+  $fmtPct = fn($v) => is_numeric($v) ? number_format((float)$v, 2, ',', '.') : ($v ?? '-');
 
   $pihak1Sig  = $laporan->pihak1_signature
     ?: ($perjanjian->pihak1_ttd
@@ -151,7 +186,7 @@
   };
 
   // Extract text/followup from current triwulan's realisasi data
-  $babCapaianText = $realisasiData['text']    ?? $laporan->bab_kendala ?? $laporan->bab_capaian ?? '';
+  $babCapaianText = $realisasiData['text']    ?? $laporan->bab_capaian ?? $laporan->bab_kendala ?? '';
   $babRencanaText = $realisasiData['followup'] ?? $laporan->bab_rencana ?? '';
 
   $location  = $perjanjian->location ?? 'Pasuruan';
@@ -194,27 +229,55 @@
   ];
   $tanggapanVal = $laporan->tanggapan_pimpinan ?? '';
 
+  // Calculate actual performance percentages EARLY so we can use them for section E
+  $capValues = [];
+  foreach ($sasar as $i => $s) {
+    $tgt = $twTgt[$i] ?? null;
+    $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
+    if ($rel !== null && is_numeric($tgt) && floatval($tgt) > 0)
+      $capValues[] = round(floatval($rel) / floatval($tgt) * 100, 2);
+    elseif ($rel !== null)
+      $capValues[] = 100;
+  }
+  $avgCap = count($capValues) > 0 ? round(array_sum($capValues) / count($capValues), 2) : null;
+  
+  // Calculate anggaran percentage from sub-kegiatan only
+  $totTgt = 0;
+  $totRel = 0;
+  foreach ($programs as $prog) {
+    foreach ($prog['kegiatan'] ?? [] as $kg) {
+      foreach ($kg['subKegiatan'] ?? [] as $sub) {
+        $sNo = $sub['no'] ?? '';
+        $sTgt = $normalizeNumber($sub[$twKey] ?? null) ?? 0;
+        $sRel = $normalizeNumber($relByKey['anggaran-'.$sNo]['realisasi'] ?? null) ?? 0;
+        $totTgt += $sTgt;
+        $totRel += $sRel;
+      }
+    }
+  }
+  $avgAng = $totTgt > 0 ? round($totRel / $totTgt * 100, 2) : null;
+  $composite = ($avgCap !== null && $avgAng !== null) ? round(($avgCap + $avgAng) / 2, 2) : $avgCap;
+  
+  // Determine performance category (use composite if available, otherwise use kinerja average)
+  $performanceForCategory = $composite ?? $avgCap;
+  $performanceCategoryText = $performanceForCategory === null ? 'Belum Terukur' 
+    : ($performanceForCategory >= 91 ? 'Sangat Tinggi' 
+      : ($performanceForCategory >= 76 ? 'Tinggi' 
+        : ($performanceForCategory >= 66 ? 'Sedang' 
+          : ($performanceForCategory >= 51 ? 'Rendah' : 'Sangat Rendah'))));
+
   $validationResult = $laporan->getValidationResult($tw);
   $validationScore = $validationResult['score'] ?? null;
   $validationIssues = $validationResult['issues'] ?? 0;
   $validationWarnings = $validationResult['warnings'] ?? 0;
   $validationSuggestions = $validationResult['suggestions'] ?? 0;
   $validationSummaryText = '';
+
   if ($validationResult) {
-      // Tentukan kategori capaian berdasarkan skor
-      $capCategory = $validationScore !== null
-          ? ($validationScore >= 90 ? 'Sangat Baik' : ($validationScore >= 75 ? 'Baik' : ($validationScore >= 60 ? 'Cukup' : 'Kurang')))
-          : 'Tidak Tersedia';
-
-      // Bangun narasi singkat
+      $compositeScoreText = is_numeric($composite) ? $fmtPct($composite) : ($avgCap !== null ? $fmtPct($avgCap) : '-');
       $narrativeParts = [];
+      $narrativeParts[] = "Laporan kinerja Triwulan {$twName} menunjukkan capaian dengan kategori <strong>{$performanceCategoryText}</strong> (skor {$compositeScoreText}%).";
       
-      // Bagian 1: Hasil capaian
-      if ($validationScore !== null) {
-          $narrativeParts[] = "Laporan kinerja Triwulan {$twName} menunjukkan capaian dengan kategori <strong>{$capCategory}</strong> (skor {$validationScore}%).";
-      }
-
-      // Bagian 2: Kondisi temuan
       $findings = [];
       if ($validationIssues > 0) {
           $findings[] = "{$validationIssues} masalah";
@@ -233,7 +296,6 @@
           $narrativeParts[] = "Tidak ada temuan kritis pada laporan.";
       }
 
-      // Bagian 3: Rekomendasi otomatis
       $recommendation = '';
       if ($validationIssues > 0) {
           $recommendation = "Direkomendasikan untuk diperbaiki sesuai temuan masalah sebelum disetujui.";
@@ -242,13 +304,12 @@
       } else {
           $recommendation = "Direkomendasikan untuk disetujui tanpa perbaikan tambahan.";
       }
-      
-      if ($validationScore !== null && $validationScore >= 75) {
+
+      if ($performanceForCategory !== null && $performanceForCategory >= 76) {
           $recommendation .= " Capaian kinerja sudah memenuhi target yang ditetapkan.";
       }
       
       $narrativeParts[] = $recommendation;
-
       $validationSummaryText = implode(' ', $narrativeParts);
   }
 ?>
@@ -271,14 +332,44 @@
       if (is_array($val)) return array_values(array_filter($val, 'strlen'));
       $decoded = json_decode($val, true);
       if (is_array($decoded)) return array_values(array_filter($decoded, 'strlen'));
-      return array_values(array_filter(preg_split('/\r\n|\r|\n/', trim($val)), 'strlen'));
+      $str = trim((string)$val);
+      $parts = preg_split('/\r\n|\r|\n|;/u', $str);
+      return array_values(array_filter(array_map('trim', $parts), 'strlen'));
+    };
+    // Helper: parse fungsi which may be comma-separated, semicolon-separated, or have 'dan' between items
+    $parseFungsi = function($val) use ($toItems) {
+      if (!$val) return [];
+      if (is_array($val)) return array_values(array_filter($val, 'strlen'));
+      $decoded = json_decode($val, true);
+      if (is_array($decoded)) return array_values(array_filter($decoded, 'strlen'));
+      
+      $str = trim((string)$val);
+      $parts = array_filter(preg_split('/\r\n|\r|\n|;/u', $str), 'strlen');
+      if (count($parts) > 1) {
+        return array_values(array_map('trim', $parts));
+      }
+      
+      $str = preg_replace('/\s+dan\s+/u', ', ', $str);
+      $items = preg_split('/[,;]/u', $str);
+      return array_values(array_filter(array_map('trim', $items), 'strlen'));
     };
     // Use ?: so empty strings fall through to the next source
     $fungsiRaw    = $perjanjian->fungsi_pelaksana ?: ($perjanjian->user->fungsi ?? '');
     $tugasRaw     = $perjanjian->tugas_pelaksana  ?: ($perjanjian->user->tugas  ?? '');
     $membawahiRaw = $perjanjian->user->membawahi ?? '';
+    
+    $normalizeItem = function($item) {
+      if ($item === null) {
+        return '';
+      }
+      $item = trim(preg_replace('/[\r\n]+/', ' ', (string)$item));
+      // Reduce repeated punctuation at end to a single char (preserve one semicolon/period/comma/colon)
+      $item = preg_replace('/([\.;,:]){2,}$/u', '$1', $item);
+      $item = preg_replace('/\s{2,}/u', ' ', $item);
+      return trim($item);
+    };
     // Fallback: look up Jabatan model using multiple name candidates + LIKE
-    if (!$fungsiRaw || !$tugasRaw) {
+    if (!$fungsiRaw || !$tugasRaw || !$membawahiRaw) {
       $jabatanCandidates = array_values(array_filter(array_unique([
         $jabatan1,
         $perjanjian->jabatan_pelaksana ?? '',
@@ -292,30 +383,65 @@
         if ($jabatanModel) break;
       }
       if ($jabatanModel) {
-        if (!$fungsiRaw) $fungsiRaw = $jabatanModel->fungsi; // already decoded array by model cast
+        if (!$fungsiRaw) $fungsiRaw = $jabatanModel->fungsi;
         if (!$tugasRaw)  $tugasRaw  = $jabatanModel->tugas ?? '';
+        if (!$membawahiRaw) $membawahiRaw = $jabatanModel->membawahi ?? '';
       }
     }
-    $fungsiItems    = $toItems($fungsiRaw);
-    $tugasItems     = $toItems($tugasRaw);
-    $membawahiItems = $toItems($membawahiRaw);
+    
+    // Parse tugas and membawahi as arrays
+    $tugasItems     = array_values(array_filter(array_map($normalizeItem, $toItems($tugasRaw)), 'strlen'));
+    $membawahiItems = array_values(array_filter(array_map($normalizeItem, $toItems($membawahiRaw)), 'strlen'));
+
+    // For fungsi: keep as-is if it's a complete sentence (long text)
+    // Otherwise parse as array
+    if (is_string($fungsiRaw) && strlen($fungsiRaw) > 80) {
+      $fungsiSentence = $normalizeItem($fungsiRaw);
+    } else {
+      $fungsiArray = $parseFungsi($fungsiRaw);
+      $fungsiArray = array_map(function($f) {
+        $f = trim((string)$f);
+        $f = preg_replace('/\s*[;,]\s*dan\s*$/iu', '', $f);
+        $f = preg_replace('/\s+dan\s*$/iu', '', $f);
+        $f = preg_replace('/[\.;,:]+$/u', '', trim($f));
+        return trim($f);
+      }, $fungsiArray);
+      $fungsiArray = array_values(array_filter($fungsiArray, 'strlen'));
+      if (count($fungsiArray) > 1) {
+        $last = array_pop($fungsiArray);
+        $fungsiSentence = implode(', ', $fungsiArray) . ' dan ' . $last;
+      } else {
+        $fungsiSentence = $fungsiArray[0] ?? $normalizeItem($fungsiRaw);
+      }
+    }
   ?>
   <?php if(!empty($laporan->bab_pelaksanaan)): ?>
     <div class="body-text"><?php echo nl2br(e($laporan->bab_pelaksanaan)); ?></div>
-  <?php elseif(!empty($fungsiItems)): ?>
+  <?php elseif(!empty($fungsiSentence)): ?>
     
-    <?php $fungsiSentence = implode(', ', array_map('trim', $fungsiItems)); ?>
     <p class="body-text"><strong><?php echo e($jabatan1); ?></strong> mempunyai fungsi <?php echo e($fungsiSentence); ?></p>
     <?php if(!empty($tugasItems)): ?>
       <p class="body-text-noindent">Untuk melaksanakan fungsinya, <strong><?php echo e($jabatan1); ?></strong> mempunyai tugas yaitu :</p>
       <?php $__currentLoopData = $tugasItems; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $i => $tugas): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-        <p class="list-item"><?php echo e(chr(97+$i)); ?>.&nbsp;&nbsp;<?php echo e(trim($tugas)); ?></p>
+        <?php
+          $t = trim($tugas);
+          if (!preg_match('/[;.]$/', $t)) {
+            $t = $t . ';';
+          }
+        ?>
+        <p class="list-item"><?php echo e($i + 1); ?>).&nbsp;&nbsp;<?php echo e($t); ?></p>
       <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
     <?php endif; ?>
     <?php if(!empty($membawahiItems)): ?>
       <p class="body-text-noindent"><strong><?php echo e($jabatan1); ?></strong> membawahi :</p>
       <?php $__currentLoopData = $membawahiItems; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $i => $unit): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-        <p class="list-item"><?php echo e(chr(97+$i)); ?>.&nbsp;&nbsp;<?php echo e(trim($unit)); ?></p>
+        <?php
+          $u = trim($unit);
+          if (!preg_match('/[;.]$/', $u)) {
+            $u = $u . ';';
+          }
+        ?>
+        <p class="list-item"><?php echo e($i + 1); ?>).&nbsp;&nbsp;<?php echo e($u); ?></p>
       <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
     <?php endif; ?>
   <?php else: ?>
@@ -429,18 +555,26 @@
       </thead>
       <tbody>
         <?php $__currentLoopData = $sasar; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $i => $s): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-          <?php
-            $tgt = $twTgt[$i] ?? '-';
-            $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
-            $cap = ($rel !== null && is_numeric($tgt) && floatval($tgt) > 0)
-              ? round(floatval($rel) / floatval($tgt) * 100, 0) : ($rel !== null ? 100 : '-');
+            <?php
+            $tgtRaw = $twTgt[$i] ?? null;
+            $tgtNum = $normalizeNumber($tgtRaw);
+            $relRaw = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
+            $relNum = $normalizeNumber($relRaw);
+            // Use stored pct if available, otherwise recalculate for backward compatibility
+            $cap = $relByKey['kinerja-'.$i]['pct'] ?? null;
+            if ($cap === null) {
+              $cap = '-';
+              if ($relNum !== null && $tgtNum !== null && $tgtNum > 0) {
+                $cap = round($relNum / $tgtNum * 100, 2);
+              }
+            }
           ?>
           <tr>
             <td class="center"><?php echo e($i + 1); ?></td>
             <td><?php echo e($s); ?></td>
             <td><?php echo e($indik[$i] ?? '-'); ?></td>
-            <td class="center"><?php echo e(is_numeric($tgt) ? $fmt($tgt) : $tgt); ?></td>
-            <td class="center"><?php echo e($rel !== null ? $fmt2($rel) : '-'); ?></td>
+            <td class="center"><?php echo e($tgtRaw !== null ? $fmtTarget($tgtRaw) : '-'); ?></td>
+            <td class="center"><?php echo e($relNum !== null ? $fmt2($relNum) : ($relRaw !== null ? $fmt2($relRaw) : '-')); ?></td>
             <td class="center"><?php echo e($cap !== '-' ? $cap : '-'); ?></td>
             <td></td>
           </tr>
@@ -461,32 +595,63 @@
         <tr><th style="width:16%;">Target</th><th style="width:16%;">Realisasi</th><th style="width:11%;">%</th></tr>
       </thead>
       <tbody>
-        <?php $totTgt=0; $totRel=0; ?>
+        <?php 
+          // Calculate totals from sub-kegiatan only (not program/kegiatan)
+          $totTgt = 0; 
+          $totRel = 0;
+          // First pass: collect sub-kegiatan totals
+          foreach($programs as $prog) {
+            foreach($prog['kegiatan']??[] as $kg) {
+              foreach($kg['subKegiatan']??[] as $sub) {
+                $sNo = $sub['no'] ?? '';
+                $sTgt = $normalizeNumber($sub[$twKey] ?? null) ?? 0;
+                $sRel = $normalizeNumber($relByKey['anggaran-'.$sNo]['realisasi'] ?? null) ?? 0;
+                $totTgt += $sTgt;
+                $totRel += $sRel;
+              }
+            }
+          }
+        ?>
         <?php $__currentLoopData = $programs; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $prog): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
           <?php
-            $pNo=$prog['no']??''; $pTgt=floatval($prog[$twKey]??0);
-            $pRel=floatval($relByKey['anggaran-'.$pNo]['realisasi']??0);
-            $totTgt+=$pTgt; $totRel+=$pRel;
-            $pPct=$pTgt>0?round($pRel/$pTgt*100,2):'-';
+            $pNo = $prog['no'] ?? '';
+            $pTgt = $normalizeNumber($prog[$twKey] ?? null) ?? 0;
+            $pRel = $normalizeNumber($relByKey['anggaran-'.$pNo]['realisasi'] ?? null) ?? 0;
+            // Use stored pct if available, otherwise recalculate for backward compatibility
+            $pPct = $relByKey['anggaran-'.$pNo]['pct'] ?? ($pTgt > 0 ? round($pRel / $pTgt * 100, 2) : '-');
             $pKet2 = $resolveProgKet($prog);
           ?>
           <tr>
             <td class="center bold"><?php echo e($pNo); ?></td><td class="bold"><?php echo e($prog['name']??'-'); ?></td>
-            <td class="right"><?php echo e($pTgt>0?$fmt($pTgt):'-'); ?></td>
-            <td class="right"><?php echo e($fmt($pRel)); ?></td>
-            <td class="center"><?php echo e($pPct!=='-'?$pPct:'-'); ?></td><td class="center"><?php echo e($pKet2); ?></td>
+            <td class="right"><?php echo e($prog[$twKey] ?? null ? $fmtTarget($prog[$twKey]) : '-'); ?></td>
+            <td class="right"><?php echo e($fmt2($pRel)); ?></td>
+            <td class="center"><?php echo e($pPct !== '-' ? $pPct : '-'); ?></td><td class="center"><?php echo e($pKet2); ?></td>
           </tr>
           <?php $__currentLoopData = $prog['kegiatan']??[]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $kg): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-            <?php $kNo=$kg['no']??''; $kTgt=floatval($kg[$twKey]??0); $kRel=floatval($relByKey['anggaran-'.$kNo]['realisasi']??0); $kPct=$kTgt>0?round($kRel/$kTgt*100,2):'-'; $kKet2=$resolveKgKet($kg); ?>
-            <tr><td class="center"><?php echo e($kNo); ?></td><td class="indent"><?php echo e($kg['name']??'-'); ?></td><td class="right"><?php echo e($kTgt>0?$fmt($kTgt):'-'); ?></td><td class="right"><?php echo e($fmt($kRel)); ?></td><td class="center"><?php echo e($kPct!=='-'?$kPct:'-'); ?></td><td class="center"><?php echo e($kKet2); ?></td></tr>
+            <?php
+              $kNo = $kg['no'] ?? '';
+              $kTgt = $normalizeNumber($kg[$twKey] ?? null) ?? 0;
+              $kRel = $normalizeNumber($relByKey['anggaran-'.$kNo]['realisasi'] ?? null) ?? 0;
+              // Use stored pct if available, otherwise recalculate for backward compatibility
+              $kPct = $relByKey['anggaran-'.$kNo]['pct'] ?? ($kTgt > 0 ? round($kRel / $kTgt * 100, 2) : '-');
+              $kKet2 = $resolveKgKet($kg);
+            ?>
+            <tr><td class="center"><?php echo e($kNo); ?></td><td class="indent"><?php echo e($kg['name']??'-'); ?></td><td class="right"><?php echo e(($kg[$twKey] ?? null) !== null ? $fmtTarget($kg[$twKey]) : '-'); ?></td><td class="right"><?php echo e($fmt2($kRel)); ?></td><td class="center"><?php echo e($kPct!=='-'?$kPct:'-'); ?></td><td class="center"><?php echo e($kKet2); ?></td></tr>
             <?php $__currentLoopData = $kg['subKegiatan']??[]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sub): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-              <?php $sNo=$sub['no']??''; $sTgt=floatval($sub[$twKey]??0); $sRel=floatval($relByKey['anggaran-'.$sNo]['realisasi']??0); $sPct=$sTgt>0?round($sRel/$sTgt*100,2):'-'; $sKet2=$resolveSubKet($sub); ?>
-              <tr><td class="center"><?php echo e($sNo); ?></td><td class="indent2"><?php echo e($sub['name']??'-'); ?></td><td class="right"><?php echo e($sTgt>0?$fmt($sTgt):'-'); ?></td><td class="right"><?php echo e($fmt($sRel)); ?></td><td class="center"><?php echo e($sPct!=='-'?$sPct:'-'); ?></td><td class="center"><?php echo e($sKet2); ?></td></tr>
+              <?php
+                $sNo = $sub['no'] ?? '';
+                $sTgt = $normalizeNumber($sub[$twKey] ?? null) ?? 0;
+                $sRel = $normalizeNumber($relByKey['anggaran-'.$sNo]['realisasi'] ?? null) ?? 0;
+                // Use stored pct if available, otherwise recalculate for backward compatibility
+                $sPct = $relByKey['anggaran-'.$sNo]['pct'] ?? ($sTgt > 0 ? round($sRel / $sTgt * 100, 2) : '-');
+                $sKet2 = $resolveSubKet($sub);
+              ?>
+              <tr><td class="center"><?php echo e($sNo); ?></td><td class="indent2"><?php echo e($sub['name']??'-'); ?></td><td class="right"><?php echo e(($sub[$twKey] ?? null) !== null ? $fmtTarget($sub[$twKey]) : '-'); ?></td><td class="right"><?php echo e($fmt2($sRel)); ?></td><td class="center"><?php echo e($sPct!=='-'?$sPct:'-'); ?></td><td class="center"><?php echo e($sKet2); ?></td></tr>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
           <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         <?php if($totTgt>0||$totRel>0): ?>
-          <tr><td colspan="2" class="center bold">JUMLAH</td><td class="right bold"><?php echo e($fmt($totTgt)); ?></td><td class="right bold"><?php echo e($fmt($totRel)); ?></td><td class="center bold"><?php echo e($totTgt>0?round($totRel/$totTgt*100,2):'-'); ?></td><td></td></tr>
+          <tr><td colspan="2" class="center bold">JUMLAH</td><td class="right bold"><?php echo e($fmt($totTgt)); ?></td><td class="right bold"><?php echo e($fmt($totRel)); ?></td><td class="center bold"><?php echo e($totTgt>0 ? round($totRel/$totTgt*100,2) : '-'); ?></td><td></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
@@ -565,18 +730,25 @@
   <div class="bab-subtitle">PENUTUP</div>
 
   <?php
-    // Hitung rata-rata capaian kinerja untuk penutup
+    // Hitung rata-rata capaian kinerja untuk penutup - gunakan stored pct jika ada
     $capValues = [];
     foreach ($sasar as $i => $s) {
-      $tgt = $twTgt[$i] ?? null;
-      $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
-      if ($rel !== null && is_numeric($tgt) && floatval($tgt) > 0)
-        $capValues[] = round(floatval($rel) / floatval($tgt) * 100, 0);
-      elseif ($rel !== null)
-        $capValues[] = 100;
+      // Use stored pct if available
+      $pct = $relByKey['kinerja-'.$i]['pct'] ?? null;
+      if ($pct !== null) {
+        $capValues[] = $pct;
+      } else {
+        // Fallback: recalculate for backward compatibility
+        $tgt = $twTgt[$i] ?? null;
+        $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
+        if ($rel !== null && is_numeric($tgt) && floatval($tgt) > 0)
+          $capValues[] = round(floatval($rel) / floatval($tgt) * 100, 2);
+        elseif ($rel !== null)
+          $capValues[] = 100;
+      }
     }
-    $avgCap = count($capValues) > 0 ? round(array_sum($capValues) / count($capValues), 0) : null;
-    $capKategori = $avgCap === null ? '' : ($avgCap >= 90 ? 'Sangat Baik' : ($avgCap >= 75 ? 'Baik' : ($avgCap >= 60 ? 'Cukup' : 'Kurang')));
+    $avgCap = count($capValues) > 0 ? round(array_sum($capValues) / count($capValues), 2) : null;
+    $capKategori = $avgCap === null ? '' : ($avgCap >= 91 ? 'Sangat Tinggi' : ($avgCap >= 76 ? 'Tinggi' : ($avgCap >= 66 ? 'Sedang' : ($avgCap >= 51 ? 'Rendah' : 'Sangat Rendah'))));
   ?>
   <?php
     $kesimpulanText = trim($laporan->kesimpulan ?? '');
@@ -595,28 +767,20 @@
     <?php endif; ?>
   <?php else: ?>
     <?php
-      // Fallback: generate composite-based penutup text (matches JS formula)
-      $totTgtFb = 0; $totRelFb = 0;
-      foreach ($programs as $prog) {
-        $pNoFb = $prog['no'] ?? '';
-        $totTgtFb += floatval($prog[$twKey] ?? 0);
-        $totRelFb += floatval($relByKey['anggaran-'.$pNoFb]['realisasi'] ?? 0);
-      }
-      $avgAngFb  = $totTgtFb > 0 ? round($totRelFb / $totTgtFb * 100, 0) : null;
-      $composite = ($avgCap !== null && $avgAngFb !== null) ? round(($avgCap + $avgAngFb) / 2, 0) : $avgCap;
-      $compKat   = $composite === null ? '' : ($composite >= 90 ? 'Sangat Baik' : ($composite >= 75 ? 'Baik' : ($composite >= 60 ? 'Cukup' : 'Kurang')));
+      $persentase = $composite ?? $avgCap;
+      $compKat = $performanceForCategory !== null ? $performanceCategoryText : $capKategori;
       $twTextArr = [1=>'pertama',2=>'kedua',3=>'ketiga',4=>'keempat'];
       $twTxt     = $twTextArr[$tw] ?? (string)$tw;
-      $arahFb    = $composite === null ? '' : ($composite >= 90
+      $arahFb    = $persentase === null ? '' : ($persentase >= 91
         ? 'upaya tindak lanjut diarahkan untuk menjaga konsistensi mutu, memperluas praktik baik, dan memastikan keberlanjutan kinerja unggul.'
-        : ($composite >= 75
+        : ($persentase >= 76
             ? 'upaya tindak lanjut diarahkan untuk menutup celah minor pada indikator tertentu serta memperkuat pengendalian pelaksanaan.'
-            : 'upaya tindak lanjut diarahkan pada akselerasi kinerja melalui penajaman prioritas, penguatan koordinasi, dan monitoring lebih intensif.'));
+            : ($persentase >= 51
+              ? 'upaya tindak lanjut diarahkan pada akselerasi kinerja melalui penajaman prioritas, penguatan koordinasi, dan monitoring lebih intensif.'
+              : 'upaya tindak lanjut diarahkan pada langkah korektif terstruktur, penataan strategi pelaksanaan, serta peningkatan disiplin monitoring dan evaluasi.')));
+      $persentaseFormatted = $fmtPct($persentase);
     ?>
-    <p class="body-text">Berdasarkan hasil pengukuran kinerja Triwulan <?php echo e($twName); ?> (<?php echo e($twTxt); ?>) Tahun <?php echo e($tahun); ?> pada jabatan <?php echo e($jabatan1); ?>, capaian komposit indikator kinerja dan anggaran mencapai <strong><?php echo e($composite ?? $avgCap ?? '-'); ?>%</strong> dengan predikat <strong><?php echo e($compKat ?: $capKategori); ?></strong>. Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.</p>
-    <?php if($arahFb): ?>
-    <p class="body-text">Dengan demikian, <?php echo e($arahFb); ?> Pelaksanaan rencana perbaikan diharapkan mampu meningkatkan kualitas capaian pada periode berikutnya secara konsisten, akuntabel, dan berorientasi hasil.</p>
-    <?php endif; ?>
+    <p class="body-text">Berdasarkan hasil pengukuran kinerja Triwulan <?php echo e($twName); ?> (<?php echo e($twTxt); ?>) Tahun <?php echo e($tahun); ?> pada jabatan <?php echo e($jabatan1); ?>, capaian komposit indikator kinerja dan anggaran mencapai <strong><?php echo e($persentaseFormatted); ?>%</strong> dengan predikat <strong><?php echo e($compKat); ?></strong>. Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.</p>
   <?php endif; ?>
 
   <div class="sig-section">

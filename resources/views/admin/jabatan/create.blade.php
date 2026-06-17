@@ -7,32 +7,60 @@
 <div class="row">
     <div class="col-md-8">
         <div class="data-table">
-            @if(session('success'))
-                <div class="alert alert-success d-flex align-items-center justify-content-between">
-                    <div><i class="fas fa-check-circle me-2"></i> {{ session('success') }}</div>
+
+            @if($errors->any())
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i> 
+                    <strong>Gagal Validasi:</strong>
+                    <ul class="mb-0 mt-2">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
                 </div>
             @endif
             <form id="jabatanForm" method="POST" action="{{ route('admin.jabatan.store') }}" autocomplete="off">
                 @csrf
                 <div class="mb-3">
                     <label class="form-label">Nama Jabatan <span class="text-danger">*</span></label>
-                    <input type="text" name="nama_jabatan" class="form-control" placeholder="Contoh: Direktur" required @if(session('success')) disabled @endif>
+                    <input type="text" name="nama_jabatan" class="form-control" placeholder="Contoh: Direktur" value="{{ old('nama_jabatan') }}" required @if(session('success')) disabled @endif>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Tugas</label>
-                    <textarea name="tugas" class="form-control" placeholder="Deskripsi tugas jabatan ini..." rows="3" @if(session('success')) disabled @endif></textarea>
+                    <textarea name="tugas" class="form-control" placeholder="Deskripsi tugas jabatan ini..." rows="3" @if(session('success')) disabled @endif>{{ old('tugas') }}</textarea>
                 </div>
                 <label class="form-label">Fungsi</label>
                 <div id="fungsiList">
-                    <div class="input-group mb-2 fungsi-item">
-                        <span class="input-group-text">1.</span>
-                        <input type="text" name="fungsi[]" class="form-control" placeholder="Fungsi jabatan..." @if(session('success')) disabled @endif>
-                        <button type="button" class="btn btn-danger d-none remove-fungsi" tabindex="-1"><i class="fas fa-times"></i></button>
-                    </div>
+                    @php
+                        $fungsiOld = old('fungsi', ['']);
+                    @endphp
+                    @foreach($fungsiOld as $index => $fungsi)
+                        <div class="input-group mb-2 fungsi-item">
+                            <span class="input-group-text">{{ $index + 1 }}.</span>
+                            <input type="text" name="fungsi[]" class="form-control" placeholder="Fungsi jabatan..." value="{{ $fungsi }}" @if(session('success')) disabled @endif>
+                            <button type="button" class="btn btn-danger {{ $index === 0 ? 'd-none' : '' }} remove-fungsi" tabindex="-1"><i class="fas fa-times"></i></button>
+                        </div>
+                    @endforeach
                 </div>
                 <button type="button" id="addFungsi" class="btn btn-success mb-3"><i class="fas fa-plus"></i> Tambah Fungsi</button>
+                <br>
+                <label class="form-label">Membawahi</label>
+                <div id="membawahiList">
+                    @php
+                        $membawahiOld = old('membawahi', ['']);
+                    @endphp
+                    @foreach($membawahiOld as $index => $unit)
+                        <div class="input-group mb-2 membawahi-item">
+                            <span class="input-group-text">{{ $index + 1 }}.</span>
+                            <input type="text" name="membawahi[]" class="form-control" placeholder="Unit atau jabatan yang dibawahi..." value="{{ $unit }}" @if(session('success')) disabled @endif>
+                            <button type="button" class="btn btn-danger {{ $index === 0 ? 'd-none' : '' }} remove-membawahi" tabindex="-1"><i class="fas fa-times"></i></button>
+                        </div>
+                    @endforeach
+                </div>
+                <button type="button" id="addMembawahi" class="btn btn-success mb-3"><i class="fas fa-plus"></i> Tambah Membawahi</button>
+                <div class="form-text mb-3 text-muted">Jika tidak diisi, informasi membawahi tidak akan ditampilkan di Laporan Kinerja.</div>
                 <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" name="is_active" value="1" id="isActive" checked @if(session('success')) disabled @endif>
+                    <input class="form-check-input" type="checkbox" name="is_active" value="1" id="isActive" {{ old('is_active', '1') == '1' ? 'checked' : '' }} @if(session('success')) disabled @endif>
                     <label class="form-check-label" for="isActive">Jabatan Aktif</label>
                 </div>
                 <div class="mb-2 text-muted" style="font-size:0.95em;">Jabatan yang tidak aktif tidak akan muncul dalam dropdown pilihan.</div>
@@ -59,6 +87,7 @@
                     <li><b>Nama Jabatan:</b> Nama resmi posisi/jabatan</li>
                     <li><b>Tugas:</b> Uraian tugas yang harus dikerjakan</li>
                     <li><b>Fungsi:</b> Fungsi dan tanggung jawab jabatan</li>
+                    <li><b>Membawahi:</b> Unit, tim, atau jabatan yang berada di bawah pengawasan</li>
                 </ul>
                 <hr class="my-2">
                 <span class="text-muted"><b>Tips:</b> Nama jabatan harus unik dan konsisten dengan struktur organisasi.</span>
@@ -70,44 +99,48 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    let fungsiList = document.getElementById('fungsiList');
-    let addFungsiBtn = document.getElementById('addFungsi');
-    function updateFungsiNumbers() {
-        let items = fungsiList.querySelectorAll('.fungsi-item');
-        items.forEach((item, idx) => {
-            item.querySelector('.input-group-text').textContent = (idx + 1) + '.';
-            let removeBtn = item.querySelector('.remove-fungsi');
-            if (idx === 0) {
-                removeBtn.classList.add('d-none');
-            } else {
-                removeBtn.classList.remove('d-none');
+    function createListHandler(listId, addButtonId, itemClass, removeClass, placeholder) {
+        const list = document.getElementById(listId);
+        const addBtn = document.getElementById(addButtonId);
+        if (!list || !addBtn) return;
+
+        function updateNumbers() {
+            const items = list.querySelectorAll('.' + itemClass);
+            items.forEach((item, idx) => {
+                item.querySelector('.input-group-text').textContent = (idx + 1) + '.';
+                const removeBtn = item.querySelector('.' + removeClass);
+                if (idx === 0) {
+                    removeBtn.classList.add('d-none');
+                } else {
+                    removeBtn.classList.remove('d-none');
+                }
+            });
+        }
+
+        addBtn.addEventListener('click', function() {
+            const count = list.querySelectorAll('.' + itemClass).length;
+            const div = document.createElement('div');
+            div.className = 'input-group mb-2 ' + itemClass;
+            div.innerHTML = `<span class="input-group-text">${count+1}.</span>
+                <input type="text" name="${itemClass.replace('-item', '')}[]" class="form-control" placeholder="${placeholder}">
+                <button type="button" class="btn btn-danger ${removeClass}" tabindex="-1"><i class="fas fa-times"></i></button>`;
+            list.appendChild(div);
+            updateNumbers();
+        });
+
+        list.addEventListener('click', function(e) {
+            if (e.target.closest('.' + removeClass)) {
+                const item = e.target.closest('.' + itemClass);
+                item.remove();
+                updateNumbers();
             }
         });
+
+        updateNumbers();
     }
-    addFungsiBtn.addEventListener('click', function() {
-        let count = fungsiList.querySelectorAll('.fungsi-item').length;
-        let div = document.createElement('div');
-        div.className = 'input-group mb-2 fungsi-item';
-        div.innerHTML = `<span class="input-group-text">${count+1}.</span>
-            <input type="text" name="fungsi[]" class="form-control" placeholder="Fungsi jabatan..." ${document.querySelector('form').hasAttribute('disabled') ? 'disabled' : ''}>
-            <button type="button" class="btn btn-danger remove-fungsi" tabindex="-1"><i class="fas fa-times"></i></button>`;
-        fungsiList.appendChild(div);
-        updateFungsiNumbers();
-    });
-    fungsiList.addEventListener('click', function(e) {
-        if (e.target.closest('.remove-fungsi')) {
-            let item = e.target.closest('.fungsi-item');
-            item.remove();
-            updateFungsiNumbers();
-        }
-    });
-    updateFungsiNumbers();
-    // Lock form if success
-    @if(session('success'))
-        document.querySelectorAll('form input, form textarea, form select, form button').forEach(el => {
-            el.setAttribute('disabled', 'disabled');
-        });
-    @endif
+
+    createListHandler('fungsiList', 'addFungsi', 'fungsi-item', 'remove-fungsi', 'Fungsi jabatan...');
+    createListHandler('membawahiList', 'addMembawahi', 'membawahi-item', 'remove-membawahi', 'Unit atau jabatan yang dibawahi...');
 });
 </script>
 @endpush

@@ -142,9 +142,8 @@
       <i class="fa-solid fa-user profile-icon" id="profile-icon"></i>
       <div class="profile-menu" id="profile-menu">
         <a href="{{ route('profil') }}"><i class="fa-solid fa-user"></i> Profil Saya</a>
-        <a href="{{ route('settings') }}"><i class="fa-solid fa-cog"></i> Pengaturan</a>
-      </div>
-      <i class="fa-solid fa-right-from-bracket header-icon" id="logout-btn"></i>
+        <a href="{{ route('settings') }}"><i class="fa-solid fa-cog"></i> Pengaturan</a></div>
+      <i class="fa-solid fa-right-from-bracket header-icon" id="logout-btn" title="Keluar" onclick="(typeof showLogoutModal === 'function' ? showLogoutModal() : document.getElementById('logoutModal')?.style.display = 'flex')"></i>
     </div>
     @endif
   </header>

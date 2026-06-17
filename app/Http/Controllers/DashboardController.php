@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Models\Notification;
 use App\Models\Perjanjian;
 use App\Models\Laporan;
 use App\Models\Setting;
@@ -66,6 +67,23 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $activeSection = $request->query('section', 'dashboard');
+        $showNotificationModal = $request->session()->pull('show_notification_modal', false);
+
+        $homeNotification = null;
+        $shouldShowHomeNotification = false;
+
+        if ($showNotificationModal && $activeSection === 'dashboard') {
+            $homeNotification = Notification::where(function ($query) use ($user) {
+                    $query->where('user_id', $user->id)
+                          ->orWhereNull('user_id');
+                })
+                ->where('is_read', false)
+                ->latest('created_at')
+                ->first();
+
+            $shouldShowHomeNotification = $homeNotification !== null;
+        }
+
         $chartPerjanjian = Perjanjian::where('user_id', $user->id)
             ->latest('updated_at')
             ->first();
@@ -127,7 +145,7 @@ class DashboardController extends Controller
                 })->count();
                 $laporansLatest = $laporans->take(5);
 
-                return view('home', compact('activeSection', 'totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians', 'laporanTotal', 'laporanValidated', 'laporanWaiting', 'laporanRejected', 'laporansLatest', 'userChartData'));
+                return view('home', compact('activeSection', 'totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians', 'laporanTotal', 'laporanValidated', 'laporanWaiting', 'laporanRejected', 'laporansLatest', 'userChartData', 'homeNotification', 'shouldShowHomeNotification'));
             }
 
             // If supabase select returned no data or failed, fallthrough to DB
@@ -189,7 +207,7 @@ class DashboardController extends Controller
         })->count();
         $laporansLatest = $laporans->take(5);
 
-        return view('home', compact('activeSection', 'totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians', 'laporanTotal', 'laporanValidated', 'laporanWaiting', 'laporanRejected', 'laporansLatest', 'userChartData'));
+        return view('home', compact('activeSection', 'totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians', 'laporanTotal', 'laporanValidated', 'laporanWaiting', 'laporanRejected', 'laporansLatest', 'userChartData', 'homeNotification', 'shouldShowHomeNotification'));
     }
 
     private function buildUserDashboardChartData(?Perjanjian $perjanjian): array

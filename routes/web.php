@@ -6,6 +6,7 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\JabatanController;
 use App\Http\Controllers\Admin\UserController;
@@ -69,6 +70,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard/katimker.staf', [DashboardController::class, 'katimkerStaf'])->name('dashboard.katimker.staf');
 
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
 
     // Perjanjian & Laporan
     Route::get('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'index'])->name('perjanjian.index');
@@ -161,18 +163,9 @@ Route::get('/reset-password', [ForgotPasswordController::class, 'showResetForm']
 Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword'])->name('reset.post');
 
 // ===================================
-// ADMIN PANEL ROUTES
-// ===================================
-Route::prefix('admin')->name('admin.')->group(function () {
-    Route::get('/users', function () {
-        return redirect()->back();
-    })->name('users.index');
-});
-
-// ===================================
 // ADMIN PANEL ROUTES (single group)
 // ===================================
-Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () {
     // Admin Dashboard
     Route::get('/', [AdminController::class, 'index'])->name('dashboard');
 
@@ -195,6 +188,8 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     Route::get('/jabatan/{jabatan}/edit', [JabatanController::class, 'edit'])->name('jabatan.edit');
     Route::put('/jabatan/{jabatan}', [JabatanController::class, 'update'])->name('jabatan.update');
     Route::delete('/jabatan/{jabatan}', [JabatanController::class, 'destroy'])->name('jabatan.destroy');
+    Route::get('/jabatan/diagnostics/test', [JabatanController::class, 'diagnostics'])->name('jabatan.diagnostics');
+    Route::get('/jabatan/debug/supabase-insert', [JabatanController::class, 'debugSupabaseInsert'])->name('jabatan.debug.supabase');
 
     /* ================= PROGRAM, KEGIATAN, SUB KEGIATAN ================= */
     // Program Management

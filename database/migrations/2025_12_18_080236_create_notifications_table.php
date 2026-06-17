@@ -11,19 +11,45 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('notifications', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('user_id')->nullable(); // NULL untuk broadcast ke semua
-            $table->string('title');
-            $table->text('message');
-            $table->string('type')->default('info'); // info, warning, success, danger
-            $table->boolean('is_read')->default(false);
-            $table->timestamp('read_at')->nullable();
-            $table->timestamps();
+        if (!Schema::hasTable('notifications')) {
+            Schema::create('notifications', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->nullable(); // NULL untuk broadcast ke semua
+                $table->string('title');
+                $table->text('message');
+                $table->string('type')->default('info'); // info, warning, success, danger
+                $table->boolean('is_read')->default(false);
+                $table->timestamp('read_at')->nullable();
+                $table->timestamps();
 
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->index(['user_id', 'is_read']);
-        });
+                $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+                $table->index(['user_id', 'is_read']);
+            });
+        } else {
+            Schema::table('notifications', function (Blueprint $table) {
+                if (!Schema::hasColumn('notifications', 'user_id')) {
+                    $table->unsignedBigInteger('user_id')->nullable()->after('id');
+                }
+                if (!Schema::hasColumn('notifications', 'title')) {
+                    $table->string('title')->after('user_id');
+                }
+                if (!Schema::hasColumn('notifications', 'message')) {
+                    $table->text('message')->after('title');
+                }
+                if (!Schema::hasColumn('notifications', 'type')) {
+                    $table->string('type')->default('info')->after('message');
+                }
+                if (!Schema::hasColumn('notifications', 'is_read')) {
+                    $table->boolean('is_read')->default(false)->after('type');
+                }
+                if (!Schema::hasColumn('notifications', 'read_at')) {
+                    $table->timestamp('read_at')->nullable()->after('is_read');
+                }
+                if (!Schema::hasColumn('notifications', 'created_at') || !Schema::hasColumn('notifications', 'updated_at')) {
+                    $table->timestamps();
+                }
+            });
+        }
     }
 
     /**

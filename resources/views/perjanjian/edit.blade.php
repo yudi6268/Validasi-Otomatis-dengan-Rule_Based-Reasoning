@@ -1,9 +1,15 @@
 @extends('layouts.app')
 
+@php
+    $editBackRoute = request('from') === 'dashboard_wadir_perjanjian'
+        ? route('dashboard.wadir', ['panel' => 'perjanjian'])
+        : route('perjanjian.index');
+@endphp
+
 @section('title', 'Edit Perjanjian')
 
 @section('back')
-<a href="{{ route('perjanjian.index') }}" target="_self" style="text-decoration:none; color:#009970; font-size:20px;">
+<a href="{{ $editBackRoute }}" target="_self" style="text-decoration:none; color:#009970; font-size:20px;">
     <i class="fa-solid fa-arrow-left"></i>
 </a>
 @endsection
@@ -1126,7 +1132,8 @@ console.log('window.testAddRow:', typeof window.testAddRow);
 <form action="{{ route('perjanjian.update', $perjanjian->id) }}" method="POST">
 @method('PUT')
 @csrf
-    <input type="hidden" name="from" value="{{ request('from', 'dashboard_wadir_perjanjian') }}">
+    <input type="hidden" name="from" value="{{ request('from') }}">
+    @if(session('error'))
         <div style="background: #fee; border: 1px solid #fcc; color: #c00; padding: 15px; margin-bottom: 20px; border-radius: 6px;">
             <strong>Error:</strong> {{ session('error') }}
         </div>
@@ -1268,6 +1275,22 @@ console.log('window.testAddRow:', typeof window.testAddRow);
 
         <div style="margin-bottom: 12px;">
             <label style="font-weight: 600;">Tugas</label>
+            @php
+                $tugasValue = old('tugas_pelaksana');
+                if ($tugasValue === null) {
+                    $tugasValue = !empty($perjanjian->tugas_pelaksana)
+                        ? $perjanjian->tugas_pelaksana
+                        : ($jabatanData ? $jabatanData->tugas : '');
+                }
+                if (is_array($tugasValue)) {
+                    $tugasValue = implode("\n", $tugasValue);
+                } elseif (is_string($tugasValue)) {
+                    $decodedTugas = json_decode($tugasValue, true);
+                    if (is_array($decodedTugas)) {
+                        $tugasValue = implode("\n", $decodedTugas);
+                    }
+                }
+            @endphp
             <textarea
                 name="tugas_pelaksana"
                 id="tugas_pelaksana"
@@ -1280,11 +1303,26 @@ console.log('window.testAddRow:', typeof window.testAddRow);
                     border-radius: 6px;
                     background: #e9ecef;
                 "
-            >{{ old('tugas_pelaksana', $perjanjian->tugas_pelaksana ?? ($jabatanData ? $jabatanData->tugas : '')) }}</textarea>
+            >{{ trim($tugasValue) }}</textarea>
         </div>
 
         <div>
             <label style="font-weight: 600;">Fungsi</label>
+            @php
+                $fungsiValue = old('fungsi_pelaksana');
+                if ($fungsiValue === null) {
+                    $fungsiValue = !empty($perjanjian->fungsi_pelaksana)
+                        ? $perjanjian->fungsi_pelaksana
+                        : ($jabatanData ? $jabatanData->fungsi : null);
+                }
+                if (is_string($fungsiValue) && (strpos($fungsiValue, '[') === 0 || strpos($fungsiValue, '{') === 0)) {
+                    $decodedFungsi = json_decode($fungsiValue, true);
+                    if (is_array($decodedFungsi)) {
+                        $fungsiValue = $decodedFungsi;
+                    }
+                }
+                $visibleFungsi = $fungsiValue;
+            @endphp
             <div id="fungsi_container" style="
                 width: 100%;
                 padding: 8px;
@@ -1293,27 +1331,15 @@ console.log('window.testAddRow:', typeof window.testAddRow);
                 background: #e9ecef;
                 min-height: 60px;
             ">
-                @php
-                    $fungsiValue = old('fungsi_pelaksana', $perjanjian->fungsi_pelaksana ?? null);
-                    if (!$fungsiValue && $jabatanData && $jabatanData->fungsi) {
-                        $fungsiValue = $jabatanData->fungsi;
-                    }
-                    
-                    // Check if it's JSON string
-                    if (is_string($fungsiValue) && (strpos($fungsiValue, '[') === 0 || strpos($fungsiValue, '{') === 0)) {
-                        $fungsiValue = json_decode($fungsiValue, true);
-                    }
-                @endphp
-                
-                @if($fungsiValue)
-                    @if(is_array($fungsiValue))
+                @if($visibleFungsi)
+                    @if(is_array($visibleFungsi))
                         <ol style="margin: 0; padding-left: 20px;">
-                            @foreach($fungsiValue as $fungsi)
+                            @foreach($visibleFungsi as $fungsi)
                                 <li style="margin-bottom: 4px;">{{ $fungsi }}</li>
                             @endforeach
                         </ol>
                     @else
-                        {{ $fungsiValue }}
+                        {{ $visibleFungsi }}
                     @endif
                 @endif
             </div>

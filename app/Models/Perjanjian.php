@@ -53,6 +53,8 @@ class Perjanjian extends Model
         'tabelA' => 'array',
         'tabelB' => 'array',
         'tabelC' => 'array',
+        'fungsi_pelaksana' => 'array',
+        'tugas_pelaksana' => 'array',
         'rejected' => 'boolean',
     ];
 

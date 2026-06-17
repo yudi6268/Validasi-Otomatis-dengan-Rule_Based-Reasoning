@@ -11,10 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('laporans', function (Blueprint $table) {
-            $table->string('pihak1_jabatan')->nullable()->after('pihak1_name');
-            $table->string('pihak2_jabatan')->nullable()->after('pihak2_name');
-        });
+        if (!Schema::hasColumn('laporans', 'pihak1_jabatan') || !Schema::hasColumn('laporans', 'pihak2_jabatan')) {
+            Schema::table('laporans', function (Blueprint $table) {
+                if (!Schema::hasColumn('laporans', 'pihak1_jabatan')) {
+                    $table->string('pihak1_jabatan')->nullable()->after('pihak1_name');
+                }
+
+                if (!Schema::hasColumn('laporans', 'pihak2_jabatan')) {
+                    $table->string('pihak2_jabatan')->nullable()->after('pihak2_name');
+                }
+            });
+        }
     }
 
     /**
@@ -22,8 +29,19 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('laporans', function (Blueprint $table) {
-            $table->dropColumn(['pihak1_jabatan', 'pihak2_jabatan']);
-        });
+        $dropColumns = [];
+        if (Schema::hasColumn('laporans', 'pihak1_jabatan')) {
+            $dropColumns[] = 'pihak1_jabatan';
+        }
+
+        if (Schema::hasColumn('laporans', 'pihak2_jabatan')) {
+            $dropColumns[] = 'pihak2_jabatan';
+        }
+
+        if (!empty($dropColumns)) {
+            Schema::table('laporans', function (Blueprint $table) use ($dropColumns) {
+                $table->dropColumn($dropColumns);
+            });
+        }
     }
 };

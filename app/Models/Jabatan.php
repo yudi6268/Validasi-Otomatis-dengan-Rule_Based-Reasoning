@@ -12,12 +12,15 @@ class Jabatan extends Model
         'nama_jabatan',
         'tugas',
         'fungsi',
+        'membawahi',
         'is_active'
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'fungsi' => 'array',
+        'tugas' => 'string',
+        'membawahi' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];

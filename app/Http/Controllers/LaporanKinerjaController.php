@@ -451,6 +451,8 @@ class LaporanKinerjaController extends Controller
     public function saveRealisasi(Request $request, $laporanId = null)
     {
         try {
+            $validationReset = false; // Initialize early
+            
             $validated = $request->validate([
                 'triwulan' => 'required|integer|min:1|max:4',
                 'realisasi' => 'nullable|string',
@@ -529,14 +531,24 @@ class LaporanKinerjaController extends Controller
                     'text' => $validated['realisasi'],
                     'rows' => array_map(function ($row) {
                         $realisasiValue = null;
+                        $targetValue = isset($row['target']) ? floatval($row['target']) : null;
+                        $pct = null;
+                        
                         if (array_key_exists('realisasi', $row) && $row['realisasi'] !== null && $row['realisasi'] !== '') {
                             $realisasiValue = floatval($row['realisasi']);
+                            // Hitung persentase: realisasi / target * 100
+                            if ($targetValue !== null && $targetValue > 0) {
+                                $pct = round(($realisasiValue / $targetValue) * 100, 2);
+                            } elseif ($realisasiValue > 0) {
+                                $pct = 100;
+                            }
                         }
 
                         return [
                             'row' => isset($row['row']) ? (string) $row['row'] : null,
                             'realisasi' => $realisasiValue,
-                            'target' => isset($row['target']) ? floatval($row['target']) : null,
+                            'target' => $targetValue,
+                            'pct' => $pct,
                             'ket' => isset($row['ket']) ? (string) $row['ket'] : '',
                         ];
                     }, $validated['realisasi_rows']),
@@ -587,6 +599,26 @@ class LaporanKinerjaController extends Controller
             }
 
             $laporan->save();
+
+            // Saat edit laporan (jika laporan sudah ada sebelumnya dan bukan finalisasi), batalkan validasi untuk triwulan ini
+            // agar user harus validasi ulang setelah edit
+            if ($laporanId && empty($validated['finalize'])) {
+                $validationResults = $laporan->validation_results ?? [];
+                if (is_string($validationResults)) {
+                    $validationResults = json_decode($validationResults, true) ?? [];
+                }
+                if (is_array($validationResults)) {
+                    // Hapus validasi untuk triwulan ini
+                    if (isset($validationResults[$triwulan]) || isset($validationResults['tw_' . $triwulan])) {
+                        $validationReset = true;
+                    }
+                    unset($validationResults[$triwulan]);
+                    unset($validationResults['tw_' . $triwulan]);
+                    $laporan->update([
+                        'validation_results' => $validationResults,
+                    ]);
+                }
+            }
 
             // Mirror laporan ke Supabase (best-effort, tidak mengganggu simpan utama)
             $this->syncLaporanToSupabase($laporan, $triwulan);
@@ -645,6 +677,7 @@ class LaporanKinerjaController extends Controller
                 'success' => true,
                 'message' => 'Realisasi Triwulan ' . $triwulan . ' berhasil disimpan',
                 'workflow_status' => $workflowStatus,
+                'validation_reset' => $validationReset,
                 'validation' => $validation,
                 'revision_guides' => $revisionGuides,
                 'data' => $laporan

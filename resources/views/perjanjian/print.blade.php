@@ -1634,7 +1634,7 @@
                             </div>
 
                             <div style="text-align:center;">
-                                <a href="{{ route('perjanjian.edit', $perjanjian->id) }}"
+                                <a href="{{ route('perjanjian.edit', ['id' => $perjanjian->id, 'from' => request('from')]) }}"
                                     style="display:inline-block;background:#0DA45C;color:#fff;padding:12px 36px;border:none;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;box-shadow:0 2px 4px rgba(13,164,92,0.3);">Revisi
                                     Perjanjian</a>
                             </div>

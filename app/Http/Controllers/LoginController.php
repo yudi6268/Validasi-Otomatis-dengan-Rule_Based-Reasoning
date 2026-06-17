@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -54,6 +55,8 @@ class LoginController extends Controller
             if (Auth::attempt(['id_pegawai' => $credentials['user_id'], 'password' => $credentials['password']])) {
                 $request->session()->regenerate();
                 
+                $hasUnreadNotifications = Notification::unread()->forUser($user->id)->exists();
+                
                 // Log successful login
                 Log::info('User logged in successfully', [
                     'id_pegawai' => $user->id_pegawai,
@@ -66,7 +69,8 @@ class LoginController extends Controller
                 // Cek role terlebih dahulu untuk admin
                 if ($user->role === 'admin') {
                     return redirect()->route('admin.dashboard')
-                        ->with('success', 'Selamat datang di Admin Panel, ' . $user->nama);
+                        ->with('success', 'Selamat datang di Admin Panel, ' . $user->nama)
+                        ->with('show_notification_modal', $hasUnreadNotifications);
                 }
                 
                 // Cek jabatan untuk redirect yang sesuai
@@ -75,32 +79,37 @@ class LoginController extends Controller
                 // Direktur ke dashboard direktur
                 if ($jabatan === 'Direktur') {
                     return redirect()->route('dashboard.direktur')
-                        ->with('success', 'Selamat datang, ' . $user->nama);
+                        ->with('success', 'Selamat datang, ' . $user->nama)
+                        ->with('show_notification_modal', $hasUnreadNotifications);
                 }
                 
                 // Wakil Direktur ke dashboard wadir
                 if (in_array($jabatan, ['Wakil Direktur Umum dan Keuangan', 'Wakil Direktur Pelayanan', 'Wakil Direktur Perencanaan dan Keuangan'])) {
                     return redirect()->route('dashboard.wadir')
-                        ->with('success', 'Selamat datang, ' . $user->nama);
+                        ->with('success', 'Selamat datang, ' . $user->nama)
+                        ->with('show_notification_modal', $hasUnreadNotifications);
                 }
                 
                 // Kabag/Kabid ke dashboard kabag.kabid
                 if (strpos($jabatan, 'Kabag') !== false || strpos($jabatan, 'Kepala Bagian') !== false ||
                     strpos($jabatan, 'Kabid') !== false || strpos($jabatan, 'Kepala Bidang') !== false) {
                     return redirect()->route('dashboard.kabag.kabid')
-                        ->with('success', 'Selamat datang, ' . $user->nama);
+                        ->with('success', 'Selamat datang, ' . $user->nama)
+                        ->with('show_notification_modal', $hasUnreadNotifications);
                 }
                 
                 // Katimker/Staf ke dashboard katimker.staf
                 if (strpos($jabatan, 'Kasi') !== false || strpos($jabatan, 'Kepala Seksi') !== false || 
                     strpos($jabatan, 'Katimker') !== false || strpos($jabatan, 'Staf') !== false) {
                     return redirect()->route('dashboard.katimker.staf')
-                        ->with('success', 'Selamat datang, ' . $user->nama);
+                        ->with('success', 'Selamat datang, ' . $user->nama)
+                        ->with('show_notification_modal', $hasUnreadNotifications);
                 }
                 
                 // Default ke home untuk staff dan lainnya
                 return redirect()->route('home')
-                    ->with('success', 'Selamat datang, ' . $user->nama);
+                    ->with('success', 'Selamat datang, ' . $user->nama)
+                    ->with('show_notification_modal', $hasUnreadNotifications);
             }
 
             // Log failed login attempt with more details

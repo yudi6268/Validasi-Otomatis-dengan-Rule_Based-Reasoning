@@ -1,13 +1,13 @@
 ﻿@extends('admin.layout')
 
 @section('title', 'Kirim Notifikasi Deadline')
-@section('page-title', 'Kirim Notifikasi Batas Waktu')
+@section('page-title', 'Kirim Notifikasi')
 
 @section('content')
 <div class="data-table" style="max-width: 720px;">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h5 class="mb-1"><i class="fas fa-bell"></i> Notifikasi Batas Waktu</h5>
+            <h5 class="mb-1"><i class="fas fa-bell"></i> Notifikasi</h5>
             <small class="text-muted">Notifikasi ini akan muncul di sudut kiri atas dashboard pengguna sebagai pengingat batas waktu.</small>
         </div>
         <a href="{{ route('admin.notifications.index') }}" class="btn btn-sm btn-secondary">
@@ -145,17 +145,18 @@
                 </div>
             </div>
             <div class="mt-2" id="userSelectWrapper" style="display:{{ old('recipient_type') === 'specific' ? 'block' : 'none' }};">
-                <select name="user_id" class="form-select" id="userSelect">
-                    <option value="">-- Pilih Pengguna --</option>
+                <select name="user_ids[]" class="form-select" id="userSelect" multiple size="6">
                     @foreach($users as $user)
-                        <option value="{{ $user->id }}" {{ old('user_id') == $user->id ? 'selected' : '' }}>
+                        <option value="{{ $user->id }}" {{ in_array($user->id, old('user_ids', [])) ? 'selected' : '' }}>
                             {{ $user->nama }} — {{ $user->jabatan ?? 'Tanpa jabatan' }}
                         </option>
                     @endforeach
                 </select>
+                <div class="form-text">Tahan Ctrl/Cmd atau Shift untuk memilih lebih dari satu pengguna.</div>
             </div>
             @error('recipient_type')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-            @error('user_id')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+            @error('user_ids')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+            @error('user_ids.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
         </div>
 
         {{-- PREVIEW --}}

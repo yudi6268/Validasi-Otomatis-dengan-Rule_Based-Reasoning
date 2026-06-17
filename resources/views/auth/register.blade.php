@@ -58,6 +58,27 @@
             background-color: #f9f9f9;
         }
 
+        .password-container {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+        }
+
+        .toggle-password:focus {
+            outline: none;
+        }
+
         .btn-register {
             background-color: #007e59;
             color: white;
@@ -160,7 +181,12 @@
                 <input type="text" name="divisi" class="form-control" placeholder="Divisi" required>
             </div>
             <div class="mb-3">
-                <input type="password" name="password" id="password" class="form-control" placeholder="Password" required>
+                <div class="password-container">
+                    <input type="password" name="password" id="password" class="form-control" placeholder="Password" required>
+                    <button type="button" class="toggle-password" data-target="password" aria-label="Tampilkan password">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
                 <div class="password-strength mt-2" style="display: none;">
                     <div class="progress" style="height: 5px;">
                         <div class="progress-bar" role="progressbar" style="width: 0%"></div>
@@ -172,8 +198,13 @@
                 </small>
             </div>
             <div class="mb-3">
-                <input type="password" name="password_confirmation" id="password_confirmation" 
-                    class="form-control" placeholder="Konfirmasi Password" required>
+                <div class="password-container">
+                    <input type="password" name="password_confirmation" id="password_confirmation" 
+                        class="form-control" placeholder="Konfirmasi Password" required>
+                    <button type="button" class="toggle-password" data-target="password_confirmation" aria-label="Tampilkan konfirmasi password">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
                 <div class="password-match mt-1" style="display: none;">
                     <small class="text-danger">Password tidak cocok</small>
                 </div>
@@ -252,6 +283,24 @@
 
                 passwordInput.addEventListener('input', updateSubmitButton);
                 confirmInput.addEventListener('input', updateSubmitButton);
+
+                document.querySelectorAll('.toggle-password').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const targetId = this.dataset.target;
+                        const targetInput = document.getElementById(targetId);
+                        const icon = this.querySelector('i');
+                        if (!targetInput || !icon) return;
+                        if (targetInput.type === 'password') {
+                            targetInput.type = 'text';
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                        } else {
+                            targetInput.type = 'password';
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                        }
+                    });
+                });
             });
             </script>
         </form>

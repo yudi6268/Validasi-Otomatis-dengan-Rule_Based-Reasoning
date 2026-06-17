@@ -1,13 +1,13 @@
-﻿@extends('admin.layout')
+@extends('admin.layout')
 
 @section('title', 'Kelola Notifikasi Deadline')
-@section('page-title', 'Kelola Notifikasi Batas Waktu')
+@section('page-title', 'Kelola Notifikasi')
 
 @section('content')
 <div class="data-table">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-            <h5 class="mb-1"><i class="fas fa-bell"></i> Notifikasi Batas Waktu</h5>
+            <h5 class="mb-1"><i class="fas fa-bell"></i> Notifikasi</h5>
             <small class="text-muted">Notifikasi yang dikirim admin akan muncul di pojok kiri atas dashboard setiap pengguna.</small>
         </div>
         <a href="{{ route('admin.notifications.create') }}" class="btn btn-primary">
@@ -15,12 +15,7 @@
         </a>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show mb-3">
-            <i class="fas fa-check-circle"></i> {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+
 
     <div class="table-responsive">
         <table class="table table-hover align-middle">

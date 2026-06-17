@@ -635,10 +635,37 @@
         .dash-table .empty td { text-align: center; padding: 24px; color: #aaa; }
 
         /* Charts */
-        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 18px; }
-        .chart-panel { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .chart-panel h3 { font-size: 14px; font-weight: 800; color: #1B2A41; margin-bottom: 14px; }
-        .chart-box { position: relative; height: 220px; }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-top: 18px;
+            width: 100%;
+            max-width: 100%;
+        }
+        .chart-panel {
+            background: #fff;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            min-width: 0;
+        }
+        .chart-panel h3 {
+            font-size: 14px;
+            font-weight: 800;
+            color: #1B2A41;
+            margin-bottom: 14px;
+        }
+        .chart-box {
+            position: relative;
+            height: 240px;
+            width: 100%;
+            max-width: 100%;
+        }
+        .chart-box canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
 
         /* Status badge */
         .s-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
@@ -964,11 +991,11 @@
                 <!-- Charts -->
                 <div class="chart-grid">
                     <div class="chart-panel">
-                        <h3><i class="fas fa-file-contract" style="color:#00b59a; margin-right:6px;"></i> Grafik Perjanjian Kinerja</h3>
+                        <h3><i class="fas fa-file-contract" style="color:#00b59a; margin-right:6px;"></i> Persentase Realisasi Basis Kinerja vs Basis Anggaran</h3>
                         <div class="chart-box"><canvas id="chartPerjanjian"></canvas></div>
                     </div>
                     <div class="chart-panel">
-                        <h3><i class="fas fa-chart-bar" style="color:#4c9cf0; margin-right:6px;"></i> Grafik Laporan Kinerja</h3>
+                        <h3><i class="fas fa-chart-bar" style="color:#4c9cf0; margin-right:6px;"></i> Perbandingan Target dan Realisasi Basis Anggaran</h3>
                         <div class="chart-box"><canvas id="chartLaporan"></canvas></div>
                     </div>
                 </div>
@@ -1419,36 +1446,111 @@
 
         // ---- Charts ----
         document.addEventListener('DOMContentLoaded', function () {
-            const months = CHART_DATA.months || [];
+                const kinerjaLabels = CHART_DATA.kinerja_labels || [];
+            const keuanganLabels = CHART_DATA.keuangan_labels || [];
 
             const pkCanvas = document.getElementById('chartPerjanjian');
-            if (pkCanvas && months.length) {
+            if (pkCanvas && kinerjaLabels.length) {
                 new Chart(pkCanvas.getContext('2d'), {
-                    type: 'bar',
+                    type: 'line',
                     data: {
-                        labels: months,
+                        labels: kinerjaLabels,
                         datasets: [
-                            { label: 'Disetujui', data: CHART_DATA.pkDisetujui || [], backgroundColor: 'rgba(0,181,144,0.75)', borderRadius: 4 },
-                            { label: 'Menunggu',  data: CHART_DATA.pkMenunggu  || [], backgroundColor: 'rgba(76,156,240,0.75)', borderRadius: 4 },
-                            { label: 'Ditolak',   data: CHART_DATA.pkDitolak   || [], backgroundColor: 'rgba(229,62,62,0.75)',  borderRadius: 4 },
+                            {
+                                label: 'Realisasi Basis Kinerja (%)',
+                                data: CHART_DATA.kinerja_percent || [],
+                                borderColor: 'rgba(33,150,243,0.9)',
+                                backgroundColor: 'rgba(33,150,243,0.18)',
+                                tension: 0.35,
+                                fill: false,
+                                pointRadius: 4,
+                                borderWidth: 3,
+                            },
+                            {
+                                label: 'Realisasi Basis Anggaran (%)',
+                                data: CHART_DATA.keuangan_percent || [],
+                                borderColor: 'rgba(0,181,144,0.9)',
+                                backgroundColor: 'rgba(0,181,144,0.18)',
+                                tension: 0.35,
+                                fill: false,
+                                pointRadius: 4,
+                                borderWidth: 3,
+                            }
                         ]
                     },
-                    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top' } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return context.dataset.label + ': ' + context.parsed.y + '%';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 120,
+                                ticks: { callback: value => value + '%' }
+                            }
+                        }
+                    }
                 });
             }
 
             const lkCanvas = document.getElementById('chartLaporan');
-            if (lkCanvas && months.length) {
+            if (lkCanvas && keuanganLabels.length) {
                 new Chart(lkCanvas.getContext('2d'), {
-                    type: 'bar',
+                    type: 'line',
                     data: {
-                        labels: months,
+                        labels: keuanganLabels,
                         datasets: [
-                            { label: 'Disetujui', data: CHART_DATA.lkDisetujui || [], backgroundColor: 'rgba(0,181,144,0.75)', borderRadius: 4 },
-                            { label: 'Menunggu',  data: CHART_DATA.lkMenunggu  || [], backgroundColor: 'rgba(76,156,240,0.75)', borderRadius: 4 },
+                            {
+                                label: 'Target Basis Anggaran',
+                                data: CHART_DATA.keuangan_targets || [],
+                                borderColor: 'rgba(76,156,240,0.9)',
+                                backgroundColor: 'rgba(76,156,240,0.18)',
+                                tension: 0.35,
+                                fill: false,
+                                pointRadius: 4,
+                                borderWidth: 3,
+                            },
+                            {
+                                label: 'Realisasi Basis Anggaran',
+                                data: CHART_DATA.keuangan_realisasi || [],
+                                borderColor: 'rgba(0,181,144,0.9)',
+                                backgroundColor: 'rgba(0,181,144,0.18)',
+                                tension: 0.35,
+                                fill: false,
+                                pointRadius: 4,
+                                borderWidth: 3,
+                            }
                         ]
                     },
-                    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top' } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return context.dataset.label + ': ' + context.parsed.y.toLocaleString();
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: value => value.toLocaleString() }
+                            }
+                        }
+                    }
                 });
             }
         });

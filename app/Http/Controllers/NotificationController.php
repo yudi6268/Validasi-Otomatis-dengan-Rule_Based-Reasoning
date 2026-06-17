@@ -13,9 +13,13 @@ class NotificationController extends Controller
      */
     public function getUnreadCount()
     {
-        $count = Notification::where('user_id', Auth::id())
-                            ->where('is_read', false)
-                            ->count();
+        $count = Notification::query()
+                    ->where(function ($query) {
+                        $query->where('user_id', Auth::id())
+                              ->orWhereNull('user_id');
+                    })
+                    ->where('is_read', false)
+                    ->count();
         
         return response()->json(['count' => $count]);
     }
@@ -25,10 +29,15 @@ class NotificationController extends Controller
      */
     public function index()
     {
-        $notifications = Notification::where('user_id', Auth::id())
-                                    ->orderBy('created_at', 'desc')
-                                    ->limit(20)
-                                    ->get();
+        $notifications = Notification::query()
+            ->where(function ($query) {
+                $query->where('user_id', Auth::id())
+                      ->orWhereNull('user_id');
+            })
+            ->where('is_read', false)
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
         
         return response()->json($notifications);
     }
@@ -38,11 +47,17 @@ class NotificationController extends Controller
      */
     public function markAsRead($id)
     {
-        $notification = Notification::where('user_id', Auth::id())
+        $notification = Notification::query()
                                    ->where('id', $id)
+                                   ->where(function ($query) {
+                                       $query->where('user_id', Auth::id())
+                                             ->orWhereNull('user_id');
+                                   })
                                    ->firstOrFail();
-        
-        $notification->markAsRead();
+
+        if ($notification->user_id !== null) {
+            $notification->markAsRead();
+        }
         
         return response()->json([
             'success' => true,
@@ -55,7 +70,8 @@ class NotificationController extends Controller
      */
     public function markAllAsRead()
     {
-        Notification::where('user_id', Auth::id())
+        Notification::query()
+                   ->where('user_id', Auth::id())
                    ->where('is_read', false)
                    ->update([
                        'is_read' => true,

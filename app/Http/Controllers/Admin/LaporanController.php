@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Laporan;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 
 class LaporanController extends Controller
@@ -36,7 +37,10 @@ class LaporanController extends Controller
         $laporans = $query->paginate(20)->withQueryString();
         $tahunList = Laporan::select('tahun')->distinct()->orderByDesc('tahun')->pluck('tahun');
 
-        return view('admin.laporan.index', compact('laporans', 'tahunList'));
+        // Ambil triwulan aktif dari pengaturan (realtime)
+        $activeTriwulan = (int) Setting::get('triwulan_aktif', 1);
+
+        return view('admin.laporan.index', compact('laporans', 'tahunList', 'activeTriwulan'));
     }
 
     public function revisiStatus(Request $request, $id)

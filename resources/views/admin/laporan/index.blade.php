@@ -51,6 +51,117 @@
     <small class="text-muted">Halaman {{ $laporans->currentPage() }} / {{ $laporans->lastPage() }}</small>
 </div>
 
+{{-- Triwulan Aktif (indikator & kontrol via modal) --}}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <strong>Triwulan Aktif:</strong>
+        <span id="activeTriwulanBadge" class="badge bg-primary">TW {{ $activeTriwulan ?? 1 }}</span>
+        <small class="text-muted ms-2">(Tampilkan laporan untuk triwulan aktif sebagai referensi)</small>
+    </div>
+
+    @if(auth()->check() && method_exists(auth()->user(), 'isAdmin') && auth()->user()->isAdmin())
+        <div>
+            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#selectTriwulanModal">
+                <i class="fas fa-calendar-alt"></i> Pilih Triwulan Laporan Aktif
+            </button>
+        </div>
+    @else
+        <a href="{{ route('admin.triwulan.setting') }}" class="btn btn-sm btn-outline-secondary">Lihat pengaturan triwulan</a>
+    @endif
+</div>
+
+{{-- Modal Pilih Triwulan --}}
+@if(auth()->check() && method_exists(auth()->user(), 'isAdmin') && auth()->user()->isAdmin())
+<div class="modal fade" id="selectTriwulanModal" tabindex="-1" aria-labelledby="selectTriwulanLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="selectTriwulanLabel"><i class="fas fa-calendar-alt"></i> Pilih Triwulan Aktif</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="selectTriwulanForm">
+                    @csrf
+                    <div class="mb-3">
+                        <label class="form-label">Triwulan</label>
+                        <select name="triwulan" id="selectTriwulanInput" class="form-select">
+                            @for($i=1;$i<=4;$i++)
+                                <option value="{{ $i }}" {{ ($activeTriwulan ?? 1) == $i ? 'selected' : '' }}>TW {{ $i }}</option>
+                            @endfor
+                        </select>
+                    </div>
+                </form>
+                <div id="selectTriwulanAlert" class="alert d-none" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" id="saveTriwulanBtn" class="btn btn-primary">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- JS: kirim AJAX untuk mengubah triwulan aktif dan update badge tanpa reload --}}
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveBtn = document.getElementById('saveTriwulanBtn');
+    if (!saveBtn) return;
+
+    saveBtn.addEventListener('click', async function() {
+        const form = document.getElementById('selectTriwulanForm');
+        const select = document.getElementById('selectTriwulanInput');
+        const alertBox = document.getElementById('selectTriwulanAlert');
+        const badge = document.getElementById('activeTriwulanBadge');
+
+        const triwulan = select.value;
+        const token = form.querySelector('input[name="_token"]').value;
+
+        alertBox.classList.add('d-none');
+
+        try {
+            const res = await fetch('{{ route('admin.triwulan.setting.update') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ triwulan: parseInt(triwulan) })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                // Update badge and close modal
+                badge.textContent = 'TW ' + data.triwulan;
+                var modal = bootstrap.Modal.getInstance(document.getElementById('selectTriwulanModal'));
+                modal.hide();
+
+                // flash message (temporary)
+                const flash = document.createElement('div');
+                flash.className = 'alert alert-success mt-3';
+                flash.textContent = data.message || 'Triwulan aktif berhasil diubah.';
+                document.querySelector('.data-table').prepend(flash);
+                setTimeout(() => flash.remove(), 3500);
+            } else {
+                alertBox.classList.remove('d-none');
+                alertBox.classList.add('alert-danger');
+                alertBox.textContent = data.message || 'Gagal mengubah triwulan.';
+            }
+        } catch (err) {
+            alertBox.classList.remove('d-none');
+            alertBox.classList.add('alert-danger');
+            alertBox.textContent = 'Terjadi error saat menghubungi server.';
+            console.error(err);
+        }
+    });
+});
+</script>
+@endpush
+
 {{-- Table --}}
 <div class="data-table">
     <div class="table-responsive">

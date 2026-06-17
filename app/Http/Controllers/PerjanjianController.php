@@ -25,6 +25,123 @@ class PerjanjianController extends Controller
         $this->supabase = $supabase;
     }
 
+    protected function resolveJabatanDataForUser(?string $jabatanName, $fallbackUser = null)
+    {
+        if (!$jabatanName) {
+            return null;
+        }
+
+        $jabatanData = Jabatan::where('nama_jabatan', $jabatanName)->first()
+            ?? Jabatan::where('nama_jabatan', 'LIKE', '%'.$jabatanName.'%')->first();
+
+        if ($jabatanData) {
+            return $jabatanData;
+        }
+
+        if ($fallbackUser) {
+            return (object) [
+                'nama_jabatan' => $jabatanName,
+                'tugas' => $fallbackUser->tugas ?? null,
+                'fungsi' => $fallbackUser->fungsi ?? null,
+                'membawahi' => $fallbackUser->membawahi ?? null,
+            ];
+        }
+
+        return null;
+    }
+
+    protected function decodeJsonArray($value)
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+        if (is_array($decoded)) {
+            return array_values(array_filter($decoded, function ($item) {
+                return $item !== null && $item !== '';
+            }));
+        }
+
+        return null;
+    }
+
+    protected function normalizeTugasFungsiValue($value, bool $forceList = false)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            return array_values(array_filter($value, function ($item) {
+                return $item !== null && $item !== '';
+            }));
+        }
+
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return null;
+            }
+
+            $decoded = $this->decodeJsonArray($value);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+
+            if ($forceList) {
+                if (preg_match('/[\r\n;]/', $value)) {
+                    $items = preg_split('/[\r\n;]+/', $value);
+                    return array_values(array_filter(array_map('trim', $items), function ($item) {
+                        return $item !== null && $item !== '';
+                    }));
+                }
+
+                return [$value];
+            }
+
+            return $value;
+        }
+
+        return $value;
+    }
+
+    protected function resolveTugasFungsiForPerjanjian(Request $request, $authUser = null)
+    {
+        $jabatanPelaksana = $request->input('jabatan_pelaksana') ?: (isset($authUser->jabatan) ? $authUser->jabatan : null);
+        $tugasPelaksana = $this->normalizeTugasFungsiValue($request->input('tugas_pelaksana'), true);
+        $fungsiPelaksana = $this->normalizeTugasFungsiValue($request->input('fungsi_pelaksana'), true);
+
+        $isTugasMissing = $tugasPelaksana === null || $tugasPelaksana === [];
+        $isFungsiMissing = $fungsiPelaksana === null || $fungsiPelaksana === [];
+
+        if ($isTugasMissing || $isFungsiMissing) {
+            $jabatanData = $this->resolveJabatanDataForUser($jabatanPelaksana, $authUser);
+
+            if ($jabatanData) {
+                if ($isTugasMissing && isset($jabatanData->tugas)) {
+                    $tugasPelaksana = $this->normalizeTugasFungsiValue($jabatanData->tugas);
+                }
+                if ($isFungsiMissing && isset($jabatanData->fungsi)) {
+                    $fungsiPelaksana = $this->normalizeTugasFungsiValue($jabatanData->fungsi);
+                }
+            }
+
+            if ($isTugasMissing && $authUser) {
+                $tugasPelaksana = $this->normalizeTugasFungsiValue($authUser->tugas) ?? $tugasPelaksana;
+            }
+            if ($isFungsiMissing && $authUser) {
+                $fungsiPelaksana = $this->normalizeTugasFungsiValue($authUser->fungsi) ?? $fungsiPelaksana;
+            }
+        }
+
+        return [
+            'jabatan_pelaksana' => $jabatanPelaksana,
+            'tugas_pelaksana' => $tugasPelaksana,
+            'fungsi_pelaksana' => $fungsiPelaksana,
+        ];
+    }
+
     // ==============================
     // SUBMIT PENOLAKAN PERJANJIAN
     // ==============================
@@ -86,7 +203,7 @@ class PerjanjianController extends Controller
         $user = auth()->user();
         $jabatanData = null;
         if ($user && $user->jabatan) {
-            $jabatanData = Jabatan::where('nama_jabatan', $user->jabatan)->first();
+            $jabatanData = $this->resolveJabatanDataForUser($user->jabatan, $user);
         }
         // Ambil user direktur yang benar (misal dr. Arma)
         $direktur = User::where('jabatan', 'like', '%Direktur%')
@@ -324,15 +441,21 @@ class PerjanjianController extends Controller
         // Gabungkan tugas & fungsi pelaksana (untuk preview)
         $tugas = $perjanjian->tugas_pelaksana ?? '';
         $fungsi = $perjanjian->fungsi_pelaksana ?? '';
-        
-        // Parse fungsi jika berbentuk JSON array
+
+        if (is_array($tugas)) {
+            $tugas = implode("\n", array_filter(array_map('trim', $tugas), 'strlen'));
+        }
+        if (is_array($fungsi)) {
+            $fungsi = implode("\n", array_filter(array_map('trim', $fungsi), 'strlen'));
+        }
+
         if ($fungsi && is_string($fungsi)) {
             $fungsiArray = json_decode($fungsi, true);
             if (is_array($fungsiArray)) {
                 $fungsi = implode("\n", $fungsiArray);
             }
         }
-        
+
         $tugas_fungsi = '';
         if ($tugas && $fungsi) {
             $tugas_fungsi = "<b>Tugas:</b>\n" . $tugas . "\n<b>Fungsi:</b>\n" . $fungsi;
@@ -471,6 +594,8 @@ class PerjanjianController extends Controller
         // Generate nomor_perjanjian (simple: PK-YYYYMMDD-<user_id>-<random>)
         $nomor_perjanjian = 'PK-' . date('Ymd') . '-' . (auth()->id() ?? 'X') . '-' . strtoupper(substr(uniqid(), -4));
 
+        $tugasFungsiData = $this->resolveTugasFungsiForPerjanjian($request, auth()->user());
+
         $tahun = date('Y');
         $save = Perjanjian::create([
             'tahun' => $tahun,
@@ -482,9 +607,9 @@ class PerjanjianController extends Controller
             'pihak1_nip'        => auth()->user()->nip,
             'pihak1_ttd'        => auth()->user()->tanda_tangan,
 
-            'jabatan_pelaksana' => $request->jabatan_pelaksana,
-            'tugas_pelaksana'   => $request->tugas_pelaksana,
-            'fungsi_pelaksana'  => $request->fungsi_pelaksana,
+            'jabatan_pelaksana' => $tugasFungsiData['jabatan_pelaksana'],
+            'tugas_pelaksana'   => $tugasFungsiData['tugas_pelaksana'],
+            'fungsi_pelaksana'  => $tugasFungsiData['fungsi_pelaksana'],
 
 
             // PIHAK KEDUA
@@ -542,6 +667,9 @@ class PerjanjianController extends Controller
                 'location' => $save->location,
                 'agreement_date' => $save->agreement_date,
                 'jabatan' => $save->jabatan,
+                'jabatan_pelaksana' => $save->jabatan_pelaksana,
+                'tugas_pelaksana' => $save->tugas_pelaksana,
+                'fungsi_pelaksana' => $save->fungsi_pelaksana,
                 'tabelA' => $save->tabelA,
                 'tabelB' => $save->tabelB,
                 'tabelC' => $save->tabelC,
@@ -587,7 +715,7 @@ class PerjanjianController extends Controller
         // Ambil data jabatan pelaksana (pihak1)
         $jabatanData = null;
         if ($perjanjian->pihak1_jabatan) {
-            $jabatanData = \App\Models\Jabatan::where('nama_jabatan', $perjanjian->pihak1_jabatan)->first();
+            $jabatanData = $this->resolveJabatanDataForUser($perjanjian->pihak1_jabatan, $perjanjian->user);
         }
         
         // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown (diurutkan berdasarkan kode)
@@ -665,6 +793,8 @@ class PerjanjianController extends Controller
         
         \Log::info("UPDATE PERJANJIAN #{$perjanjian->id}: Status lama = '{$statusLama}', Status baru = '{$statusBaru}'");
 
+        $tugasFungsiData = $this->resolveTugasFungsiForPerjanjian($request, $user);
+
         // Update data
         $perjanjian->update([
             'pihak2_name'       => $request->pihak2_name,
@@ -673,9 +803,9 @@ class PerjanjianController extends Controller
             'location'          => $request->location ?? $perjanjian->location,
             'agreement_date'    => $request->agreement_date ?? $perjanjian->agreement_date,
             'jabatan'           => $request->pihak2_jabatan ?? $perjanjian->jabatan,
-            'jabatan_pelaksana' => $request->jabatan_pelaksana,
-            'tugas_pelaksana'   => $request->tugas_pelaksana,
-            'fungsi_pelaksana'  => $request->fungsi_pelaksana,
+            'jabatan_pelaksana' => $tugasFungsiData['jabatan_pelaksana'],
+            'tugas_pelaksana'   => $tugasFungsiData['tugas_pelaksana'],
+            'fungsi_pelaksana'  => $tugasFungsiData['fungsi_pelaksana'],
             'pihak1_ttd'        => auth()->user()->tanda_tangan,
             
             // Reset status ke menunggu jika sebelumnya ditolak (kolom baru)
@@ -766,13 +896,15 @@ class PerjanjianController extends Controller
             $successMessage .= ' Status perjanjian dikembalikan ke menunggu persetujuan.';
         }
 
-        $backSource = $request->input('from', 'dashboard_wadir_perjanjian');
+        $backSource = $request->input('from');
+        $redirectParams = ['status' => 'waiting'];
+        if (!empty($backSource)) {
+            $redirectParams['from'] = $backSource;
+        }
 
-        return redirect()->route('perjanjian.index', [
-                'status' => 'waiting',
-                'from' => $backSource,
-            ])
-            ->with('success', $successMessage);    }
+        return redirect()->route('perjanjian.index', $redirectParams)
+            ->with('success', $successMessage);
+    }
 
 
     // ==============================
@@ -821,6 +953,8 @@ class PerjanjianController extends Controller
         }
 
         try {
+            $tugasFungsiData = $this->resolveTugasFungsiForPerjanjian($request, auth()->user());
+
             // SIMPAN KE DATABASE (Supabase)
             // Normalize tabelC payload
             $tabelC = $request->hierarchical_budget_json ?? null;
@@ -854,6 +988,9 @@ class PerjanjianController extends Controller
                 'location'          => $request->location ?? 'Pasuruan',
                 'agreement_date'    => $request->agreement_date ?? now(),
                 'jabatan'           => $request->pihak2_jabatan ?? (auth()->user()->jabatan ?? null),
+                'jabatan_pelaksana' => $tugasFungsiData['jabatan_pelaksana'],
+                'tugas_pelaksana'   => $tugasFungsiData['tugas_pelaksana'],
+                'fungsi_pelaksana'  => $tugasFungsiData['fungsi_pelaksana'],
                 'tabelA' => json_encode([
                     'sasaran'   => $request->a_sasaran ?? [],
                     'indikator' => $request->a_indikator ?? [],

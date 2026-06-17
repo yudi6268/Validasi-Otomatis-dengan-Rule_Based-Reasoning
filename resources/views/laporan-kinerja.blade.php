@@ -2044,6 +2044,8 @@
     const triwulanAktif   = Number({{ $triwulanAktif ?? 1 }});
     const EDIT_LAPORAN_ID = {{ isset($editLaporanId) ? $editLaporanId : 'null' }};
     const SOURCE_FROM     = '{{ $sourceFrom ?? '' }}';
+    const IS_WADIR = {{ $isWadir ? 'true' : 'false' }};
+    const REDIRECT_AFTER_SAVE = IS_WADIR ? @json(route('dashboard.wadir', ['panel' => 'laporan'])) : @json(route('home', ['section' => 'laporan']));
     const perjanjianData = {
       id: {{ $perjanjian ? $perjanjian->id : 'null' }},
       nama: "{{ $perjanjian ? $perjanjian->pihak1_name : '' }}",
@@ -2069,13 +2071,8 @@
         return null;
       }
 
-      const type = String(indicatorType || 'positif').toLowerCase();
-      if (type === 'negatif') {
-        // Indikator negatif: ((Rencana - (Realisasi - Rencana)) / Rencana) * 100
-        return ((target - (realisasi - target)) / target) * 100;
-      }
-
-      // Indikator positif: (Realisasi / Target) * 100
+      // For both positive and negative indicators, capaian is computed as
+      // realisasi / target * 100% to keep the predicate mapping consistent.
       return (realisasi / target) * 100;
     }
 
@@ -2344,7 +2341,13 @@
 
     function generateEvaluasiSummary() {
       const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
-      const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      const allAnggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      // Filter to only sub-kegiatan (row format: X.Y.Z, has two dots)
+      const anggaranInputs = allAnggaranInputs.filter(input => {
+        const rowId = input.dataset.row || '';
+        const dotsCount = (rowId.match(/\./g) || []).length;
+        return dotsCount === 2; // sub-kegiatan level only
+      });
       const triwulan = parseInt((document.getElementById('triwulanEdit') || {}).value || '1', 10);
       const triwulanText = triwulan === 1 ? 'triwulan pertama' :
                           triwulan === 2 ? 'triwulan kedua' :
@@ -2413,7 +2416,13 @@
 
     function generateRencanaTindakLanjut() {
       const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
-      const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      const allAnggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      // Filter to only sub-kegiatan (row format: X.Y.Z, has two dots)
+      const anggaranInputs = allAnggaranInputs.filter(input => {
+        const rowId = input.dataset.row || '';
+        const dotsCount = (rowId.match(/\./g) || []).length;
+        return dotsCount === 2; // sub-kegiatan level only
+      });
       const triwulan = parseInt((document.getElementById('triwulanEdit') || {}).value || '1', 10);
       const triwulanText = triwulan === 1 ? 'triwulan pertama' :
                           triwulan === 2 ? 'triwulan kedua' :
@@ -2560,17 +2569,29 @@
           } else if ((input.dataset.row || '').startsWith('kinerja-')) {
             formatRealisasiSasaranInput(input, true);
           }
-          setPercentageForRow(
-            row.row,
-            parseNumberValue(input.value),
-            parseNumberValue(input.dataset.target || '0'),
-            (input.dataset.indicatorType || 'positif').toLowerCase()
-          );
+          // Jika pct tersimpan, gunakan itu; jika tidak, hitung ulang
+          if (row.pct !== undefined && row.pct !== null) {
+            const percentageCell = document.getElementById('percentage-' + row.row);
+            if (percentageCell) percentageCell.textContent = row.pct.toFixed(2) + '%';
+          } else {
+            setPercentageForRow(
+              row.row,
+              parseNumberValue(input.value),
+              parseNumberValue(input.dataset.target || '0'),
+              (input.dataset.indicatorType || 'positif').toLowerCase()
+            );
+          }
         }
         const computed = document.querySelector('.computed-realisasi-value[data-row="' + row.row + '"]');
         if (computed && row.realisasi !== undefined) {
           computed.value = formatNumberValue(row.realisasi);
-          setPercentageForRow(row.row, parseNumberValue(row.realisasi), parseNumberValue(computed.dataset.target || '0'), 'positif');
+          // Jika pct tersimpan, gunakan itu; jika tidak, hitung ulang
+          if (row.pct !== undefined && row.pct !== null) {
+            const percentageCell = document.getElementById('percentage-' + row.row);
+            if (percentageCell) percentageCell.textContent = row.pct.toFixed(2) + '%';
+          } else {
+            setPercentageForRow(row.row, parseNumberValue(row.realisasi), parseNumberValue(computed.dataset.target || '0'), 'positif');
+          }
         }
         // Populate ket select for anggaran rows
         if (row.ket && row.row && row.row.startsWith('anggaran-')) {
@@ -2774,8 +2795,14 @@
         ? validKinerja.reduce((sum, item) => sum + item.percentage, 0) / validKinerja.length
         : 0;
 
-      // Hitung total anggaran
-      const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      // Hitung total anggaran - Filter to only sub-kegiatan (row format: X.Y.Z, has two dots)
+      const allAnggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      const anggaranInputs = allAnggaranInputs.filter(input => {
+        const rowId = input.dataset.row || '';
+        const dotsCount = (rowId.match(/\./g) || []).length;
+        return dotsCount === 2; // sub-kegiatan level only
+      });
+      
       const totalAnggaranActual = anggaranInputs.reduce((sum, input) => {
         const value = parseNumberValue(input.value);
         return sum + (isNaN(value) ? 0 : value);
@@ -2911,7 +2938,13 @@
           } catch(e) {}
           // Close modal penutup
           hideModalSafely('kesimpulanModal');
-          showAlert('Laporan kinerja berhasil disimpan.', 'success');
+          
+          // Tampilkan pesan sesuai status
+          let alertMsg = 'Laporan kinerja berhasil disimpan.';
+          if (data.validation_reset) {
+            alertMsg += ' Validasi telah direset. Silakan jalankan validasi ulang untuk melanjutkan proses persetujuan.';
+          }
+          showAlert(alertMsg, 'success');
           
           // Clear forms and temp data
           tempFormData = {};
@@ -2925,7 +2958,7 @@
           });
 
           setTimeout(() => {
-            window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
+            window.location.href = REDIRECT_AFTER_SAVE;
           }, 400);
         } else {
           showAlert('Terjadi kesalahan: ' + data.message, 'error');
