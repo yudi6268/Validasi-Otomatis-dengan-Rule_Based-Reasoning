@@ -353,9 +353,7 @@ class DashboardController extends Controller
                 ->orderByDesc('id')
                 ->first();
 
-            if ($chartLaporan && $this->hasLaporanChartData($chartLaporan)) {
-                $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
-            }
+            $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
         }
 
         // Build simple notifications from recent laporans (fallback)
@@ -901,17 +899,6 @@ class DashboardController extends Controller
             'keuangan_targets' => $sumTargets,
             'keuangan_realisasi' => $sumRealisasi,
         ];
-    }
-
-    private function hasLaporanChartData(Laporan $laporan): bool
-    {
-        for ($tw = 1; $tw <= 4; $tw++) {
-            if (!empty($laporan->{'realisasi_tb' . $tw})) {
-                return true;
-            }
-        }
-
-        return !empty($laporan->kesimpulan) || !empty($laporan->bab_capaian) || !empty($laporan->bab_pelaksanaan);
     }
 
     private function resolveLaporanForTriwulan(int $perjanjianId, int $tw): ?Laporan

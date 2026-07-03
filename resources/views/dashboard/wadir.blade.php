@@ -833,7 +833,6 @@
           </div>
         </div>
 
-        @if(isset($chartData) && !empty($chartData['hasData']))
         <div class="dashboard-widgets">
           <div class="chart-card">
             <h5>Persentase Realisasi Basis Kinerja vs Basis Anggaran</h5>
@@ -844,16 +843,6 @@
             <canvas id="keuanganChart" height="300"></canvas>
           </div>
         </div>
-        @else
-        <div class="dashboard-widgets">
-          <div class="chart-card" style="grid-column: 1 / -1; min-height: 220px; display:flex; align-items:center; justify-content:center; text-align:center;">
-            <div>
-              <h5 style="margin-bottom: 10px;">Grafik belum tersedia</h5>
-              <p style="margin: 0; color: #667085;">Belum ada laporan kinerja milik akun ini, jadi grafik belum ditampilkan.</p>
-            </div>
-          </div>
-        </div>
-        @endif
       @else
         @if ($panel === 'perjanjian')
           {{-- ==================== PANEL PERJANJIAN KINERJA ==================== --}}
@@ -1215,7 +1204,7 @@
     const PDF_PREVIEW_BASE_URL = @json($pdfPreviewBaseUrlValue);
 
     // Inject server chart data when backend provided
-    @if(isset($chartData) && !empty($chartData['hasData']))
+    @if(isset($chartData))
       window.serverChartData = @json($chartData);
     @endif
     // Sample data fallback (if backend doesn't provide chart data)
@@ -1228,12 +1217,6 @@
 
     // Try to use server-provided variables when available
     const serverChart = window.serverChartData || null;
-    if (!serverChart) {
-      const kinerjaEl = document.getElementById('kinerjaChart');
-      const keuanganEl = document.getElementById('keuanganChart');
-      if (kinerjaEl) kinerjaEl.closest('.chart-card')?.remove();
-      if (keuanganEl) keuanganEl.closest('.chart-card')?.remove();
-    }
     const kinerjaLabels = serverChart?.kinerja_labels || sampleKinerjaLabels;
     const toNumber = (value) => {
       const num = Number(value);
@@ -1256,7 +1239,7 @@
     // Render Kinerja chart (line) - Realisasi Kinerja dibanding Realisasi Anggaran (persen)
     (function renderKinerja(){
       const el = document.getElementById('kinerjaChart');
-      if (!el || !serverChart) return;
+      if (!el) return;
       const datasets = [{
         label: 'Realisasi Kinerja (%)',
         data: realisasiKinerjaPersen,
@@ -1319,7 +1302,7 @@
     // Render Keuangan chart (line) - always show target and realisasi values on points
     (function renderKeuangan(){
       const el = document.getElementById('keuanganChart');
-      if (!el || !serverChart) return;
+      if (!el) return;
       const datasets = [];
       datasets.push({
         label: 'Target Rupiah Triwulan',
