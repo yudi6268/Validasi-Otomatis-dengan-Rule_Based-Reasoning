@@ -23,6 +23,7 @@
 /public/print_output.html
 /public/temp_script.js
 *.bak
+*.backup
 Homestead.json
 Homestead.yaml
 Thumbs.db
