@@ -34,6 +34,17 @@
   });
 </script>
 <style>
-  .logout-modal { display: none; }
+  .logout-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+  }
   .logout-modal[style*="display: flex"] { display: flex !important; }
 </style>

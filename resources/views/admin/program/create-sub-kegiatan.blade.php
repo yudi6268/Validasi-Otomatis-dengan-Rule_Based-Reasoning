@@ -35,7 +35,10 @@
 
                 <!-- Admin tidak mengelola anggaran pada struktur master -->
 
-                <div class="d-flex justify-content-end">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ route('admin.program.index') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Kembali
+                    </a>
                     <button type="submit" class="btn btn-success">
                         <i class="fas fa-save"></i> Simpan Sub-Kegiatan
                     </button>

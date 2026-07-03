@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Laporan;
 use App\Models\Perjanjian;
+use App\Services\RuleBasedReasoningService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -274,9 +275,16 @@ class SmartValidationService
                 continue;
             }
 
+            $normalizedRows = $this->normalizeRowsForValidation($realisasi['rows']);
+            $allRowIds = array_map(function ($row) {
+                return isset($row['row']) ? (string) $row['row'] : '';
+            }, $normalizedRows);
+
             // Validasi setiap baris realisasi
-            foreach ($realisasi['rows'] as $index => $row) {
-                $rowNum = $row['row'] ?? $index + 1;
+            foreach ($normalizedRows as $row) {
+                $index = isset($row['_source_index']) ? (int) $row['_source_index'] : 0;
+                $rowNum = $row['row'] ?? ($index + 1);
+                $rowId = isset($row['row']) ? (string) $row['row'] : '';
                 
                 // Cek apakah ada target untuk baris ini
                 $target = $row['target'] ?? null;
@@ -294,31 +302,72 @@ class SmartValidationService
                     $scoreDeduction += 5;
                 }
 
-                // Warning: realisasi melebihi target signifikan (>120%)
+                // Warning anomali target-realisasi berdasarkan tipe indikator.
                 if (is_numeric($target) && $target > 0 && is_numeric($realisasiValue)) {
-                    $percentage = ($realisasiValue / $target) * 100;
-                    
-                    if ($percentage > 150) {
-                        $issues[] = [
-                            'type' => 'anomaly',
-                            'field' => $realisasiField . '.rows.' . $index,
-                            'message' => "Realisasi Triwulan $i baris $rowNum ($percentage% dari target) sangat tinggi - perlu verifikasi",
-                            'severity' => 'medium',
-                            'fix' => 'Verifikasi apakah data realisasi sudah benar'
-                        ];
-                        $scoreDeduction += 3;
-                    } elseif ($percentage > 120) {
-                        $warnings[] = [
-                            'type' => 'unusual_value',
-                            'field' => $realisasiField . '.rows.' . $index,
-                            'message' => "Realisasi Triwulan $i baris $rowNum ($percentage% dari target) melebihi target",
-                            'severity' => 'low',
-                        ];
+                    $indicatorType = $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif');
+                    $rawRatioPct = round((floatval($realisasiValue) / floatval($target)) * 100, 2);
+                    $rawRatioText = $this->formatPercentageText($rawRatioPct);
+
+                    // Samakan tampilan persentase indikator negatif dengan preview PDF/form.
+                    $performancePct = null;
+                    if (isset($row['target'], $row['realisasi']) && is_numeric($row['realisasi'])) {
+                        $performancePct = RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasiValue, $indicatorType);
+                    } elseif (isset($row['performance_pct']) && $row['performance_pct'] !== null && $row['performance_pct'] !== '' && is_numeric($row['performance_pct'])) {
+                        // Fallback untuk data lama jika target/realisasi tidak lengkap.
+                        $performancePct = round(floatval($row['performance_pct']), 2);
+                    } elseif ($indicatorType === 'negatif') {
+                        $performancePct = RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasiValue, $indicatorType);
+                    } else {
+                        $performancePct = $rawRatioPct;
+                    }
+                    $performancePctText = $performancePct !== null ? $this->formatPercentageText($performancePct) : null;
+
+                    if ($indicatorType === 'negatif') {
+                        if ($rawRatioPct > 150) {
+                            $warnings[] = [
+                                'type' => 'unusual_value',
+                                'field' => $realisasiField . '.rows.' . $index,
+                                'message' => "Realisasi Triwulan $i baris $rowNum (capaian {$performancePctText}% pada indikator negatif) jauh melampaui batas target",
+                                'severity' => 'medium',
+                                'fix' => 'Verifikasi data realisasi atau lakukan tindakan korektif agar realisasi turun ke batas target'
+                            ];
+                            $scoreDeduction += 2;
+                        } elseif ($rawRatioPct > 120) {
+                            $warnings[] = [
+                                'type' => 'unusual_value',
+                                'field' => $realisasiField . '.rows.' . $index,
+                                'message' => "Realisasi Triwulan $i baris $rowNum (capaian {$performancePctText}% pada indikator negatif) melampaui batas target",
+                                'severity' => 'low',
+                            ];
+                        }
+                    } else {
+                        if ($rawRatioPct > 150) {
+                            $warnings[] = [
+                                'type' => 'unusual_value',
+                                'field' => $realisasiField . '.rows.' . $index,
+                                'message' => "Realisasi Triwulan $i baris $rowNum ({$rawRatioText}% dari target) sangat tinggi - perlu verifikasi",
+                                'severity' => 'medium',
+                                'fix' => 'Verifikasi apakah data realisasi sudah benar'
+                            ];
+                            $scoreDeduction += 2;
+                        } elseif ($rawRatioPct > 120) {
+                            $warnings[] = [
+                                'type' => 'unusual_value',
+                                'field' => $realisasiField . '.rows.' . $index,
+                                'message' => "Realisasi Triwulan $i baris $rowNum ({$rawRatioText}% dari target) melebihi target",
+                                'severity' => 'low',
+                            ];
+                        }
                     }
                 }
 
                 // Warning: realisasi kosong tapi ada target
                 if (is_numeric($target) && $target > 0 && (empty($realisasiValue) || $realisasiValue === '')) {
+                    // Untuk anggaran parent (memiliki turunan), realisasi dihitung otomatis dari child.
+                    if ($this->isParentAnggaranRow($rowId, $allRowIds)) {
+                        continue;
+                    }
+
                     $warnings[] = [
                         'type' => 'missing_data',
                         'field' => $realisasiField . '.rows.' . $index,
@@ -332,27 +381,54 @@ class SmartValidationService
         }
 
         // Saran: hitung total pencapaian
-        $totalTarget = 0;
-        $totalRealisasi = 0;
+        $kinerjaPcts = [];
+        $totalAnggaranTarget = 0;
+        $totalAnggaranRealisasi = 0;
         
         $triwulanFields = ['realisasi_tb' . $activeTriwulan];
         foreach ($triwulanFields as $field) {
             $realisasi = $laporan->$field;
             if (!empty($realisasi) && is_array($realisasi = is_string($realisasi) ? json_decode($realisasi, true) : $realisasi)) {
-                foreach ($realisasi['rows'] ?? [] as $row) {
-                    if (isset($row['target']) && is_numeric($row['target'])) {
-                        $totalTarget += $row['target'];
-                    }
-                    if (isset($row['realisasi']) && is_numeric($row['realisasi'])) {
-                        $totalRealisasi += $row['realisasi'];
+                foreach ($this->normalizeRowsForValidation($realisasi['rows'] ?? []) as $row) {
+                    $rowId = $row['row'] ?? '';
+                    if (str_starts_with($rowId, 'kinerja-')) {
+                        if (isset($row['target'], $row['realisasi']) && is_numeric($row['realisasi'])) {
+                            $performancePct = RuleBasedReasoningService::calculatePerformancePercentage(
+                                $row['target'],
+                                $row['realisasi'],
+                                $row['indicator_type'] ?? 'positif'
+                            );
+                            if ($performancePct !== null) {
+                                $kinerjaPcts[] = $performancePct;
+                            }
+                        } elseif (isset($row['performance_pct']) && $row['performance_pct'] !== null && $row['performance_pct'] !== '') {
+                            // Fallback untuk data lama jika target/realisasi tidak lengkap.
+                            $kinerjaPcts[] = floatval($row['performance_pct']);
+                        } elseif (isset($row['pct']) && $row['pct'] !== null && $row['pct'] !== '') {
+                            $kinerjaPcts[] = floatval($row['pct']);
+                        }
+                    } elseif (str_starts_with($rowId, 'anggaran-') && substr_count($rowId, '.') === 2) {
+                        if (isset($row['target']) && is_numeric($row['target'])) {
+                            $totalAnggaranTarget += floatval($row['target']);
+                        }
+                        if (isset($row['realisasi']) && is_numeric($row['realisasi'])) {
+                            $totalAnggaranRealisasi += floatval($row['realisasi']);
+                        }
                     }
                 }
             }
         }
 
-        if ($totalTarget > 0) {
-            $overallPercentage = ($totalRealisasi / $totalTarget) * 100;
-            
+        $avgKinerjaPct = count($kinerjaPcts) > 0 ? array_sum($kinerjaPcts) / count($kinerjaPcts) : 0;
+        
+        if ($totalAnggaranTarget > 0) {
+            $anggaranPct = ($totalAnggaranRealisasi / $totalAnggaranTarget) * 100;
+            $overallPercentage = ($avgKinerjaPct + $anggaranPct) / 2;
+        } else {
+            $overallPercentage = $avgKinerjaPct;
+        }
+
+        if (count($kinerjaPcts) > 0 || $totalAnggaranTarget > 0) {
             if ($overallPercentage < 50) {
                 $suggestions[] = [
                     'type' => 'attention',
@@ -523,7 +599,7 @@ class SmartValidationService
         if (!empty($realisasi)) {
             $decoded = is_string($realisasi) ? json_decode($realisasi, true) : $realisasi;
             if (is_array($decoded)) {
-                foreach (($decoded['rows'] ?? []) as $row) {
+                foreach ($this->normalizeRowsForValidation($decoded['rows'] ?? []) as $row) {
                     if (isset($row['target']) && is_numeric($row['target']) && floatval($row['target']) > 0) {
                         return true;
                     }
@@ -576,6 +652,95 @@ class SmartValidationService
 
         foreach (($node['subKegiatan'] ?? []) as $sub) {
             if ($this->hasPositiveTargetInNode((array) $sub, $twKey)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeRowsForValidation($rows): array
+    {
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($rows as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $rowId = isset($row['row']) ? trim((string) $row['row']) : '';
+
+            // Abaikan row anggaran dengan id tidak valid seperti "anggaran-" atau "anggaran--".
+            if ($this->isInvalidAnggaranRowId($rowId)) {
+                continue;
+            }
+
+            $key = $rowId !== '' ? $rowId : '__idx_' . $index;
+
+            if (!isset($normalized[$key])) {
+                $row['_source_index'] = $index;
+                $normalized[$key] = $row;
+                continue;
+            }
+
+            // Merge duplikasi row id: pertahankan nilai yang lebih informatif (non-null / non-empty).
+            if (!isset($normalized[$key]['realisasi']) || $normalized[$key]['realisasi'] === null || $normalized[$key]['realisasi'] === '') {
+                $normalized[$key]['realisasi'] = $row['realisasi'] ?? null;
+            }
+            if (!isset($normalized[$key]['target']) || $normalized[$key]['target'] === null || $normalized[$key]['target'] === '') {
+                $normalized[$key]['target'] = $row['target'] ?? null;
+            }
+            if (empty($normalized[$key]['indicator_type']) && !empty($row['indicator_type'])) {
+                $normalized[$key]['indicator_type'] = $row['indicator_type'];
+            }
+            if (empty($normalized[$key]['ket']) && !empty($row['ket'])) {
+                $normalized[$key]['ket'] = $row['ket'];
+            }
+        }
+
+        return array_values($normalized);
+    }
+
+    private function normalizeIndicatorType($rawType): string
+    {
+        return RuleBasedReasoningService::normalizeIndicatorType($rawType);
+    }
+
+    private function formatPercentageText(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+    }
+
+    private function isInvalidAnggaranRowId(string $rowId): bool
+    {
+        if (!str_starts_with($rowId, 'anggaran-')) {
+            return false;
+        }
+
+        $suffix = trim(substr($rowId, strlen('anggaran-')));
+        if ($suffix === '') {
+            return true;
+        }
+
+        return (bool) preg_match('/^-+$/', $suffix);
+    }
+
+    private function isParentAnggaranRow(string $rowId, array $allRowIds): bool
+    {
+        if (!str_starts_with($rowId, 'anggaran-')) {
+            return false;
+        }
+
+        foreach ($allRowIds as $candidate) {
+            $candidateId = (string) $candidate;
+            if ($candidateId === $rowId) {
+                continue;
+            }
+            if (str_starts_with($candidateId, $rowId . '.')) {
                 return true;
             }
         }

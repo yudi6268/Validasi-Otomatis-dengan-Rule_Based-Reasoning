@@ -833,10 +833,10 @@
                                             <div style="font-weight:700;color:#16333a; margin-bottom: 8px;">{{ Str::limit(optional($laporan->perjanjian)->judul ?? 'Perjanjian Kinerja', 45) }}</div>
                                             <div style="font-size:13px;color:#5f7b74; margin-bottom: 10px;">Triwulan: {{ $laporan->periode ?? '-' }}</div>
                                             <div>
-                                                @if(!empty($laporan->kesimpulan))
+                                                @if(!empty($laporan->pihak2_signature) || !empty($laporan->kesimpulan))
                                                     <span class="badge approved">Disetujui</span>
-                                                @elseif(!empty($laporan->tanggapan_pimpinan))
-                                                    <span class="badge rejected">Ditanggapi</span>
+                                                @elseif((!empty($laporan->rejected) && (string) $laporan->rejected !== '0') || (!empty($laporan->tanggapan_pimpinan) && empty($laporan->kesimpulan)))
+                                                    <span class="badge rejected">Ditolak</span>
                                                 @else
                                                     <span class="badge waiting">Menunggu</span>
                                                 @endif
@@ -905,7 +905,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script>
-        const userChartPayload = @json($userChartData ?? ['labels' => ['Triwulan 1', 'Triwulan 2', 'Triwulan 3', 'Triwulan 4'], 'targets' => [0, 0, 0, 0], 'realisasi' => [0, 0, 0, 0]]);
+        const userChartPayload = <?php echo json_encode($userChartData ?? ['labels' => ['Triwulan 1', 'Triwulan 2', 'Triwulan 3', 'Triwulan 4'], 'targets' => [0, 0, 0, 0], 'realisasi' => [0, 0, 0, 0]]); ?>;
 
         function formatCompactCurrency(value) {
             return new Intl.NumberFormat('id-ID', {

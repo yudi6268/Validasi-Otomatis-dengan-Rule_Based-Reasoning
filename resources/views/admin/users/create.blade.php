@@ -89,9 +89,9 @@
                     <label class="form-label">Role <span class="text-danger">*</span></label>
                     <select name="role" class="form-select @error('role') is-invalid @enderror" required>
                         <option value="">Pilih Role...</option>
+                        <option value="user" {{ old('role') == 'user' ? 'selected' : '' }}>User</option>
                         <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option>
                         <option value="direktur" {{ old('role') == 'direktur' ? 'selected' : '' }}>Direktur</option>
-                        <option value="wadir" {{ old('role') == 'wadir' ? 'selected' : '' }}>Wakil Direktur</option>
                     </select>
                     @error('role')
                         <div class="invalid-feedback">{{ $message }}</div>

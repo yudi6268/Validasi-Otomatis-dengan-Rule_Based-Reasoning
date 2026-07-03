@@ -110,6 +110,32 @@
     return is_numeric($s) ? floatval($s) : null;
   };
 
+  $calculatePct = function($target, $realisasi) use ($normalizeNumber) {
+    if ($realisasi === null || $realisasi === '') {
+      return null;
+    }
+    
+    $targetVal = $normalizeNumber($target);
+    $realisasiVal = $normalizeNumber($realisasi);
+    if ($realisasiVal === null) {
+      return null;
+    }
+    
+    if ($targetVal === null || $targetVal <= 0) {
+      return 0.0;
+    }
+
+    return round(($realisasiVal / $targetVal) * 100, 2);
+  };
+
+  $calculatePerformancePct = function($target, $realisasi, $indicatorType = 'positif', $capaianPct = null) use ($normalizeNumber, $calculatePct) {
+    return \App\Services\RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasi, $indicatorType);
+  };
+
+  $normalizeIndicatorType = function($indicatorType = 'positif') {
+    return \App\Services\RuleBasedReasoningService::normalizeIndicatorType($indicatorType);
+  };
+
   $fmt  = fn($v) => is_numeric($v) ? number_format((float)$v, 0, ',', '.') : ($v ?? '-');
   $fmt2 = fn($v) => is_numeric($v) ? number_format((float)$v, 2, ',', '.') : ($v ?? '-');
   $fmtTarget = function($v) use ($fmt) {
@@ -136,8 +162,18 @@
     }
     return $fmt($s);
   };
-  $fmtPct = fn($v) => is_numeric($v) ? number_format((float)$v, 2, ',', '.') : ($v ?? '-');
-
+  $fmtPct = function($v) {
+    if ($v === null || $v === '') return '-';
+    $v = str_replace('%', '', (string)$v);
+    return is_numeric($v) ? number_format((float)$v, 2, ',', '.') : $v;
+  };
+  $fmtDisplayNo = function($no) {
+    $s = trim((string) $no);
+    if ($s === '') return '';
+    $s = preg_replace('/^(pks|pk|p)(?=\d)/i', '', $s);
+    $s = preg_replace('/\.(pks|pk|k|s)(?=\d)/i', '.', $s);
+    return trim((string) ($s !== '' ? $s : $no));
+  };
   $pihak1Sig  = $laporan->pihak1_signature
     ?: ($perjanjian->pihak1_ttd
     ?: ($perjanjian->pihak1_signature
@@ -234,10 +270,25 @@
   foreach ($sasar as $i => $s) {
     $tgt = $twTgt[$i] ?? null;
     $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
-    if ($rel !== null && is_numeric($tgt) && floatval($tgt) > 0)
-      $capValues[] = round(floatval($rel) / floatval($tgt) * 100, 2);
-    elseif ($rel !== null)
-      $capValues[] = 100;
+    $indicatorTypeSource = $tabelA['indicator_type'][$i] ?? ($tabelB['indicator_type'][$i] ?? 'positif');
+    $indicatorType = $normalizeIndicatorType($indicatorTypeSource);
+    
+    $pct = $relByKey['kinerja-'.$i]['pct'] ?? null;
+    if ($pct === null && $rel !== null && $rel !== '') {
+      $pct = $calculatePct($tgt, $rel);
+    }
+    $performancePct = $calculatePerformancePct($tgt, $rel, $indicatorType, is_numeric($pct) ? floatval($pct) : null);
+
+    if ($performancePct === null) {
+      $storedPerformancePct = $relByKey['kinerja-'.$i]['performance_pct'] ?? null;
+      if (is_numeric($storedPerformancePct)) {
+        $performancePct = floatval($storedPerformancePct);
+      }
+    }
+    
+    if ($performancePct !== null) {
+      $capValues[] = $performancePct;
+    }
   }
   $avgCap = count($capValues) > 0 ? round(array_sum($capValues) / count($capValues), 2) : null;
   
@@ -328,15 +379,33 @@
   <div class="bab-subtitle">PENDAHULUAN</div>
 
   @php
-    // Helper: decode JSON-array or split plain multiline string into array of items
+    // Helper: decode JSON-array or split plain multiline string into array of items (with item level splitting)
     $toItems = function($val) {
       if (!$val) return [];
-      if (is_array($val)) return array_values(array_filter($val, 'strlen'));
-      $decoded = json_decode($val, true);
-      if (is_array($decoded)) return array_values(array_filter($decoded, 'strlen'));
-      $str = trim((string)$val);
-      $parts = preg_split('/\r\n|\r|\n|;/u', $str);
-      return array_values(array_filter(array_map('trim', $parts), 'strlen'));
+      $list = [];
+      if (is_array($val)) {
+        $list = $val;
+      } else {
+        $decoded = json_decode($val, true);
+        if (is_array($decoded)) {
+          $list = $decoded;
+        } else {
+          $list = [$val];
+        }
+      }
+      $items = [];
+      foreach ($list as $item) {
+        $str = trim((string)$item);
+        if ($str === '') continue;
+        $parts = preg_split('/\r\n|\r|\n|;/u', $str);
+        foreach ($parts as $part) {
+          $partTrimmed = trim($part);
+          if ($partTrimmed !== '') {
+            $items[] = $partTrimmed;
+          }
+        }
+      }
+      return $items;
     };
     // Helper: parse fungsi which may be comma-separated, semicolon-separated, or have 'dan' between items
     $parseFungsi = function($val) use ($toItems) {
@@ -355,96 +424,128 @@
       $items = preg_split('/[,;]/u', $str);
       return array_values(array_filter(array_map('trim', $items), 'strlen'));
     };
-    // Use ?: so empty strings fall through to the next source
-    $fungsiRaw    = $perjanjian->fungsi_pelaksana ?: ($perjanjian->user->fungsi ?? '');
-    $tugasRaw     = $perjanjian->tugas_pelaksana  ?: ($perjanjian->user->tugas  ?? '');
-    $membawahiRaw = $perjanjian->user->membawahi ?? '';
     
     $normalizeItem = function($item) {
       if ($item === null) {
         return '';
       }
       $item = trim(preg_replace('/[\r\n]+/', ' ', (string)$item));
-      // Reduce repeated punctuation at end to a single char (preserve one semicolon/period/comma/colon)
-      $item = preg_replace('/([\.;,:]){2,}$/u', '$1', $item);
+      // Strip common list indicators at the start of the item (e.g. 1., a., -, *, •, 1).)
+      $item = preg_replace('/^(?:\d+[\.\)]+\s*|[a-zA-Z][\.\)]+\s*|[-*•]\s*)/u', '', $item);
+      
+      // Strip leading "dan", "dan/atau", "atau" (case-insensitive)
+      $item = preg_replace('/^(?:dan\/atau|dan|atau)\b\s*/ui', '', $item);
+      
+      // Strip trailing "dan", "dan/atau", "atau" (case-insensitive)
+      $item = preg_replace('/\s*(?:dan\/atau|dan|atau)\b\s*$/ui', '', $item);
+      
+      // Strip trailing punctuation
+      $item = preg_replace('/[\.;,:]+$/u', '', $item);
+      
       $item = preg_replace('/\s{2,}/u', ' ', $item);
       return trim($item);
     };
-    // Fallback: look up Jabatan model using multiple name candidates + LIKE
-    if (!$fungsiRaw || !$tugasRaw || !$membawahiRaw) {
-      $jabatanCandidates = array_values(array_filter(array_unique([
-        $jabatan1,
-        $perjanjian->jabatan_pelaksana ?? '',
-        $perjanjian->user->jabatan ?? '',
-      ])));
-      $jabatanModel = null;
-      foreach ($jabatanCandidates as $jname) {
-        if (!$jname) continue;
-        $jabatanModel = \App\Models\Jabatan::where('nama_jabatan', $jname)->first()
-          ?? \App\Models\Jabatan::where('nama_jabatan', 'LIKE', '%'.$jname.'%')->first();
-        if ($jabatanModel) break;
-      }
-      if ($jabatanModel) {
-        if (!$fungsiRaw) $fungsiRaw = $jabatanModel->fungsi;
-        if (!$tugasRaw)  $tugasRaw  = $jabatanModel->tugas ?? '';
-        if (!$membawahiRaw) $membawahiRaw = $jabatanModel->membawahi ?? '';
-      }
+
+    // Prioritize lookup of the Jabatan model configured by the admin
+    $jabatanCandidates = array_values(array_filter(array_unique([
+      $jabatan1,
+      $perjanjian->jabatan_pelaksana ?? '',
+      $perjanjian->user->jabatan ?? '',
+    ])));
+    $jabatanModel = null;
+    foreach ($jabatanCandidates as $jname) {
+      if (!$jname) continue;
+      $jabatanModel = \App\Models\Jabatan::where('nama_jabatan', $jname)->first()
+        ?? \App\Models\Jabatan::where('nama_jabatan', 'LIKE', '%'.$jname.'%')->first();
+      if ($jabatanModel) break;
+    }
+
+    $tugasRaw = null;
+    $fungsiRaw = null;
+    $membawahiRaw = null;
+
+    if ($jabatanModel) {
+      $tugasRaw = $jabatanModel->tugas;
+      $fungsiRaw = $jabatanModel->fungsi;
+      $membawahiRaw = $jabatanModel->membawahi;
+    }
+
+    // Fallbacks if not configured in the Jabatan model
+    if (!$fungsiRaw) {
+      $fungsiRaw = $perjanjian->fungsi_pelaksana ?: ($perjanjian->user->fungsi ?? '');
+    }
+    if (!$tugasRaw) {
+      $tugasRaw = $perjanjian->tugas_pelaksana ?: ($perjanjian->user->tugas ?? '');
+    }
+    if (!$membawahiRaw) {
+      $membawahiRaw = $perjanjian->user->membawahi ?? '';
     }
     
-    // Parse tugas and membawahi as arrays
-    $tugasItems     = array_values(array_filter(array_map($normalizeItem, $toItems($tugasRaw)), 'strlen'));
-    $membawahiItems = array_values(array_filter(array_map($normalizeItem, $toItems($membawahiRaw)), 'strlen'));
+    $extractList = function($val) {
+        if (!$val) return [];
+        if (is_array($val)) return array_values(array_filter($val, 'strlen'));
+        $decoded = json_decode($val, true);
+        if (is_array($decoded)) return array_values(array_filter($decoded, 'strlen'));
+        $str = trim((string)$val);
+        $parts = preg_split("/\r\n|\n|\r/", $str);
+        return array_values(array_filter(array_map('trim', $parts), 'strlen'));
+    };
 
-    // For fungsi: keep as-is if it's a complete sentence (long text)
-    // Otherwise parse as array
-    if (is_string($fungsiRaw) && strlen($fungsiRaw) > 80) {
-      $fungsiSentence = $normalizeItem($fungsiRaw);
-    } else {
-      $fungsiArray = $parseFungsi($fungsiRaw);
-      $fungsiArray = array_map(function($f) {
-        $f = trim((string)$f);
-        $f = preg_replace('/\s*[;,]\s*dan\s*$/iu', '', $f);
-        $f = preg_replace('/\s+dan\s*$/iu', '', $f);
-        $f = preg_replace('/[\.;,:]+$/u', '', trim($f));
-        return trim($f);
-      }, $fungsiArray);
-      $fungsiArray = array_values(array_filter($fungsiArray, 'strlen'));
-      if (count($fungsiArray) > 1) {
-        $last = array_pop($fungsiArray);
-        $fungsiSentence = implode(', ', $fungsiArray) . ' dan ' . $last;
-      } else {
-        $fungsiSentence = $fungsiArray[0] ?? $normalizeItem($fungsiRaw);
-      }
+    $tugasValue = $tugasRaw;
+    if (is_array($tugasValue)) {
+        $tugasValue = implode("\n", $tugasValue);
+    } elseif (is_string($tugasValue)) {
+        $decodedTugas = json_decode($tugasValue, true);
+        if (is_array($decodedTugas)) {
+            $tugasValue = implode("\n", $decodedTugas);
+        }
     }
+
+    $fungsiItems = $extractList($fungsiRaw);
+    $membawahiItems = $extractList($membawahiRaw);
+
+    $hasContent = !empty(trim($tugasValue)) || !empty($fungsiItems) || !empty($membawahiItems);
   @endphp
   @if(!empty($laporan->bab_pelaksanaan))
     <div class="body-text">{!! nl2br(e($laporan->bab_pelaksanaan)) !!}</div>
-  @elseif(!empty($fungsiSentence))
-    {{-- Fungsi as prose, tugas and membawahi as lists --}}
-    <p class="body-text"><strong>{{ $jabatan1 }}</strong> mempunyai fungsi {{ $fungsiSentence }}</p>
-    @if(!empty($tugasItems))
-      <p class="body-text-noindent">Untuk melaksanakan fungsinya, <strong>{{ $jabatan1 }}</strong> mempunyai tugas yaitu :</p>
-      @foreach($tugasItems as $i => $tugas)
-        @php
-          $t = trim($tugas);
-          if (!preg_match('/[;.]$/', $t)) {
-            $t = $t . ';';
-          }
-        @endphp
-        <p class="list-item">{{ $i + 1 }}).&nbsp;&nbsp;{{ $t }}</p>
-      @endforeach
+  @elseif($hasContent)
+    {{-- 1. Tugas --}}
+    @if(!empty(trim($tugasValue)))
+      <p class="body-text"><strong>{{ $jabatan1 }}</strong> mempunyai tugas {!! nl2br(e(trim($tugasValue))) !!}</p>
     @endif
+
+    {{-- 2. Fungsi --}}
+    @if(!empty($fungsiItems))
+      <p class="body-text-noindent">Untuk melaksanakan tugasnya, <strong>{{ $jabatan1 }}</strong> mempunyai fungsi yaitu :</p>
+      @if(count($fungsiItems) > 1)
+        <ol style="margin: 0 0 10px 0; padding-left: 20px; list-style-type: lower-alpha; line-height: 1.5; text-align: justify;">
+          @foreach($fungsiItems as $fi)
+            @php
+              $cleanFi = preg_replace('/^[a-zA-Z]\.\s*/', '', trim((string)$fi));
+            @endphp
+            <li style="margin-bottom: 4px;">{{ $cleanFi }}</li>
+          @endforeach
+        </ol>
+      @else
+        <p class="body-text-noindent">{!! nl2br(e($fungsiItems[0])) !!}</p>
+      @endif
+    @endif
+
+    {{-- 3. Membawahi --}}
     @if(!empty($membawahiItems))
       <p class="body-text-noindent"><strong>{{ $jabatan1 }}</strong> membawahi :</p>
-      @foreach($membawahiItems as $i => $unit)
-        @php
-          $u = trim($unit);
-          if (!preg_match('/[;.]$/', $u)) {
-            $u = $u . ';';
-          }
-        @endphp
-        <p class="list-item">{{ $i + 1 }}).&nbsp;&nbsp;{{ $u }}</p>
-      @endforeach
+      @if(count($membawahiItems) > 1)
+        <ol style="margin: 0 0 10px 0; padding-left: 20px; list-style-type: lower-alpha; line-height: 1.5; text-align: justify;">
+          @foreach($membawahiItems as $mi)
+            @php
+              $cleanMi = preg_replace('/^[a-zA-Z]\.\s*/', '', trim((string)$mi));
+            @endphp
+            <li style="margin-bottom: 4px;">{{ $cleanMi }}</li>
+          @endforeach
+        </ol>
+      @else
+        <p class="body-text-noindent">{!! nl2br(e($membawahiItems[0])) !!}</p>
+      @endif
     @endif
   @else
     <p class="body-text">Laporan kinerja ini disusun sebagai bentuk pertanggungjawaban pelaksanaan tugas dan fungsi {{ $jabatan1 }} pada Tribulan {{ $twName }} Tahun {{ $tahun }}.</p>
@@ -503,32 +604,38 @@
       </thead>
       <tbody>
         @php $totalAnggaran = 0; @endphp
-        @foreach($programs as $prog)
+        @foreach($programs as $progIndex => $prog)
           @php
+            $pNoRaw = trim((string) ($prog['no'] ?? ''));
+            $pNoDisplay = $pNoRaw !== '' ? $fmtDisplayNo($pNoRaw) : (string) ($progIndex + 1);
             $ab = 0; for ($t=1;$t<=4;$t++) $ab += floatval($prog['tw'.$t] ?? 0);
             if ($ab == 0) foreach ($prog['kegiatan'] ?? [] as $kg) { for ($t=1;$t<=4;$t++) $ab += floatval($kg['tw'.$t] ?? 0); }
             $totalAnggaran += $ab;
             $pKet = $resolveProgKet($prog);
           @endphp
           <tr>
-            <td class="center bold">{{ $prog['no'] ?? '' }}</td>
+            <td class="center bold">{{ $pNoDisplay }}</td>
             <td class="bold">{{ $prog['name'] ?? '-' }}</td>
             <td class="right bold">{{ $ab > 0 ? number_format($ab,0,',','.') : '-' }}</td>
             <td class="center">{{ $pKet }}</td>
           </tr>
-          @foreach($prog['kegiatan'] ?? [] as $kg)
+          @foreach($prog['kegiatan'] ?? [] as $kgIndex => $kg)
             @php
+              $kNoRaw = trim((string) ($kg['no'] ?? ''));
+              $kNoDisplay = $kNoRaw !== '' ? $fmtDisplayNo($kNoRaw) : ($pNoDisplay . '.' . ($kgIndex + 1));
               $kb = 0; for ($t=1;$t<=4;$t++) $kb += floatval($kg['tw'.$t] ?? 0);
               if ($kb==0) foreach ($kg['subKegiatan']??[] as $sub) { for($t=1;$t<=4;$t++) $kb+=floatval($sub['tw'.$t]??0); }
               $kKet = $resolveKgKet($kg);
             @endphp
-            <tr><td class="center">{{ $kg['no']??'' }}</td><td class="indent">{{ $kg['name']??'-' }}</td><td class="right">{{ $kb>0?number_format($kb,0,',','.'):'–' }}</td><td class="center">{{ $kKet }}</td></tr>
-            @foreach($kg['subKegiatan'] ?? [] as $sub)
+            <tr><td class="center">{{ $kNoDisplay }}</td><td class="indent">{{ $kg['name']??'-' }}</td><td class="right">{{ $kb>0?number_format($kb,0,',','.'):'–' }}</td><td class="center">{{ $kKet }}</td></tr>
+            @foreach($kg['subKegiatan'] ?? [] as $subIndex => $sub)
               @php
+                $sNoRaw = trim((string) ($sub['no'] ?? ''));
+                $sNoDisplay = $sNoRaw !== '' ? $fmtDisplayNo($sNoRaw) : ($kNoDisplay . '.' . ($subIndex + 1));
                 $sb=0; for($t=1;$t<=4;$t++) $sb+=floatval($sub['tw'.$t]??0);
                 $sKet = $resolveSubKet($sub);
               @endphp
-              <tr><td class="center">{{ $sub['no']??'' }}</td><td class="indent2">{{ $sub['name']??'-' }}</td><td class="right">{{ $sb>0?number_format($sb,0,',','.'):'–' }}</td><td class="center">{{ $sKet }}</td></tr>
+              <tr><td class="center">{{ $sNoDisplay }}</td><td class="indent2">{{ $sub['name']??'-' }}</td><td class="right">{{ $sb>0?number_format($sb,0,',','.'):'–' }}</td><td class="center">{{ $sKet }}</td></tr>
             @endforeach
           @endforeach
         @endforeach
@@ -547,16 +654,25 @@
 
   @if(!empty($sasar))
     <table class="data-table">
+      <colgroup>
+        <col style="width:4%;">
+        <col style="width:25%;">
+        <col style="width:32%;">
+        <col style="width:12%;">
+        <col style="width:12%;">
+        <col style="width:9%;">
+        <col style="width:6%;">
+      </colgroup>
       <thead>
         <tr>
-          <th rowspan="2" style="width:4%;">NO</th>
-          <th rowspan="2" style="width:27%;">Sasaran</th>
-          <th rowspan="2" style="width:34%;">Indikator Kinerja</th>
+          <th rowspan="2">NO</th>
+          <th rowspan="2">Sasaran</th>
+          <th rowspan="2">Indikator Kinerja</th>
           <th colspan="3">Triwulan {{ $twName }}</th>
-          <th rowspan="2" style="width:7%;">Ket</th>
+          <th rowspan="2">Ket</th>
         </tr>
         <tr>
-          <th style="width:12%;">Target</th><th style="width:12%;">Realisasi</th><th style="width:4%;">%</th>
+          <th>Target</th><th>Realisasi</th><th>%</th>
         </tr>
       </thead>
       <tbody>
@@ -566,13 +682,28 @@
             $tgtNum = $normalizeNumber($tgtRaw);
             $relRaw = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
             $relNum = $normalizeNumber($relRaw);
-            // Use stored pct if available, otherwise recalculate for backward compatibility
-            $cap = $relByKey['kinerja-'.$i]['pct'] ?? null;
-            if ($cap === null) {
-              $cap = '-';
-              if ($relNum !== null && $tgtNum !== null && $tgtNum > 0) {
-                $cap = round($relNum / $tgtNum * 100, 2);
+            $indicatorTypeSource = $tabelA['indicator_type'][$i] ?? ($tabelB['indicator_type'][$i] ?? 'positif');
+            $indicatorType = $normalizeIndicatorType($indicatorTypeSource);
+
+            // Gunakan persentase performa (konsisten dengan form), bukan pct mentah.
+            $storedPct = $relByKey['kinerja-'.$i]['pct'] ?? null;
+
+            if ($relRaw !== null && $relRaw !== '') {
+              $cap = $calculatePerformancePct(
+                $tgtRaw,
+                $relRaw,
+                $indicatorType,
+                is_numeric($storedPct) ? floatval($storedPct) : null
+              );
+
+              if ($cap === null) {
+                $storedPerformancePct = $relByKey['kinerja-'.$i]['performance_pct'] ?? null;
+                if (is_numeric($storedPerformancePct)) {
+                  $cap = floatval($storedPerformancePct);
+                }
               }
+            } else {
+              $cap = '-';
             }
           @endphp
           <tr>
@@ -581,7 +712,7 @@
             <td>{{ $indik[$i] ?? '-' }}</td>
             <td class="center">{{ $tgtRaw !== null ? $fmtTarget($tgtRaw) : '-' }}</td>
             <td class="center">{{ $relNum !== null ? $fmt2($relNum) : ($relRaw !== null ? $fmt2($relRaw) : '-') }}</td>
-            <td class="center">{{ $cap !== '-' ? $cap : '-' }}</td>
+            <td class="center">{{ is_numeric($cap) ? $fmtPct($cap) : ($cap ?? '-') }}</td>
             <td></td>
           </tr>
         @endforeach
@@ -591,14 +722,22 @@
 
   @if(!empty($programs))
     <table class="data-table">
+      <colgroup>
+        <col style="width:4%;">
+        <col style="width:34%;">
+        <col style="width:23%;">
+        <col style="width:23%;">
+        <col style="width:8%;">
+        <col style="width:8%;">
+      </colgroup>
       <thead>
         <tr>
-          <th rowspan="2" style="width:5%;">NO</th>
-          <th rowspan="2" style="width:40%;">PROGRAM / KEGIATAN</th>
+          <th rowspan="2">NO</th>
+          <th rowspan="2">PROGRAM / KEGIATAN</th>
           <th colspan="3">Triwulan {{ $twName }}</th>
-          <th rowspan="2" style="width:12%;">Ket</th>
+          <th rowspan="2">Ket</th>
         </tr>
-        <tr><th style="width:16%;">Target</th><th style="width:16%;">Realisasi</th><th style="width:11%;">%</th></tr>
+        <tr><th>Target</th><th>Realisasi</th><th style="white-space: nowrap;">%</th></tr>
       </thead>
       <tbody>
         @php 
@@ -606,10 +745,15 @@
           $totTgt = 0; 
           $totRel = 0;
           // First pass: collect sub-kegiatan totals
-          foreach($programs as $prog) {
-            foreach($prog['kegiatan']??[] as $kg) {
-              foreach($kg['subKegiatan']??[] as $sub) {
-                $sNo = $sub['no'] ?? '';
+          foreach($programs as $progIndex => $prog) {
+            $progNoRaw = trim((string) ($prog['no'] ?? ''));
+            $progNo = $progNoRaw !== '' ? $progNoRaw : ('p' . ($progIndex + 1));
+            foreach($prog['kegiatan']??[] as $kgIndex => $kg) {
+              $kgNoRaw = trim((string) ($kg['no'] ?? ''));
+              $kgNo = $kgNoRaw !== '' ? $kgNoRaw : ($progNo . '.k' . ($kgIndex + 1));
+              foreach($kg['subKegiatan']??[] as $subIndex => $sub) {
+                $sNoRaw = trim((string) ($sub['no'] ?? ''));
+                $sNo = $sNoRaw !== '' ? $sNoRaw : ($kgNo . '.s' . ($subIndex + 1));
                 $sTgt = $normalizeNumber($sub[$twKey] ?? null) ?? 0;
                 $sRel = $normalizeNumber($relByKey['anggaran-'.$sNo]['realisasi'] ?? null) ?? 0;
                 $totTgt += $sTgt;
@@ -618,9 +762,11 @@
             }
           }
         @endphp
-        @foreach($programs as $prog)
+        @foreach($programs as $progIndex => $prog)
           @php
-            $pNo = $prog['no'] ?? '';
+            $pNoRaw = trim((string) ($prog['no'] ?? ''));
+            $pNo = $pNoRaw !== '' ? $pNoRaw : ('p' . ($progIndex + 1));
+            $pNoDisplay = $pNoRaw !== '' ? $fmtDisplayNo($pNoRaw) : (string) ($progIndex + 1);
             $pTgt = $normalizeNumber($prog[$twKey] ?? null) ?? 0;
             $pRel = $normalizeNumber($relByKey['anggaran-'.$pNo]['realisasi'] ?? null) ?? 0;
             // Use stored pct if available, otherwise recalculate for backward compatibility
@@ -628,36 +774,40 @@
             $pKet2 = $resolveProgKet($prog);
           @endphp
           <tr>
-            <td class="center bold">{{ $pNo }}</td><td class="bold">{{ $prog['name']??'-' }}</td>
-            <td class="right">{{ $prog[$twKey] ?? null ? $fmtTarget($prog[$twKey]) : '-' }}</td>
-            <td class="right">{{ $fmt2($pRel) }}</td>
-            <td class="center">{{ $pPct !== '-' ? $pPct : '-' }}</td><td class="center">{{ $pKet2 }}</td>
+            <td class="center bold">{{ $pNoDisplay }}</td><td class="bold">{{ $prog['name']??'-' }}</td>
+            <td class="right" style="font-size: 8pt;">{{ $prog[$twKey] ?? null ? $fmt2($pTgt) : '-' }}</td>
+            <td class="right" style="font-size: 8pt;">{{ $fmt2($pRel) }}</td>
+            <td class="center" style="white-space: nowrap;">{{ $pPct !== '-' ? $fmtPct($pPct) : '-' }}</td><td class="center">{{ $pKet2 }}</td>
           </tr>
-          @foreach($prog['kegiatan']??[] as $kg)
+          @foreach($prog['kegiatan']??[] as $kgIndex => $kg)
             @php
-              $kNo = $kg['no'] ?? '';
+              $kNoRaw = trim((string) ($kg['no'] ?? ''));
+              $kNo = $kNoRaw !== '' ? $kNoRaw : ($pNo . '.k' . ($kgIndex + 1));
+              $kNoDisplay = $kNoRaw !== '' ? $fmtDisplayNo($kNoRaw) : ($pNoDisplay . '.' . ($kgIndex + 1));
               $kTgt = $normalizeNumber($kg[$twKey] ?? null) ?? 0;
               $kRel = $normalizeNumber($relByKey['anggaran-'.$kNo]['realisasi'] ?? null) ?? 0;
               // Use stored pct if available, otherwise recalculate for backward compatibility
               $kPct = $relByKey['anggaran-'.$kNo]['pct'] ?? ($kTgt > 0 ? round($kRel / $kTgt * 100, 2) : '-');
               $kKet2 = $resolveKgKet($kg);
             @endphp
-            <tr><td class="center">{{ $kNo }}</td><td class="indent">{{ $kg['name']??'-' }}</td><td class="right">{{ ($kg[$twKey] ?? null) !== null ? $fmtTarget($kg[$twKey]) : '-' }}</td><td class="right">{{ $fmt2($kRel) }}</td><td class="center">{{ $kPct!=='-'?$kPct:'-' }}</td><td class="center">{{ $kKet2 }}</td></tr>
-            @foreach($kg['subKegiatan']??[] as $sub)
+            <tr><td class="center">{{ $kNoDisplay }}</td><td class="indent">{{ $kg['name']??'-' }}</td><td class="right" style="font-size: 8pt;">{{ ($kg[$twKey] ?? null) !== null ? $fmt2($kTgt) : '-' }}</td><td class="right" style="font-size: 8pt;">{{ $fmt2($kRel) }}</td><td class="center" style="white-space: nowrap;">{{ $kPct!=='-'?$fmtPct($kPct):'-' }}</td><td class="center">{{ $kKet2 }}</td></tr>
+            @foreach($kg['subKegiatan']??[] as $subIndex => $sub)
               @php
-                $sNo = $sub['no'] ?? '';
+                $sNoRaw = trim((string) ($sub['no'] ?? ''));
+                $sNo = $sNoRaw !== '' ? $sNoRaw : ($kNo . '.s' . ($subIndex + 1));
+                $sNoDisplay = $sNoRaw !== '' ? $fmtDisplayNo($sNoRaw) : ($kNoDisplay . '.' . ($subIndex + 1));
                 $sTgt = $normalizeNumber($sub[$twKey] ?? null) ?? 0;
                 $sRel = $normalizeNumber($relByKey['anggaran-'.$sNo]['realisasi'] ?? null) ?? 0;
                 // Use stored pct if available, otherwise recalculate for backward compatibility
                 $sPct = $relByKey['anggaran-'.$sNo]['pct'] ?? ($sTgt > 0 ? round($sRel / $sTgt * 100, 2) : '-');
                 $sKet2 = $resolveSubKet($sub);
               @endphp
-              <tr><td class="center">{{ $sNo }}</td><td class="indent2">{{ $sub['name']??'-' }}</td><td class="right">{{ ($sub[$twKey] ?? null) !== null ? $fmtTarget($sub[$twKey]) : '-' }}</td><td class="right">{{ $fmt2($sRel) }}</td><td class="center">{{ $sPct!=='-'?$sPct:'-' }}</td><td class="center">{{ $sKet2 }}</td></tr>
+              <tr><td class="center">{{ $sNoDisplay }}</td><td class="indent2">{{ $sub['name']??'-' }}</td><td class="right" style="font-size: 8pt;">{{ ($sub[$twKey] ?? null) !== null ? $fmt2($sTgt) : '-' }}</td><td class="right" style="font-size: 8pt;">{{ $fmt2($sRel) }}</td><td class="center" style="white-space: nowrap;">{{ $sPct!=='-'?$fmtPct($sPct):'-' }}</td><td class="center">{{ $sKet2 }}</td></tr>
             @endforeach
           @endforeach
         @endforeach
         @if($totTgt>0||$totRel>0)
-          <tr><td colspan="2" class="center bold">JUMLAH</td><td class="right bold">{{ $fmt($totTgt) }}</td><td class="right bold">{{ $fmt($totRel) }}</td><td class="center bold">{{ $totTgt>0 ? round($totRel/$totTgt*100,2) : '-' }}</td><td></td></tr>
+          <tr><td colspan="2" class="center bold">JUMLAH</td><td class="right bold" style="font-size: 8pt;">{{ $fmt2($totTgt) }}</td><td class="right bold" style="font-size: 8pt;">{{ $fmt2($totRel) }}</td><td class="center bold" style="white-space: nowrap;">{{ $totTgt>0 ? $fmtPct(round($totRel/$totTgt*100,2)) : '-' }}</td><td></td></tr>
         @endif
       </tbody>
     </table>
@@ -740,21 +890,27 @@
   <div class="bab-subtitle">PENUTUP</div>
 
   @php
-    // Hitung rata-rata capaian kinerja untuk penutup - gunakan stored pct jika ada
+    // Hitung rata-rata capaian kinerja untuk penutup.
     $capValues = [];
     foreach ($sasar as $i => $s) {
-      // Use stored pct if available
       $pct = $relByKey['kinerja-'.$i]['pct'] ?? null;
-      if ($pct !== null) {
-        $capValues[] = $pct;
-      } else {
-        // Fallback: recalculate for backward compatibility
-        $tgt = $twTgt[$i] ?? null;
-        $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
-        if ($rel !== null && is_numeric($tgt) && floatval($tgt) > 0)
-          $capValues[] = round(floatval($rel) / floatval($tgt) * 100, 2);
-        elseif ($rel !== null)
-          $capValues[] = 100;
+      $tgt = $twTgt[$i] ?? null;
+      $rel = $relByKey['kinerja-'.$i]['realisasi'] ?? null;
+      $indicatorTypeSource = $tabelA['indicator_type'][$i] ?? ($tabelB['indicator_type'][$i] ?? 'positif');
+      $indicatorType = $normalizeIndicatorType($indicatorTypeSource);
+      if ($rel !== null && $rel !== '') {
+        if ($pct === null) {
+          $pct = $calculatePct($tgt, $rel);
+        }
+        $performancePct = $calculatePerformancePct($tgt, $rel, $indicatorType, is_numeric($pct) ? floatval($pct) : null);
+        if ($performancePct !== null) {
+          $capValues[] = $performancePct;
+        } else {
+          $storedPerformancePct = $relByKey['kinerja-'.$i]['performance_pct'] ?? null;
+          if (is_numeric($storedPerformancePct)) {
+            $capValues[] = floatval($storedPerformancePct);
+          }
+        }
       }
     }
     $avgCap = count($capValues) > 0 ? round(array_sum($capValues) / count($capValues), 2) : null;
@@ -789,8 +945,9 @@
               ? 'upaya tindak lanjut diarahkan pada akselerasi kinerja melalui penajaman prioritas, penguatan koordinasi, dan monitoring lebih intensif.'
               : 'upaya tindak lanjut diarahkan pada langkah korektif terstruktur, penataan strategi pelaksanaan, serta peningkatan disiplin monitoring dan evaluasi.')));
       $persentaseFormatted = $fmtPct($persentase);
+      $labelCapaian = ($avgAng !== null) ? 'capaian komposit indikator kinerja dan anggaran' : 'capaian indikator kinerja';
     @endphp
-    <p class="body-text">Berdasarkan hasil pengukuran kinerja Triwulan {{ $twName }} ({{ $twTxt }}) Tahun {{ $tahun }} pada jabatan {{ $jabatan1 }}, capaian komposit indikator kinerja dan anggaran mencapai <strong>{{ $persentaseFormatted }}%</strong> dengan predikat <strong>{{ $compKat }}</strong>. Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.</p>
+    <p class="body-text">Berdasarkan hasil pengukuran kinerja Triwulan {{ $twName }} ({{ $twTxt }}) Tahun {{ $tahun }} pada jabatan {{ $jabatan1 }}, {{ $labelCapaian }} mencapai <strong>{{ $persentaseFormatted }}%</strong> dengan predikat <strong>{{ $compKat }}</strong>. Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.</p>
   @endif
 
   <div class="sig-section">
@@ -1064,7 +1221,7 @@
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        window.location.reload();
+        window.location.href = '/dashboard/wadir?panel=laporan';
       } else {
         alert(data.message || 'Terjadi kesalahan.');
         btn.disabled = false;
@@ -1095,7 +1252,7 @@
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        window.location.reload();
+        window.location.href = '/dashboard/wadir?panel=laporan';
       } else {
         alert(data.message || 'Terjadi kesalahan.');
         btn.disabled = false;

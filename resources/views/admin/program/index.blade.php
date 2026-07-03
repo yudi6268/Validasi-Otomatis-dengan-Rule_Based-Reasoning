@@ -194,6 +194,9 @@
                         </span>
                     </div>
                     <div class="action-buttons" onclick="event.stopPropagation();">
+                        <a href="{{ route('admin.kegiatan.create', $program['id']) }}" class="btn btn-info" title="Tambah Kegiatan">
+                            <i class="fas fa-plus"></i>
+                        </a>
                         <a href="{{ route('admin.program.edit', $program['id']) }}" class="btn btn-warning" title="Edit">
                             <i class="fas fa-edit"></i>
                         </a>

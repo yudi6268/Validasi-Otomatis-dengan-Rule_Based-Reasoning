@@ -19,12 +19,9 @@
         <div class="col-md-4">
             <select id="roleUserSelect" class="form-select">
                 <option value="">Semua Role</option>
-                <option value="admin">Admin</option>
-                <option value="direktur">Direktur</option>
-                <option value="wadir">Wadir</option>
-                <option value="kabag-kabid">Kabag/Kabid</option>
-                <option value="katimker-staf">Katimker/Staf</option>
-                <option value="user">User</option>
+                <option value="user" {{ request('role') === 'user' ? 'selected' : '' }}>User</option>
+                <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
+                <option value="direktur" {{ request('role') === 'direktur' ? 'selected' : '' }}>Direktur</option>
             </select>
         </div>
         <div class="col-md-2">

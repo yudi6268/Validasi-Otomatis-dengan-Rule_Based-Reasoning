@@ -1494,7 +1494,7 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                max: 120,
+                                suggestedMax: 100,
                                 ticks: { callback: value => value + '%' }
                             }
                         }

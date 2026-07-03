@@ -805,6 +805,9 @@ function getItemStatus(item) {
     };
 
     if (item.rejected && item.rejected == true) return 'ditolak';
+    if ((rawStatus === 'disetujui' || rawStatus === 'approved') && (!item.pihak2_signature || item.pihak2_signature == '')) {
+        return 'menunggu';
+    }
     if (item.pihak2_signature && item.pihak2_signature != '') return 'disetujui';
 
     if (statusMap[rawStatus]) {

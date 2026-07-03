@@ -77,12 +77,12 @@ class UserController extends Controller
         $validated = $request->validate([
             'id_pegawai' => 'required|unique:users,id_pegawai',
             'nama' => 'required|string|max:255',
-            'nip' => 'required|unique:users,nip',
+            'nip' => 'required|string|max:255',
             'jabatan' => 'required|string|max:255',
             'pangkat' => 'required|string|max:255',
             'divisi' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'role' => 'required|in:user,admin,direktur,wadir,kabag-kabid,katimker-staf',
+            'email' => 'required|email',
+            'role' => 'required|in:user,admin,direktur',
             'status' => 'required|in:active,non-active,pending',
         ]);
 
@@ -163,12 +163,12 @@ class UserController extends Controller
         $validated = $request->validate([
             'id_pegawai' => 'required|unique:users,id_pegawai,' . $user->id,
             'nama' => 'required|string|max:255',
-            'nip' => 'required|unique:users,nip,' . $user->id,
+            'nip' => 'required|string|max:255',
             'jabatan' => 'required|string|max:255',
             'pangkat' => 'required|string|max:255',
             'divisi' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'role' => 'required|in:user,admin,direktur,wadir,kabag-kabid,katimker-staf',
+            'email' => 'required|email',
+            'role' => 'required|in:user,admin,direktur',
             'status' => 'required|in:active,non-active,pending',
         ]);
 

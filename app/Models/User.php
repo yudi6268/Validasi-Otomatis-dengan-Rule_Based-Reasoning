@@ -47,15 +47,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is wakil direktur
+     * Check if user uses the shared non-admin dashboard shell
      */
     public function isWadir(): bool
     {
-        return in_array($this->jabatan, [
-            'Wakil Direktur Umum dan Keuangan',
-            'Wakil Direktur Pelayanan',
-            'Wakil Direktur Perencanaan dan Keuangan',
-        ], true);
+        return $this->role !== 'admin';
     }
 
     /**

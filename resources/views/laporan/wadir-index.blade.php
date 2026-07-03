@@ -188,6 +188,8 @@
                 $deleteUrl = route('laporan.destroy', $item['id']);
                 $triwulanText = $item['triwulan'] ? 'Triwulan ' . $item['triwulan'] : '-';
                 $isApproved = $item['status'] === 'disetujui';
+                $isUserAccount = auth()->user()?->role === 'user';
+                $canEdit = $isUserAccount;
             @endphp
             <div class="perjanjian-card" onclick="window.open('{{ $pdfViewUrl }}','_blank')">
                 <div class="card-icon">
@@ -213,10 +215,10 @@
                     @if($isApproved)
                         {{-- Disetujui: View + Download PDF --}}
                         <a href="{{ $pdfDownloadUrl }}" class="action-btn btn-download" title="Download PDF">
-                            <i class="fas fa-file-pdf"></i>
+                            <i class="fas fa-download"></i>
                         </a>
-                    @else
-                        {{-- Terkirim / Menunggu / Ditolak: View + Edit + Delete --}}
+                    @elseif($canEdit)
+                        {{-- Non-disetujui untuk akun user: View + Edit + Delete --}}
                         <a href="{{ $editUrl }}" class="action-btn btn-edit" title="Edit">
                             <i class="fas fa-edit"></i>
                         </a>
@@ -224,6 +226,8 @@
                             onclick="confirmDelete('{{ $deleteUrl }}', '{{ $item['employee_name'] }}')">
                             <i class="fas fa-trash-alt"></i>
                         </button>
+                    @else
+                        {{-- Direktur/Pimpinan: hanya lihat PDF --}}
                     @endif
                 </div>
             </div>

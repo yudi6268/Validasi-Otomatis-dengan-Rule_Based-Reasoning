@@ -258,7 +258,15 @@ class SupabaseService
             // Build query string for filters (PostgREST expects ?id=eq.xxx)
             $url = "{$this->url}/rest/v1/{$table}";
             if (!empty($filters)) {
-                $query = http_build_query($filters);
+                // Build query manually to avoid encoding dots in operators (eq., like., etc.)
+                $parts = [];
+                foreach ($filters as $k => $v) {
+                    // rawurlencode then restore '.' which is meaningful in PostgREST operators
+                    $encoded = rawurlencode($v);
+                    $encoded = str_replace('%2E', '.', $encoded);
+                    $parts[] = $k . '=' . $encoded;
+                }
+                $query = implode('&', $parts);
                 $url .= "?{$query}";
             }
 
@@ -271,9 +279,29 @@ class SupabaseService
                 ];
             }
 
+            // Improve error detail for easier debugging
+            $body = $response->body();
+            Log::warning('Supabase update failed', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $body,
+            ]);
+
+            $errorMsg = 'Update failed';
+            try {
+                $json = $response->json();
+                if (is_array($json) && isset($json['message'])) {
+                    $errorMsg = $json['message'];
+                }
+            } catch (\Exception $e) {
+                // ignore
+            }
+
             return [
                 'success' => false,
-                'error' => $response->json()['message'] ?? 'Update failed',
+                'error' => $errorMsg,
+                'response_body' => $body,
+                'status' => $response->status(),
             ];
         } catch (\Exception $e) {
             Log::error('Supabase update error: ' . $e->getMessage());

@@ -470,6 +470,14 @@
             if ($tugasValue === null || $tugasValue === '') {
                 $tugasValue = $data->tugas ?: '-';
             }
+            if (is_array($tugasValue)) {
+                $tugasValue = implode("\n", $tugasValue);
+            } elseif (is_string($tugasValue)) {
+                $decodedTugas = json_decode($tugasValue, true);
+                if (is_array($decodedTugas)) {
+                    $tugasValue = implode("\n", $decodedTugas);
+                }
+            }
             $fungsiValue = $data->fungsi_pelaksana;
             if ($fungsiValue === null || $fungsiValue === '') {
                 $fungsiValue = $data->fungsi ?: '-';

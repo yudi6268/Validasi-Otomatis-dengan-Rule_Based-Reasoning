@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Program;
 use App\Models\Kegiatan;
 use App\Models\SubKegiatan;
+use App\Models\Laporan;
 use App\Models\Setting;
 use App\Helpers\PdfHelper;
 use App\Services\SupabaseService;
@@ -64,6 +65,281 @@ class PerjanjianController extends Controller
         }
 
         return null;
+    }
+
+    protected function normalizeComparableString(?string $value): string
+    {
+        $value = preg_replace('/\s+/', ' ', trim((string) $value));
+        return strtolower((string) $value);
+    }
+
+    protected function isWakilDirekturJabatan(?string $jabatan): bool
+    {
+        $normalized = $this->normalizeComparableString($jabatan);
+        if ($normalized === '') {
+            return false;
+        }
+
+        return str_contains($normalized, 'wakil direktur') || str_contains($normalized, 'wadir');
+    }
+
+    protected function isBidangOrBagianJabatan(?string $jabatan): bool
+    {
+        $normalized = $this->normalizeComparableString($jabatan);
+        if ($normalized === '') {
+            return false;
+        }
+
+        return str_contains($normalized, 'bidang')
+            || str_contains($normalized, 'bagian')
+            || str_contains($normalized, 'kabid')
+            || str_contains($normalized, 'kabag')
+            || str_contains($normalized, 'kepala bidang')
+            || str_contains($normalized, 'kepala bagian');
+    }
+
+    protected function membawahiMatchesJabatan($membawahi, ?string $jabatanPelaksana): bool
+    {
+        $target = $this->normalizeComparableString($jabatanPelaksana);
+        if ($target === '') {
+            return false;
+        }
+
+        if (is_string($membawahi)) {
+            $decoded = json_decode($membawahi, true);
+            if (is_array($decoded)) {
+                $membawahi = $decoded;
+            } else {
+                $membawahi = preg_split('/[,;\r\n]+/', $membawahi) ?: [];
+            }
+        }
+
+        if (!is_array($membawahi)) {
+            return false;
+        }
+
+        foreach ($membawahi as $item) {
+            $normalizedItem = $this->normalizeComparableString((string) $item);
+            if ($normalizedItem === '') {
+                continue;
+            }
+
+            if (
+                $normalizedItem === $target ||
+                str_contains($target, $normalizedItem) ||
+                str_contains($normalizedItem, $target)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function resolvePihakKeduaForJabatan(?string $jabatanPelaksana): ?array
+    {
+        $target = $this->normalizeComparableString($jabatanPelaksana);
+        if ($target === '') {
+            return null;
+        }
+
+        // Aturan: jabatan Bidang/Bagian ditandatangani Wakil Direktur yang membawahi jabatan tersebut.
+        if (!$this->isBidangOrBagianJabatan($jabatanPelaksana)) {
+            return null;
+        }
+
+        $wadirJabatanList = Jabatan::active()
+            ->whereRaw('LOWER(nama_jabatan) LIKE ?', ['%wakil direktur%'])
+            ->get();
+
+        foreach ($wadirJabatanList as $wadirJabatan) {
+            if (!$this->membawahiMatchesJabatan($wadirJabatan->membawahi, $jabatanPelaksana)) {
+                continue;
+            }
+
+            $wadirUser = User::whereRaw('LOWER(TRIM(jabatan)) = LOWER(TRIM(?))', [$wadirJabatan->nama_jabatan])
+                ->where('status', 'active')
+                ->orderByDesc('updated_at')
+                ->first();
+
+            if (!$wadirUser) {
+                $wadirUser = User::whereRaw('LOWER(TRIM(jabatan)) = LOWER(TRIM(?))', [$wadirJabatan->nama_jabatan])
+                    ->orderByDesc('updated_at')
+                    ->first();
+            }
+
+            if ($wadirUser) {
+                return [
+                    'user' => $wadirUser,
+                    'jabatan' => $wadirJabatan->nama_jabatan,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveDefaultPimpinanUser(): ?User
+    {
+        $query = User::where(function ($q) {
+                $q->whereRaw('LOWER(jabatan) LIKE ?', ['%direktur%'])
+                  ->orWhereRaw('LOWER(jabatan) LIKE ?', ['%pimpinan%']);
+            })
+            ->where(function ($q) {
+                $q->whereRaw('LOWER(jabatan) NOT LIKE ?', ['%wakil direktur%'])
+                  ->whereRaw('LOWER(jabatan) NOT LIKE ?', ['%wadir%']);
+            });
+
+        $active = (clone $query)
+            ->where('status', 'active')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if ($active) {
+            return $active;
+        }
+
+        return $query->orderByDesc('updated_at')->first();
+    }
+
+    protected function resolvePihakKeduaData(?string $jabatanPelaksana): array
+    {
+        $mappedPihak2 = $this->resolvePihakKeduaForJabatan($jabatanPelaksana);
+        if ($mappedPihak2 && !empty($mappedPihak2['user'])) {
+            $pihak2User = $mappedPihak2['user'];
+
+            return [
+                'user' => $pihak2User,
+                'jabatan' => $mappedPihak2['jabatan'] ?? $pihak2User->jabatan,
+                'nama' => $pihak2User->nama,
+                'pangkat' => $pihak2User->pangkat,
+                'nip' => $pihak2User->nip,
+            ];
+        }
+
+        $pimpinanUser = $this->resolveDefaultPimpinanUser();
+
+        return [
+            'user' => $pimpinanUser,
+            'jabatan' => $pimpinanUser->jabatan ?? 'Direktur',
+            'nama' => $pimpinanUser->nama ?? null,
+            'pangkat' => $pimpinanUser->pangkat ?? null,
+            'nip' => $pimpinanUser->nip ?? null,
+        ];
+    }
+
+    protected function hasTaggedPihakKedua(?string $pihak2Name): bool
+    {
+        $normalized = strtolower(trim((string) $pihak2Name));
+        return $normalized !== '' && str_contains($normalized, '#');
+    }
+
+    protected function applyTaggedPihakPertamaFallback(Perjanjian $perjanjian): Perjanjian
+    {
+        if (!$this->hasTaggedPihakKedua($perjanjian->pihak2_name ?? null)) {
+            return $perjanjian;
+        }
+
+        $creator = $perjanjian->relationLoaded('user')
+            ? $perjanjian->user
+            : (($perjanjian->user_id ?? null) ? User::find($perjanjian->user_id) : null);
+
+        if (!$creator) {
+            return $perjanjian;
+        }
+
+        // Untuk skenario tagged pihak2 (#), tampilkan pihak1 sebagai user yang melakukan tagging.
+        $perjanjian->pihak1_name = $creator->nama ?? $perjanjian->pihak1_name;
+        $perjanjian->pihak1_jabatan = $creator->jabatan ?? $perjanjian->pihak1_jabatan;
+        $perjanjian->pihak1_nip = $creator->nip ?? $perjanjian->pihak1_nip;
+        $perjanjian->pihak1_pangkat = $creator->pangkat ?? $perjanjian->pihak1_pangkat;
+
+        return $perjanjian;
+    }
+
+    protected function queryMatchesCreatorIdentity($query, $user): void
+    {
+        $normalizedNama = $this->normalizeComparableString($user->nama ?? null);
+        $normalizedJabatan = $this->normalizeComparableString($user->jabatan ?? null);
+        $normalizedNip = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+        $strictIdentity = User::whereRaw('LOWER(TRIM(nama)) = LOWER(TRIM(?))', [trim((string) ($user->nama ?? ''))])
+            ->where('id', '!=', $user->id)
+            ->where(function ($q) use ($user) {
+                                $q->where('role', '!=', (string) ($user->role ?? ''))
+                                    ->orWhereRaw("LOWER(TRIM(COALESCE(jabatan, ''))) != LOWER(TRIM(?))", [trim((string) ($user->jabatan ?? ''))]);
+            })
+            ->exists();
+
+        $query->orWhere('user_id', $user->id);
+
+        $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip, $strictIdentity) {
+            if ($strictIdentity) {
+                if ($normalizedNip !== '') {
+                    $q->whereRaw("regexp_replace(COALESCE(pihak1_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip]);
+                }
+
+                if ($normalizedNama !== '' && $normalizedJabatan !== '') {
+                    $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
+                        $qq->whereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama])
+                           ->whereRaw('LOWER(TRIM(pihak1_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
+                    });
+                } elseif ($normalizedNama !== '') {
+                    $q->orWhereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama]);
+                }
+
+                return;
+            }
+
+            if ($normalizedNama !== '') {
+                $q->whereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama])
+                  ->orWhereRaw('LOWER(TRIM(pihak1_name)) LIKE LOWER(TRIM(?))', ['%' . $normalizedNama . '%']);
+            }
+
+            if ($normalizedJabatan !== '') {
+                $q->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan])
+                  ->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) LIKE LOWER(TRIM(?))', ['%' . $normalizedJabatan . '%']);
+            }
+
+            if ($normalizedNip !== '') {
+                $q->orWhereRaw("regexp_replace(COALESCE(pihak1_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip]);
+            }
+        });
+    }
+
+    protected function queryMatchesPihakKeduaIdentity($query, $user): void
+    {
+        $normalizedNama = $this->normalizeComparableString($user->nama ?? null);
+        $normalizedJabatan = $this->normalizeComparableString($user->jabatan ?? null);
+        $normalizedNip = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+        $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip) {
+            // Identitas pihak kedua harus ketat agar nama sama beda akun/role tidak tercampur.
+            if ($normalizedNip !== '') {
+                if ($normalizedJabatan !== '') {
+                                        $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip])
+                                            ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+                } else {
+                    $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip]);
+                }
+            }
+
+            if ($normalizedNama !== '' && $normalizedJabatan !== '') {
+                $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
+                    $qq->whereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama])
+                       ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
+                });
+
+                $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
+                    $qq->whereRaw('LOWER(TRIM(pihak2_name)) LIKE LOWER(TRIM(?))', ['%#' . $normalizedNama . '%'])
+                       ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
+                });
+
+                return;
+            }
+
+            if ($normalizedNama !== '' && $normalizedJabatan === '') {
+                $q->orWhereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama]);
+            }
+        });
     }
 
     protected function normalizeTugasFungsiValue($value, bool $forceList = false)
@@ -142,6 +418,123 @@ class PerjanjianController extends Controller
         ];
     }
 
+    protected function resetRelatedLaporanAfterPerjanjianEdit(Perjanjian $perjanjian): int
+    {
+        $laporans = Laporan::where('perjanjian_id', $perjanjian->id)->get();
+        $affected = 0;
+
+        foreach ($laporans as $laporan) {
+            // Kembalikan laporan ke kondisi menunggu review dan batalkan hasil validasi sebelumnya.
+            $laporan->pihak2_signature = null;
+            $laporan->tanggapan_pimpinan = null;
+            $laporan->validation_results = null;
+            $laporan->validation_timestamp = null;
+
+            if (array_key_exists('rejected', $laporan->getAttributes())) {
+                $laporan->rejected = false;
+            }
+            if (array_key_exists('rejection_reason', $laporan->getAttributes())) {
+                $laporan->rejection_reason = null;
+            }
+            if (array_key_exists('catatan_pihak2', $laporan->getAttributes())) {
+                $laporan->catatan_pihak2 = null;
+            }
+
+            if ($laporan->isDirty()) {
+                $laporan->save();
+                $affected++;
+            }
+        }
+
+        return $affected;
+    }
+
+    protected function canUserActAsPihakKedua(Perjanjian $perjanjian, $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        $userNama = strtolower(trim((string) ($user->nama ?? '')));
+        $userJabatan = strtolower(trim((string) ($user->jabatan ?? '')));
+        $userNipDigits = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+
+        $pihak2Nama = strtolower(trim((string) ($perjanjian->pihak2_name ?? '')));
+        $pihak2Jabatan = strtolower(trim((string) ($perjanjian->pihak2_jabatan ?? '')));
+        $pihak2NipDigits = preg_replace('/\D+/', '', (string) ($perjanjian->pihak2_nip ?? ''));
+
+        $matchByNipAndJabatan = $userNipDigits !== ''
+            && $pihak2NipDigits !== ''
+            && $userNipDigits === $pihak2NipDigits
+            && $userJabatan !== ''
+            && $userJabatan === $pihak2Jabatan;
+
+        $matchByNameAndJabatan = $userNama !== ''
+            && $userJabatan !== ''
+            && $userNama === $pihak2Nama
+            && $userJabatan === $pihak2Jabatan;
+
+        $matchByTaggedNameAndJabatan = $userNama !== ''
+            && $userJabatan !== ''
+            && str_contains($pihak2Nama, '#')
+            && str_contains($pihak2Nama, $userNama)
+            && $userJabatan === $pihak2Jabatan;
+
+        return $matchByNipAndJabatan || $matchByNameAndJabatan || $matchByTaggedNameAndJabatan;
+    }
+
+    public function setujuiSubmit(Request $request, $id)
+    {
+        $perjanjian = Perjanjian::findOrFail($id);
+        $user = auth()->user();
+
+        $isDirektur = false;
+        if ($user && isset($user->jabatan)) {
+            $jabatan = strtolower($user->jabatan);
+            $isDirektur = strpos($jabatan, 'direktur') !== false || strpos($jabatan, 'pimpinan') !== false;
+        }
+
+        if (!$isDirektur) {
+            $message = 'Hanya direktur/pimpinan yang dapat menyetujui perjanjian';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 403);
+            }
+            abort(403, $message);
+        }
+
+        if (!$this->canUserActAsPihakKedua($perjanjian, $user)) {
+            $message = 'Anda tidak berhak menyetujui perjanjian ini sebagai pihak kedua';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 403);
+            }
+            abort(403, $message);
+        }
+
+        if (empty($user->tanda_tangan)) {
+            $message = 'Anda belum mengupload tanda tangan. Silakan upload tanda tangan di menu Profile terlebih dahulu.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+
+        $perjanjian->pihak2_signature = $user->tanda_tangan;
+        if (array_key_exists('pihak2_ttd_path', $perjanjian->getAttributes())) {
+            $perjanjian->pihak2_ttd_path = $user->tanda_tangan;
+        }
+        $perjanjian->status = 'disetujui';
+        $perjanjian->rejected = false;
+        $perjanjian->rejection_reason = null;
+        $perjanjian->catatan_penolakan = null;
+        $perjanjian->save();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Perjanjian berhasil disetujui.']);
+        }
+
+        return redirect()->route('dashboard.wadir', ['panel' => 'perjanjian'])->with('success', 'Perjanjian berhasil disetujui.');
+    }
+
     // ==============================
     // SUBMIT PENOLAKAN PERJANJIAN
     // ==============================
@@ -156,7 +549,19 @@ class PerjanjianController extends Controller
             $isDirektur = strpos($jabatan, 'direktur') !== false || strpos($jabatan, 'pimpinan') !== false;
         }
         if (!$isDirektur) {
-            abort(403, 'Hanya direktur/pimpinan yang dapat menolak perjanjian');
+            $message = 'Hanya direktur/pimpinan yang dapat menolak perjanjian';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 403);
+            }
+            abort(403, $message);
+        }
+
+        if (!$this->canUserActAsPihakKedua($perjanjian, $user)) {
+            $message = 'Anda tidak berhak menolak perjanjian ini sebagai pihak kedua';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 403);
+            }
+            abort(403, $message);
         }
         // Validasi alasan
         $request->validate([
@@ -171,8 +576,11 @@ class PerjanjianController extends Controller
         $perjanjian->rejected = true;
         $perjanjian->rejection_reason = $request->rejection_reason;
         $perjanjian->save();
-        // Redirect ke preview dengan notifikasi sukses
-        return redirect()->route('perjanjian.print', $perjanjian->id)->with('success', 'Alasan penolakan berhasil dikirim.');
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Perjanjian berhasil ditolak.']);
+        }
+
+        return redirect()->route('dashboard.wadir', ['panel' => 'perjanjian'])->with('success', 'Alasan penolakan berhasil dikirim.');
     }
 
     // ==============================
@@ -205,14 +613,9 @@ class PerjanjianController extends Controller
         if ($user && $user->jabatan) {
             $jabatanData = $this->resolveJabatanDataForUser($user->jabatan, $user);
         }
-        // Ambil user direktur yang benar (misal dr. Arma)
-        $direktur = User::where('jabatan', 'like', '%Direktur%')
-            ->where('nama', 'like', '%Arma%')
-            ->first();
-        if (!$direktur) {
-            // fallback: ambil direktur pertama jika tidak ketemu nama Arma
-            $direktur = User::where('jabatan', 'like', '%Direktur%')->first();
-        }
+        $pihak2Data = $this->resolvePihakKeduaData($user->jabatan ?? null);
+        $pihak2User = $pihak2Data['user'];
+        $pihak2Jabatan = $pihak2Data['jabatan'] ?? 'Direktur';
         
         // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown (diurutkan berdasarkan kode)
         // Include relasi untuk auto-populate
@@ -233,7 +636,7 @@ class PerjanjianController extends Controller
         // Ambil tahun yang tersedia dari settings
         $availableYears = Setting::getAvailableYears();
         
-        return view('perjanjian.create', compact('jabatanData', 'direktur', 'programs', 'kegiatans', 'subKegiatans', 'availableYears'));
+        return view('perjanjian.create', compact('jabatanData', 'pihak2User', 'pihak2Jabatan', 'programs', 'kegiatans', 'subKegiatans', 'availableYears'));
     }
     // ==============================
     // INDEX
@@ -241,7 +644,7 @@ class PerjanjianController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $query = Perjanjian::query();
+        $query = Perjanjian::query()->with('user');
         
         // Filter berdasarkan role user
         if ($user) {
@@ -260,15 +663,16 @@ class PerjanjianController extends Controller
             if (!$isAdmin) {
                 if ($isDirektur) {
                     // Direktur/Pimpinan melihat perjanjian yang ditujukan kepada mereka
-                    // Cek berdasarkan nama (pihak2_name) atau jabatan mereka
+                    // Hanya sebagai pihak kedua agar akun nama sama beda role tidak tercampur dengan pihak pertama.
                     $query->where(function($q) use ($user) {
-                        $q->where('pihak2_name', $user->nama)
-                          ->orWhere('pihak2_jabatan', $user->jabatan)
-                          ->orWhere('user_id', $user->id); // juga lihat perjanjian yang mereka buat sendiri
+                        $this->queryMatchesPihakKeduaIdentity($q, $user);
                     });
                 } else {
-                    // User biasa hanya melihat perjanjian mereka sendiri
-                    $query->where('user_id', $user->id);
+                    // User biasa melihat perjanjian yang mereka buat dan yang menugaskan mereka sebagai pihak kedua.
+                    $query->where(function ($q) use ($user) {
+                        $this->queryMatchesCreatorIdentity($q, $user);
+                        $this->queryMatchesPihakKeduaIdentity($q, $user);
+                    });
                 }
             }
         }
@@ -280,8 +684,14 @@ class PerjanjianController extends Controller
             $filter = request()->get('filter');
 
             $items = $query->get()->map(function($item) {
+                $item = $this->applyTaggedPihakPertamaFallback($item);
+
                 // Gunakan kolom 'status' baru (menunggu, disetujui, ditolak, draft)
                 $status = $item->status ?? 'waiting'; // default: menunggu
+                
+                if ($status === 'disetujui' && empty($item->pihak2_signature)) {
+                    $status = 'menunggu';
+                }
                 
                 // Map dari status database ke status untuk frontend
                 $statusMap = [
@@ -320,7 +730,9 @@ class PerjanjianController extends Controller
             return response()->json(['data' => $items]);
         }
 
-        $items = $query->get();
+        $items = $query->get()->map(function ($item) {
+            return $this->applyTaggedPihakPertamaFallback($item);
+        });
 
         // compute counts per status for dashboard - GUNAKAN KOLOM STATUS BARU
         $counts = [
@@ -339,6 +751,8 @@ class PerjanjianController extends Controller
                 $status = 'ditolak';
             } elseif (!empty($item->pihak2_signature)) {
                 $status = 'disetujui';
+            } elseif ($status === 'disetujui' && empty($item->pihak2_signature)) {
+                $status = 'menunggu';
             } elseif ($status === '') {
                 $status = !empty($item->pihak2_name) ? 'draft' : 'draft';
             }
@@ -371,6 +785,8 @@ class PerjanjianController extends Controller
     public function print($id)
     {
         $perjanjian = Perjanjian::findOrFail($id);
+        $perjanjian->loadMissing('user');
+        $perjanjian = $this->applyTaggedPihakPertamaFallback($perjanjian);
         $user = auth()->user();
         
         // Validasi akses: user hanya bisa melihat perjanjian mereka sendiri atau yang ditujukan kepada mereka
@@ -421,7 +837,7 @@ class PerjanjianController extends Controller
 
         // Tanggal menggunakan agreement_date atau created_at (snapshot saat perjanjian dibuat)
         $tanggalData = $perjanjian->agreement_date ?? $perjanjian->created_at;
-        $tanggal = \Carbon\Carbon::parse($tanggalData)->translatedFormat('d F Y');
+        $tanggal = \Carbon\Carbon::parse($tanggalData)->locale('id')->translatedFormat('d F Y');
         
         // Tahun dari tanggal perjanjian dibuat
         $tahun = \Carbon\Carbon::parse($tanggalData)->format('Y');
@@ -595,6 +1011,12 @@ class PerjanjianController extends Controller
         $nomor_perjanjian = 'PK-' . date('Ymd') . '-' . (auth()->id() ?? 'X') . '-' . strtoupper(substr(uniqid(), -4));
 
         $tugasFungsiData = $this->resolveTugasFungsiForPerjanjian($request, auth()->user());
+        $pihak2Data = $this->resolvePihakKeduaData($tugasFungsiData['jabatan_pelaksana'] ?? (auth()->user()->jabatan ?? null));
+
+        $resolvedPihak2Name = $pihak2Data['nama'] ?? $request->pihak2_name;
+        $resolvedPihak2Jabatan = $pihak2Data['jabatan'] ?? $request->pihak2_jabatan;
+        $resolvedPihak2Pangkat = $pihak2Data['pangkat'] ?? ($request->pihak2_pangkat ?? null);
+        $resolvedPihak2Nip = $pihak2Data['nip'] ?? ($request->pihak2_nip ?? null);
 
         $tahun = date('Y');
         $save = Perjanjian::create([
@@ -613,15 +1035,15 @@ class PerjanjianController extends Controller
 
 
             // PIHAK KEDUA
-            'pihak2_name'       => $request->pihak2_name,
-            'pihak2_jabatan'    => $request->pihak2_jabatan,
-            'pihak2_pangkat'    => $request->pihak2_pangkat ?? null,
-            'pihak2_nip'        => $request->pihak2_nip ?? null,
+            'pihak2_name'       => $resolvedPihak2Name,
+            'pihak2_jabatan'    => $resolvedPihak2Jabatan,
+            'pihak2_pangkat'    => $resolvedPihak2Pangkat,
+            'pihak2_nip'        => $resolvedPihak2Nip,
             'location'          => $request->location ?? 'Pasuruan',
             'agreement_date'    => $request->agreement_date ?? now(),
 
             // LAINNYA: store pihak2_jabatan as 'jabatan' if present, otherwise fallback to authenticated user's jabatan
-            'jabatan'           => $request->pihak2_jabatan ?? (auth()->user()->jabatan ?? null),
+            'jabatan'           => $resolvedPihak2Jabatan ?? (auth()->user()->jabatan ?? null),
 
             // TABEL A
             'tabelA' => json_encode([
@@ -646,6 +1068,7 @@ class PerjanjianController extends Controller
 
             // TABEL D (HIERARCHICAL BUDGET)
             'tabelC' => $tabelC,
+            'tabelD' => $tabelC, // Tabel D shares the same hierarchical JSON structure
         ]);
 
         // Try to mirror the new record to Supabase for consistent reads
@@ -687,7 +1110,7 @@ class PerjanjianController extends Controller
         }
 
         $dashboardRoute = (auth()->check() && auth()->user()->isWadir())
-            ? route('dashboard.wadir')
+            ? route('dashboard.wadir', ['panel' => 'perjanjian'])
             : route('home', ['section' => 'dashboard']);
 
         return redirect($dashboardRoute)->with('success', 'Data perjanjian berhasil disimpan!');
@@ -700,6 +1123,8 @@ class PerjanjianController extends Controller
     public function edit($id)
     {
         $perjanjian = Perjanjian::findOrFail($id);
+        $perjanjian->loadMissing('user');
+        $perjanjian = $this->applyTaggedPihakPertamaFallback($perjanjian);
         $user = auth()->user();
 
         $isOwner = $user && (int) $perjanjian->user_id === (int) $user->id;
@@ -717,6 +1142,11 @@ class PerjanjianController extends Controller
         if ($perjanjian->pihak1_jabatan) {
             $jabatanData = $this->resolveJabatanDataForUser($perjanjian->pihak1_jabatan, $perjanjian->user);
         }
+
+        $jabatanPelaksana = $perjanjian->jabatan_pelaksana ?? $perjanjian->pihak1_jabatan ?? ($user->jabatan ?? null);
+        $pihak2Data = $this->resolvePihakKeduaData($jabatanPelaksana);
+        $pihak2User = $pihak2Data['user'];
+        $pihak2Jabatan = $pihak2Data['jabatan'] ?? ($perjanjian->pihak2_jabatan ?? 'Direktur');
         
         // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown (diurutkan berdasarkan kode)
         // Include relasi untuk auto-populate
@@ -737,7 +1167,7 @@ class PerjanjianController extends Controller
         // Ambil tahun yang tersedia dari settings
         $availableYears = Setting::getAvailableYears();
         
-        return view('perjanjian.edit', compact('perjanjian', 'jabatanData', 'programs', 'kegiatans', 'subKegiatans', 'availableYears'));
+        return view('perjanjian.edit', compact('perjanjian', 'jabatanData', 'pihak2User', 'pihak2Jabatan', 'programs', 'kegiatans', 'subKegiatans', 'availableYears'));
     }
 
     // ==============================
@@ -786,35 +1216,42 @@ class PerjanjianController extends Controller
         
         \Log::info("UPDATE Perjanjian #{$id}: TabelC size = " . strlen($tabelC) . " bytes");
 
-        // Cek status sebelum update - jika ditolak, ubah ke menunggu
-        $statusLama = $perjanjian->status ?? 'menunggu';
-        $statusBaru = ($statusLama === 'ditolak') ? 'menunggu' : $statusLama;
-        $catatanPenolakan = ($statusLama === 'ditolak') ? null : $perjanjian->catatan_penolakan;
+        // Selalu reset status ke menunggu jika di-edit/update oleh pegawai
+        $statusLama = $perjanjian->status;
+        $statusBaru = 'menunggu';
+        $catatanPenolakan = null;
         
         \Log::info("UPDATE PERJANJIAN #{$perjanjian->id}: Status lama = '{$statusLama}', Status baru = '{$statusBaru}'");
 
         $tugasFungsiData = $this->resolveTugasFungsiForPerjanjian($request, $user);
+        $pihak2Data = $this->resolvePihakKeduaData($tugasFungsiData['jabatan_pelaksana'] ?? ($user->jabatan ?? null));
+
+        $resolvedPihak2Name = $pihak2Data['nama'] ?? $request->pihak2_name;
+        $resolvedPihak2Jabatan = $pihak2Data['jabatan'] ?? $request->pihak2_jabatan;
+        $resolvedPihak2Nip = $pihak2Data['nip'] ?? ($request->pihak2_nip ?? $perjanjian->pihak2_nip);
 
         // Update data
         $perjanjian->update([
-            'pihak2_name'       => $request->pihak2_name,
-            'pihak2_jabatan'    => $request->pihak2_jabatan,
-            'pihak2_nip'        => $request->pihak2_nip ?? $perjanjian->pihak2_nip,
+            'pihak2_name'       => $resolvedPihak2Name,
+            'pihak2_jabatan'    => $resolvedPihak2Jabatan,
+            'pihak2_nip'        => $resolvedPihak2Nip,
             'location'          => $request->location ?? $perjanjian->location,
             'agreement_date'    => $request->agreement_date ?? $perjanjian->agreement_date,
-            'jabatan'           => $request->pihak2_jabatan ?? $perjanjian->jabatan,
+            'jabatan'           => $resolvedPihak2Jabatan ?? $perjanjian->jabatan,
             'jabatan_pelaksana' => $tugasFungsiData['jabatan_pelaksana'],
             'tugas_pelaksana'   => $tugasFungsiData['tugas_pelaksana'],
             'fungsi_pelaksana'  => $tugasFungsiData['fungsi_pelaksana'],
             'pihak1_ttd'        => auth()->user()->tanda_tangan,
             
-            // Reset status ke menunggu jika sebelumnya ditolak (kolom baru)
-            'status'            => $statusBaru,
-            'catatan_penolakan' => $catatanPenolakan,
+            // Reset status ke menunggu jika di-edit/update
+            'status'            => 'menunggu',
+            'catatan_penolakan' => null,
+            'pihak2_signature'  => null,
+            'pihak2_ttd_path'   => null,
             
             // Update kolom lama untuk backward compatibility
-            'rejected'          => ($statusBaru === 'ditolak'),
-            'rejection_reason'  => $catatanPenolakan,
+            'rejected'          => false,
+            'rejection_reason'  => null,
             
             'tabelA' => json_encode([
                 'sasaran'   => $request->a_sasaran ?? [],
@@ -836,6 +1273,7 @@ class PerjanjianController extends Controller
             ]),
             
             'tabelC' => $tabelC,
+            'tabelD' => $tabelC, // Tabel D is the same hierarchical structure as Tabel C
         ]);
         
         // Refresh data dari database untuk memastikan
@@ -843,6 +1281,12 @@ class PerjanjianController extends Controller
         
         // Log perubahan status untuk debugging
         \Log::info("UPDATE SUKSES - Perjanjian #{$perjanjian->id}: Status akhir di database = '{$perjanjian->status}', Catatan = " . ($perjanjian->catatan_penolakan ? 'ada' : 'null'));
+
+        // Jika perjanjian diubah, maka validasi laporan terkait harus diulang.
+        $laporanResetCount = $this->resetRelatedLaporanAfterPerjanjianEdit($perjanjian);
+        if ($laporanResetCount > 0) {
+            \Log::info("RESET LAPORAN: {$laporanResetCount} laporan terkait Perjanjian #{$perjanjian->id} dikembalikan ke status menunggu dan validasi dibatalkan.");
+        }
         
         if ($statusLama === 'ditolak') {
             \Log::info("✓ Status berhasil diubah dari 'ditolak' ke '{$perjanjian->status}'");
@@ -865,17 +1309,24 @@ class PerjanjianController extends Controller
                 'catatan_penolakan' => $perjanjian->catatan_penolakan,
                 'rejected' => $perjanjian->rejected,
                 'rejection_reason' => $perjanjian->rejection_reason,
+                'pihak2_signature' => null,
+                'pihak2_ttd_path' => null,
                 'tabelA' => $perjanjian->tabelA,
                 'tabelB' => $perjanjian->tabelB,
                 'tabelC' => $perjanjian->tabelC,
+                'tabelD' => $perjanjian->tabelC, // Tabel D shares the same hierarchical JSON structure
             ];
 
-            $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+            $filters = ['local_id' => 'eq.' . $perjanjian->id];
             $res = $this->supabase->update('perjanjians', $filters, $payload);
+            if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                $res = $this->supabase->update('perjanjians', $filters, $payload);
+            }
             if (empty($res['success'])) {
-                Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ': ' . ($res['error'] ?? 'unknown'));
+                Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id, ['response' => $res, 'filters' => $filters, 'payload_keys' => array_keys($payload)]);
             } else {
-                Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id);
+                Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id, ['response' => $res]);
             }
         } catch (\Exception $e) {
             Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ': ' . $e->getMessage());
@@ -897,6 +1348,11 @@ class PerjanjianController extends Controller
         }
 
         $backSource = $request->input('from');
+        if ($backSource === 'dashboard_wadir_perjanjian' || (auth()->check() && auth()->user()->isWadir())) {
+            return redirect()->route('dashboard.wadir', ['panel' => 'perjanjian'])
+                ->with('success', $successMessage);
+        }
+
         $redirectParams = ['status' => 'waiting'];
         if (!empty($backSource)) {
             $redirectParams['from'] = $backSource;
@@ -1009,6 +1465,7 @@ class PerjanjianController extends Controller
                     'tw4'       => $request->c_tw4 ?? [],
                 ]),
                 'tabelC' => $tabelC,
+                'tabelD' => $tabelC, // Tabel D shares the same hierarchical JSON structure
             ]);
 
                 // Mirror to Supabase
@@ -1033,6 +1490,7 @@ class PerjanjianController extends Controller
                         'tabelA' => $save->tabelA,
                         'tabelB' => $save->tabelB,
                         'tabelC' => $save->tabelC,
+                        'tabelD' => $save->tabelC, // Tabel D shares the same hierarchical JSON structure
                         'status' => $save->status ?? 'menunggu',
                     ];
 

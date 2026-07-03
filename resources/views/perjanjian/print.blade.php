@@ -100,6 +100,7 @@
             .bell-icon,
             .notification-dot,
             .aksi-container,
+            .aksi-download-container,
             .modal-overlay,
             #modal-setujui,
             #modal-tolak,
@@ -1240,6 +1241,70 @@
         }
         @endif
     </style>
+
+    <style>
+        /* Fit and wrap content specifically for page 2 and page 3 tables. */
+        .page-two .table,
+        .page-three .table {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse;
+        }
+
+        .page-two .table th,
+        .page-two .table td,
+        .page-three .table th,
+        .page-three .table td {
+            padding: 3px 2px !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            hyphens: auto;
+        }
+
+        .page-two .table-responsive,
+        .page-three .table-responsive {
+            width: 100% !important;
+            overflow: visible !important;
+        }
+
+        .page-two .content-section,
+        .page-three .content-section {
+            padding-left: 3mm !important;
+            padding-right: 2mm !important;
+        }
+
+        .page-three .signature-wrapper {
+            margin-top: 10px !important;
+            width: 100% !important;
+            display: flex !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+            padding-left: 6mm !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .page-three .signature-block {
+            width: 42% !important;
+            max-width: 300px !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            text-align: center !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .page-three .signature-block img {
+            max-height: 32px !important;
+            margin: 3px 0 !important;
+        }
+    </style>
 </head>
 
 <body style="background:#e6fcfc;min-height:100vh;">
@@ -1260,6 +1325,37 @@
                 $isDirektur = true;
             }
         }
+
+        // Aksi Setujui/Tolak harus tersedia untuk user yang benar-benar menjadi pihak kedua.
+        $canActAsPihakKedua = false;
+        if ($user) {
+            $userNama = strtolower(trim((string) ($user->nama ?? '')));
+            $userJabatan = strtolower(trim((string) ($user->jabatan ?? '')));
+            $userNipDigits = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+
+            $pihak2Nama = strtolower(trim((string) ($perjanjian->pihak2_name ?? '')));
+            $pihak2Jabatan = strtolower(trim((string) ($perjanjian->pihak2_jabatan ?? '')));
+            $pihak2NipDigits = preg_replace('/\D+/', '', (string) ($perjanjian->pihak2_nip ?? ''));
+
+            $matchByNipAndJabatan = $userNipDigits !== ''
+                && $pihak2NipDigits !== ''
+                && $userNipDigits === $pihak2NipDigits
+                && $userJabatan !== ''
+                && $userJabatan === $pihak2Jabatan;
+
+            $matchByNameAndJabatan = $userNama !== ''
+                && $userJabatan !== ''
+                && $userNama === $pihak2Nama
+                && $userJabatan === $pihak2Jabatan;
+
+            $matchByTaggedNameAndJabatan = $userNama !== ''
+                && $userJabatan !== ''
+                && str_contains($pihak2Nama, '#')
+                && str_contains($pihak2Nama, $userNama)
+                && $userJabatan === $pihak2Jabatan;
+
+            $canActAsPihakKedua = $matchByNipAndJabatan || $matchByNameAndJabatan || $matchByTaggedNameAndJabatan;
+        }
         // Default
         $showAksi = false;
         $showAlasanTolak = false;
@@ -1275,10 +1371,15 @@
             $status = $statusQuery;
         }
 
-        $backUrl = route('perjanjian.index');
+        $backUrl = route('dashboard.wadir', ['panel' => 'perjanjian']);
         if (request()->get('from') === 'dashboard_wadir_perjanjian') {
             $backUrl = route('dashboard.wadir', ['panel' => 'perjanjian']);
         }
+
+        $isPerjanjianApproved = (empty($perjanjian->rejected) || (string) $perjanjian->rejected === '0')
+            && ($status === 'disetujui' || !empty($perjanjian->pihak2_signature));
+        $downloadPerjanjianUrl = route('perjanjian.browsershot.download', ['id' => $perjanjian->id]);
+
         // Default: no blocking variable (may be passed from controller)
         if (!isset($approvedOther)) { $approvedOther = null; }
     @endphp
@@ -1308,9 +1409,8 @@
         <div style="height:70px;"></div>
     @endif
 
-    {{-- Tombol Setujui/Tolak hanya untuk Direktur/Pimpinan (bukan user/pihak pertama) --}}
-    {{-- Blok aksi/modal hanya untuk direktur/pimpinan --}}
-    @if($isDirektur && $status === 'menunggu')
+    {{-- Tombol Setujui/Tolak hanya untuk user yang menjadi pihak kedua --}}
+    @if($canActAsPihakKedua && $status === 'menunggu')
         <style>
             .aksi-container {
                 position: fixed;
@@ -1379,12 +1479,12 @@
         <div id="modal-setujui"
             style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.25); z-index:9999; align-items:center; justify-content:center;">
             <div
-                style="background:#fff; border-radius:12px; padding:32px 28px; max-width:420px; width:95vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+                style="background:#fff; border-radius:12px; padding:32px 30px; max-width:420px; width:min(420px, calc(100vw - 40px)); box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
                 <h2 style="text-align:center; font-size:22px; font-weight:700; margin-bottom:18px;">Konfirmasi Persetujuan
                 </h2>
                 <p style="text-align:center; font-size:15px; margin-bottom:22px;">Apa anda yakin untuk menyetujui perjanjian
                     ini?</p>
-                <form id="form-setujui" action="{{ route('direktur.perjanjian.approve', $perjanjian->id) }}" method="POST">
+                <form id="form-setujui" action="{{ route('perjanjian.setujui.submit', $perjanjian->id) }}" method="POST">
                     @csrf
                     <div style="display:flex;justify-content:center;gap:12px;">
                         <button type="button" onclick="document.getElementById('modal-setujui').style.display='none'"
@@ -1401,23 +1501,23 @@
         <div id="modal-tolak"
             style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.25); z-index:9999; align-items:center; justify-content:center;">
             <div
-                style="background:#fff; border-radius:12px; padding:32px 28px; max-width:420px; width:95vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+                style="background:#fff; border-radius:12px; padding:32px 30px; max-width:420px; width:min(420px, calc(100vw - 40px)); box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
                 <h2 style="text-align:center; font-size:22px; font-weight:700; margin-bottom:18px;">ALASAN MENOLAK</h2>
-                <form id="form-tolak" action="{{ route('direktur.perjanjian.reject', $perjanjian->id) }}" method="POST"
+                <form id="form-tolak" action="{{ route('perjanjian.tolak.submit', $perjanjian->id) }}" method="POST"
                     autocomplete="off">
                     @csrf
                     <input type="text" name="nama" value="{{ $perjanjian->pihak2_name ?? '' }}" readonly
                         placeholder="Nama Lengkap"
-                        style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
+                        style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;box-sizing:border-box;">
                     <input type="text" name="jabatan" value="{{ $perjanjian->pihak2_jabatan ?? '' }}" readonly
                         placeholder="Jabatan"
-                        style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
+                        style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;box-sizing:border-box;">
                     <input type="text" name="tanggal"
-                        value="{{ \Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d-m-Y') }}"
+                        value="{{ \Carbon\Carbon::now('Asia/Jakarta')->locale('id')->translatedFormat('d F Y') }}"
                         readonly placeholder="Tanggal"
-                        style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
+                        style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;box-sizing:border-box;">
                     <textarea name="rejection_reason" required placeholder="Tulis Alasan"
-                        style="width:100%;min-height:100px;margin-bottom:16px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;"></textarea>
+                        style="width:100%;min-height:100px;margin-bottom:16px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;box-sizing:border-box;"></textarea>
                     <div style="display:flex;justify-content:center;">
                         <button id="btn-submit-tolak" type="submit"
                             style="background:#0DA45C;color:#fff;padding:10px 32px;border:none;border-radius:7px;font-weight:bold;font-size:17px; cursor:pointer;">KIRIM
@@ -1429,107 +1529,134 @@
             </div>
         </div>
         <script>
-            document.addEventListener('DOMContentLoaded', func tion() {
-                var btnSetujui = document.getElementById('btn-setujui');
-                var modalSetujui = document.getElementById('modal-setujui');
+            document.addEventListener('DOMContentLoaded', function () {
+                var perjanjianId = {{ (int) $perjanjian->id }};
+                var backUrl = @json($backUrl);
+
                 var formSetujui = document.getElementById('form-setujui');
+                var formTolak = document.getElementById('form-tolak');
                 var btnSubmitSetujui = document.getElementById('btn-submit-setujui');
                 var btnSubmitTolak = document.getElementById('btn-submit-tolak');
-                var btnTolak = document.getElementById('btn-tolak');
-                var modalTolak = document.getElementById('modal-tolak');
-                var formTolak = document.getElementById('form-tolak');
 
-                // Show modal setujui
-                if(btnSetujui && modalSetujui) {
-                btnSetujui.onclick = function () {
-                    modalSetujui.style.display = 'flex';
-                };
-            }
-            // Handle submit setujui
-            if (formSetujui) {
-                formSetujui.onsubmit = function (e) {
-                    e.preventDefault();
-                    if (btnSubmitSetujui) {
-                        btnSubmitSetujui.disabled = true;
-                        btnSubmitSetujui.innerHTML = 'Memproses...';
+                function notifyParent() {
+                    try {
+                        if (window.opener && window.opener.postMessage) {
+                            window.opener.postMessage({
+                                type: 'PERJANJIAN_STATUS_CHANGED',
+                                id: perjanjianId
+                            }, window.location.origin);
+                        }
+                    } catch (e) {}
+                }
+
+                function toMainPage() {
+                    try {
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.location.href = backUrl;
+                            window.close();
+                            return;
+                        }
+                    } catch (e) {}
+
+                    window.location.href = backUrl;
+                    setTimeout(function () {
+                        try { window.close(); } catch (e) {}
+                    }, 200);
+                }
+
+                function parseResponseSafely(res) {
+                    var contentType = (res.headers.get('content-type') || '').toLowerCase();
+                    if (contentType.indexOf('application/json') !== -1) {
+                        return res.json();
                     }
-                    var formData = new FormData(formSetujui);
-                    fetch(formSetujui.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': formSetujui.querySelector('[name=_token]').value
-                        },
-                        bod                                                                    y: formData,
-                        cache: 'no-store',
-                        credentials: 'same-origin'
-                    })
-                        .then(data => {
-                            try {
-                                if (window.opener && window.opener.postMessage) {
-                                    window.opener.postMessage({
-                                        type: 'PERJANJIAN_STATUS_CHANGED',
-                                        id: perjanjianId
-                                    }, window.location.origin);
-                                }
-                            } catch (e) { }
 
-                            const target = window.location.pathname + '?status=disetujui&ts=' + Date.now();
-                            window.location = target;
-                        })
-                        .catch(() => {
-                            try {
-                                if (window.opener && window.opener.postMessage) {
-                                    window.opener.postMessage({
-                                        type: 'PERJANJIAN_STATUS_CHANGED',
-                                        id: perjanjianId
-                                    }, window.location.origin);
-                                }
-                            } catch (e) { }
+                    return res.text().then(function (text) {
+                        return {
+                            success: false,
+                            message: 'Respons server tidak valid (bukan JSON). Silakan login ulang lalu coba lagi.',
+                            __rawText: text
+                        };
+                    });
+                }
 
-                            const target = window.location.pathname + '?status=disetujui&ts=' + Date.now();
-                            window.location = target;
-                        });
-                };
-            }
-            // Show modal alasan tolak
-            if (btnTolak && modalTolak) {
-                btnTolak.onclick = function () {
-                    modalTolak.style.display = 'flex';
-                };
-            }
-            // Handle submit alasan dengan AJAX
-            if (formTolak) {
-                formTolak.onsubmit = function (e) {
-                    e.preventDefault();
-                    if (btnSubmitTolak) {
-                        btnSubmitTolak.disabled = true;
-                        btnSubmitTolak.innerHTML = 'Mengirim...';
-                    }
-                    var formData = new FormData(formTolak);
-                    fetch(formTolak.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': formTolak.querySelector('[name=_token]').value
-                        },
-                        body: formData
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            try { if (window.opener && window.opener.postMessage) { window.opener.postMessage({ type: 'PERJANJIAN_STATUS_CHANGED', id: {{ (int) $perjanjian->id }} }, window.location.origin); } } catch (e) { }
-                            // Sukses tolak -> reload preview (cache-busted) agar badge "Perjanjian Ditolak" tampil
-                            const target = window.location.pathname + '?status=ditolak&ts=' + Date.now();
-                            window.location = target;
+                if (formSetujui) {
+                    formSetujui.addEventListener('submit', function (e) {
+                        e.preventDefault();
+
+                        if (btnSubmitSetujui) {
+                            btnSubmitSetujui.disabled = true;
+                            btnSubmitSetujui.textContent = 'Memproses...';
+                        }
+
+                        var formData = new FormData(formSetujui);
+                        fetch(formSetujui.action, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': formSetujui.querySelector('[name=_token]').value
+                            },
+                            body: formData,
+                            credentials: 'same-origin'
                         })
-                        .catch(() => {
-                            try { if (window.opener && window.opener.postMessage) { window.opener.postMessage({ type: 'PERJANJIAN_STATUS_CHANGED', id: {{ (int) $perjanjian->id }} }, window.location.origin); } } catch (e) { }
-                            const target = window.location.pathname + '?status=ditolak&ts=' + Date.now();
-                            window.location = target;
+                        .then(parseResponseSafely)
+                        .then(function (data) {
+                            if (!data || data.success !== true) {
+                                throw new Error((data && data.message) ? data.message : 'Gagal menyetujui perjanjian.');
+                            }
+
+                            notifyParent();
+                            toMainPage();
+                        })
+                        .catch(function (err) {
+                            if (btnSubmitSetujui) {
+                                btnSubmitSetujui.disabled = false;
+                                btnSubmitSetujui.textContent = 'Setujui';
+                            }
+                            alert(err && err.message ? err.message : 'Terjadi kesalahan saat menyetujui perjanjian.');
                         });
-                };
-            }
-                                                });
+                    });
+                }
+
+                if (formTolak) {
+                    formTolak.addEventListener('submit', function (e) {
+                        e.preventDefault();
+
+                        if (btnSubmitTolak) {
+                            btnSubmitTolak.disabled = true;
+                            btnSubmitTolak.textContent = 'Mengirim...';
+                        }
+
+                        var formData = new FormData(formTolak);
+                        fetch(formTolak.action, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': formTolak.querySelector('[name=_token]').value
+                            },
+                            body: formData,
+                            credentials: 'same-origin'
+                        })
+                        .then(parseResponseSafely)
+                        .then(function (data) {
+                            if (!data || data.success !== true) {
+                                throw new Error((data && data.message) ? data.message : 'Gagal menolak perjanjian.');
+                            }
+
+                            notifyParent();
+                            toMainPage();
+                        })
+                        .catch(function (err) {
+                            if (btnSubmitTolak) {
+                                btnSubmitTolak.disabled = false;
+                                btnSubmitTolak.textContent = 'KIRIM ALASAN';
+                            }
+                            alert(err && err.message ? err.message : 'Terjadi kesalahan saat menolak perjanjian.');
+                        });
+                    });
+                }
+            });
         </script>
 
         @if(!empty($approvedOther))
@@ -1547,7 +1674,7 @@
                 <p style="font-size:14px; color:#555; line-height:1.6; margin-bottom:22px;">
                     Sudah terdapat Perjanjian Kinerja atas nama <strong>{{ $perjanjian->pihak1_name }}</strong>
                     yang telah disetujui sebelumnya
-                    (disetujui pada <strong>{{ optional($approvedOther->updated_at)->translatedFormat('d F Y') }}</strong>).
+                    (disetujui pada <strong>{{ optional($approvedOther->updated_at)->locale('id')->translatedFormat('d F Y') }}</strong>).
                     <br><br>
                     Perjanjian baru tidak dapat disetujui selama masih ada perjanjian yang aktif.
                 </p>
@@ -1560,6 +1687,71 @@
             </div>
         </div>
         @endif
+    @endif
+
+    {{-- Tombol Download hanya untuk perjanjian yang sudah disetujui --}}
+    @if($isPerjanjianApproved)
+        <style>
+            .aksi-download-container {
+                position: fixed;
+                top: 128px;
+                right: 24px;
+                z-index: 1200;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+            }
+
+            .aksi-download-btn {
+                padding: 14px 24px;
+                border: none;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 15px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                text-decoration: none;
+                transition: transform 0.18s cubic-bezier(.4, 2, .6, 1), box-shadow 0.18s, background 0.18s;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                backdrop-filter: blur(2px);
+                background: #2563eb;
+                color: #fff;
+            }
+
+            .aksi-download-btn:hover {
+                transform: scale(1.04);
+                box-shadow: 0 6px 24px rgba(0, 0, 0, 0.13);
+                background: #1d4ed8;
+            }
+
+            .aksi-download-btn:active {
+                transform: scale(0.96);
+            }
+
+            @media (max-width: 768px) {
+                .aksi-download-container {
+                    top: 120px;
+                    right: 12px;
+                }
+
+                .aksi-download-btn {
+                    padding: 12px 16px;
+                    font-size: 14px;
+                }
+            }
+        </style>
+        <div class="aksi-download-container">
+            <a href="{{ $downloadPerjanjianUrl }}" target="_blank" rel="noopener noreferrer" class="aksi-download-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.1a.5.5 0 0 1 1 0v2.1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.1a.5.5 0 0 1 .5-.5z"/>
+                    <path d="M5.646 7.146a.5.5 0 0 1 .708 0L8 8.793l1.646-1.647a.5.5 0 0 1 .708.708l-2.5 2.5a.5.5 0 0 1-.708 0l-2.5-2.5a.5.5 0 0 1 0-.708z"/>
+                    <path d="M8 1.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V2a.5.5 0 0 1 .5-.5z"/>
+                </svg>
+                Download Perjanjian
+            </a>
+        </div>
     @endif
 
     {{-- Wrapper for centered preview card (only for non-print view) --}}
@@ -1613,7 +1805,7 @@
                                     style="font-weight:600;color:#333;min-width:85px;display:inline-block;flex-shrink:0;">Tanggal</span>
                                 <span style="font-weight:600;color:#333;margin:0 8px;flex-shrink:0;">:</span>
                                 <span
-                                    style="color:#333;flex:1;word-wrap:break-word;">{{ \Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}</span>
+                                    style="color:#333;flex:1;word-wrap:break-word;">{{ \Carbon\Carbon::parse($perjanjian->updated_at)->timezone('Asia/Jakarta')->locale('id')->translatedFormat('d F Y') }}</span>
                             </div>
                         </div>
 
@@ -1651,14 +1843,16 @@
                     <span>Perjanjian Disetujui</span>
                 </div>
             @else
-                <div class="status-badge" style="background:#ffc107;color:#222;">
-                    @if(empty($for_pdf) || !$for_pdf)
-                        <i class="fa-solid fa-clock"></i>
-                    @else
-                        🕐
-                    @endif
-                    <span>Menunggu Persetujuan</span>
-                </div>
+                @if(!$canActAsPihakKedua)
+                    <div class="status-badge" style="background:#ffc107;color:#222;">
+                        @if(empty($for_pdf) || !$for_pdf)
+                            <i class="fa-solid fa-clock"></i>
+                        @else
+                            🕐
+                        @endif
+                        <span>Menunggu Persetujuan</span>
+                    </div>
+                @endif
             @endif
         @endif
 
@@ -1756,7 +1950,7 @@
                         </div>
                         <div class="sig-flex-col" style="text-align:center;width:45%;">
                             Pasuruan,
-                            {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
+                            {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->locale('id')->translatedFormat('d F Y') }}<br>
                             PIHAK PERTAMA<br>
                             @if(!empty($for_pdf) && !empty($pihak1_ttd_data))
                                 <img src="{{ $pihak1_ttd_data }}" style="max-height:50px;margin:2px 0;" alt="TTD Pihak 1">
@@ -1827,7 +2021,7 @@
 
             @if($hasTabelAData || $hasProgramData)
                 <!-- PAGE 2: INDIKATOR KINERJA, TUGAS, FUNGSI, TABEL -->
-                <div class="page">
+                <div class="page page-two">
                     <div class="header" style="text-align:center;">
                         <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">INDIKATOR KINERJA INDIVIDU</div>
                         <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">UOBK RSUD BANGIL</div>
@@ -1838,6 +2032,14 @@
                             $tugasValue = $perjanjian->tugas_pelaksana;
                             if ($tugasValue === null || $tugasValue === '') {
                                 $tugasValue = $perjanjian->tugas ?: '-';
+                            }
+                            if (is_array($tugasValue)) {
+                                $tugasValue = implode("\n", $tugasValue);
+                            } elseif (is_string($tugasValue)) {
+                                $decodedTugas = json_decode($tugasValue, true);
+                                if (is_array($decodedTugas)) {
+                                    $tugasValue = implode("\n", $decodedTugas);
+                                }
                             }
                             $fungsiValue = $perjanjian->fungsi_pelaksana;
                             if ($fungsiValue === null || $fungsiValue === '') {
@@ -1924,7 +2126,7 @@
                             </tr>
                         </table>
                         <div class="table-responsive">
-                            <table class="table table-fixed" style="table-layout: fixed; width: 90%;">
+                            <table class="table table-fixed" style="table-layout: fixed; width: 100%;">
                                 <thead>
                                     <tr>
                                         <th style="width:25px;">NO</th>
@@ -1970,13 +2172,13 @@
 
                         @if($hasProgramData)
                             <div class="table-responsive">
-                                <table class="table table-fixed" style="table-layout: fixed; width: 90%;">
+                                <table class="table table-fixed" style="table-layout: fixed; width: 100%;">
                                     <thead>
                                         <tr>
                                             <th style="width:25px;">No</th>
-                                            <th style="width:50%;">Program</th>
+                                            <th style="width:58%;">Program</th>
                                             <th style="width:20%;">Anggaran</th>
-                                            <th style="width:25%;">Ket</th>
+                                            <th style="width:15%;">Ket</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2076,7 +2278,7 @@
                                                 <td>{{ $row['name'] ?? '' }}</td>
                                                 <td style="text-align:right;">{{ number_format((int) $row['amount'], 0, ',', '.') }}
                                                 </td>
-                                                <td style="font-size:11px; word-wrap:break-word; white-space:normal;">
+                                                <td style="font-size:10px; word-wrap:break-word; white-space:normal;">
                                                     {{ $row['source'] ?? '-' }}
                                                 </td>
                                             </tr>
@@ -2101,60 +2303,7 @@
                             </div>
                         @endif
 
-                        {{-- Signature dengan repeat header jika pindah halaman --}}
-                        <div style="margin-top:10px;">
-                            {{-- Repeat header jika signature ada di halaman baru --}}
-                            <div class="header-repeat" style="display:none;">
-                                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;text-align:center;">RENCANA
-                                    ANGGARAN BIAYA</div>
-                                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;text-align:center;">
-                                    {{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}
-                                </div>
-                                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:20px;text-align:center;">TAHUN
-                                    {{ $tahun ?? '2025' }}
-                                </div>
-                            </div>
-
-                            <div class="sig-flex-row" style="display:flex;justify-content:space-between;">
-                                <div class="sig-flex-col" style="text-align:center;width:45%;">
-                                    PIHAK KEDUA<br><br>
-                                    @if(!empty($for_pdf) && !empty($pihak2_ttd_data))
-                                        <img src="{{ $pihak2_ttd_data }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 2">
-                                    @elseif(!empty($perjanjian->pihak2_signature))
-                                        <img src="{{ $perjanjian->pihak2_signature }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 2" loading="lazy">
-                                    @elseif(!empty($perjanjian->pihak2_ttd_path))
-                                        <img src="{{ asset('storage/' . $perjanjian->pihak2_ttd_path) }}"
-                                            style="max-height:60px;margin:5px 0;" alt="TTD Pihak 2" loading="lazy">
-                                    @else
-                                        <div style="height:60px;"></div>
-                                    @endif
-                                    <br>
-                                    <u>{{ $perjanjian->pihak2_name ?? '-' }}</u><br>
-                                    {{ $perjanjian->pihak2_pangkat ?? '-' }}<br>
-                                    NIP. {{ $perjanjian->pihak2_nip ?? '-' }}
-                                </div>
-                                <div class="sig-flex-col" style="text-align:center;width:45%;">
-                                    Pasuruan,
-                                    {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
-                                    PIHAK PERTAMA<br>
-                                    @if(!empty($for_pdf) && !empty($pihak1_ttd_data))
-                                        <img src="{{ $pihak1_ttd_data }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 1">
-                                    @elseif(!empty($perjanjian->pihak1_ttd))
-                                        <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 1" loading="lazy">
-                                    @else
-                                        <div style="height:60px;"></div>
-                                    @endif
-                                    <br>
-                                    <u>{{ $perjanjian->pihak1_name ?? '-' }}</u><br>
-                                    {{ $perjanjian->pihak1_pangkat ?? '-' }}<br>
-                                    NIP. {{ $perjanjian->pihak1_nip ?? '-' }}
-                                </div>
-                            </div>
-                        </div>
+                        {{-- Halaman kedua fokus pada indikator dan anggaran: tanpa blok tanda tangan. --}}
                     </div>
                 </div>
             @endif
@@ -2238,7 +2387,7 @@
 
             @if($hasTabelBData || $hasTabelDData)
                 <!-- PAGE 3: RENCANA AKSI -->
-                <div class="page-landscape" style="background-color: #fff;">
+                <div class="page-landscape page-three" style="background-color: #fff;">
                     <div class="header" style="text-align:center;">
                         <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">RENCANA AKSI</div>
                         <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;">
@@ -2290,10 +2439,10 @@
                                                 <td>{{ $row['sasaran'] ?? '' }}</td>
                                                 <td>{{ $row['indikator'] ?? '' }}</td>
                                                 <td style="text-align:center;">{{ $row['target'] ?? '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw1']) ? $row['tw1'] : '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw2']) ? $row['tw2'] : '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw3']) ? $row['tw3'] : '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw4']) ? $row['tw4'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw1']) && trim((string)$row['tw1']) !== '') ? $row['tw1'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw2']) && trim((string)$row['tw2']) !== '') ? $row['tw2'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw3']) && trim((string)$row['tw3']) !== '') ? $row['tw3'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw4']) && trim((string)$row['tw4']) !== '') ? $row['tw4'] : '' }}</td>
                                             </tr>
                                         @empty
                                             <tr>
@@ -2440,10 +2589,10 @@
                                                     <td style="text-align:center;">{{ $row['no'] ?? ($i + 1) }}</td>
                                                     <td style="font-weight: {{ ($row['level'] ?? '') === 'program' ? 'bold' : 'normal' }}; font-style: {{ ($row['level'] ?? '') === 'kegiatan' ? 'italic' : 'normal' }};">{{ $row['name'] }}</td>
                                                     <td style="text-align:right;">{{ number_format((int) $row['amount'], 0, ',', '.') }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw1']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw1']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw1']), 0, ',', '.') : '' }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw2']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw2']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw2']), 0, ',', '.') : '' }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw3']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw3']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw3']), 0, ',', '.') : '' }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw4']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw4']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw4']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw1']) || trim((string)$row['tw1']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw1']) && trim((string)$row['tw1']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw1']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw2']) || trim((string)$row['tw2']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw2']) && trim((string)$row['tw2']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw2']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw3']) || trim((string)$row['tw3']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw3']) && trim((string)$row['tw3']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw3']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw4']) || trim((string)$row['tw4']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw4']) && trim((string)$row['tw4']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw4']), 0, ',', '.') : '' }}</td>
                                                 </tr>
                                             @empty
                                                 <tr><td colspan="7" class="no-data">
@@ -2466,9 +2615,9 @@
                         @endif
 
                             {{-- Tanda tangan, pisah div sendiri --}}
-                            <div class="signature-wrapper" style="margin-top: 20px;">
+                            <div class="signature-wrapper">
                                 <div class="signature-block">
-                                    Pasuruan, {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
+                                    Pasuruan, {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->locale('id')->translatedFormat('d F Y') }}<br>
                                     {{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}<br><br>
 
                                     @if(!empty($for_pdf) && !empty($pihak1_ttd_data))

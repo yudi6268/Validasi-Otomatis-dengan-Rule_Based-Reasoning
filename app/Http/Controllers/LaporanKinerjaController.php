@@ -7,6 +7,7 @@ use App\Models\Laporan;
 use App\Models\Notification;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\RuleBasedReasoningService;
 use App\Services\SupabaseService;
 use App\Services\SmartValidationService;
 use Illuminate\Http\Request;
@@ -16,6 +17,70 @@ use Illuminate\Support\Facades\Log;
 class LaporanKinerjaController extends Controller
 {
     protected $supabase;
+
+    private function isActualWadir($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        $jabatan = strtolower(trim((string) ($user->jabatan ?? '')));
+        if ($jabatan === '') {
+            return false;
+        }
+
+        return str_contains($jabatan, 'wakil direktur')
+            || str_contains($jabatan, 'wadir');
+    }
+
+    private function matchesPerjanjianPihakKedua($user, ?Perjanjian $perjanjian): bool
+    {
+        if (!$user || !$perjanjian) {
+            return false;
+        }
+
+        $userNama = strtolower(trim((string) ($user->nama ?? '')));
+        $userJabatan = strtolower(trim((string) ($user->jabatan ?? '')));
+        $userNipDigits = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+
+        $pihak2Nama = strtolower(trim((string) ($perjanjian->pihak2_name ?? '')));
+        $pihak2Jabatan = strtolower(trim((string) ($perjanjian->pihak2_jabatan ?? '')));
+        $pihak2NipDigits = preg_replace('/\D+/', '', (string) ($perjanjian->pihak2_nip ?? ''));
+
+        $matchByNipAndJabatan = $userNipDigits !== ''
+            && $pihak2NipDigits !== ''
+            && $userNipDigits === $pihak2NipDigits
+            && $userJabatan !== ''
+            && $userJabatan === $pihak2Jabatan;
+
+        $matchByNameAndJabatan = $userNama !== ''
+            && $userJabatan !== ''
+            && $userNama === $pihak2Nama
+            && $userJabatan === $pihak2Jabatan;
+
+        $matchByTaggedNameAndJabatan = $userNama !== ''
+            && $userJabatan !== ''
+            && str_contains($pihak2Nama, '#')
+            && str_contains($pihak2Nama, $userNama)
+            && $userJabatan === $pihak2Jabatan;
+
+        return $matchByNipAndJabatan || $matchByNameAndJabatan || $matchByTaggedNameAndJabatan;
+    }
+
+    private function normalizeIndicatorType($rawType): string
+    {
+        return RuleBasedReasoningService::normalizeIndicatorType($rawType);
+    }
+
+    private function calculateCapaianPercentage($target, $realisasi): ?float
+    {
+        return RuleBasedReasoningService::calculateCapaianPercentage($target, $realisasi);
+    }
+
+    private function calculatePerformancePercentage($target, $realisasi, $indicatorType = 'positif'): ?float
+    {
+        return RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasi, $indicatorType);
+    }
 
     public function __construct(SupabaseService $supabase)
     {
@@ -30,6 +95,7 @@ class LaporanKinerjaController extends Controller
         }
 
         $user = Auth::user();
+        $isActualWadir = $this->isActualWadir($user);
         $activeSection = $request->query('section', 'laporan');
 
         // Redirect old validasi section URL to the regular laporan page
@@ -42,14 +108,13 @@ class LaporanKinerjaController extends Controller
         $perjanjianIdParam = $request->query('perjanjian_id');
         if ($perjanjianIdParam) {
             $perjanjian = Perjanjian::find((int) $perjanjianIdParam);
+            $isWadirUser = $this->isActualWadir($user);
+            $isOwner = $perjanjian && (int) $perjanjian->user_id === (int) $user->id;
 
             // Wadir dapat melihat semua; Direktur/Pimpinan hanya jika ia adalah pihak2
-            $isPihak2 = $perjanjian && (
-                $user->nama === $perjanjian->pihak2_name ||
-                $user->nip  === $perjanjian->pihak2_nip
-            );
+            $isPihak2 = $this->matchesPerjanjianPihakKedua($user, $perjanjian);
 
-            if ($user->isWadir() || $isPihak2) {
+            if ($isWadirUser || $isPihak2 || $isOwner) {
                 if (!$perjanjian) {
                     return view('laporan-kinerja', [
                         'perjanjian'     => null,
@@ -68,6 +133,10 @@ class LaporanKinerjaController extends Controller
                 $laporanIdParam = $request->query('laporan_id');
                 $mode = $request->query('mode');
                 if ($laporanIdParam && $mode === 'edit') {
+                    if (!$isWadirUser && $user->role !== 'user') {
+                        abort(403, 'Akses edit laporan hanya untuk akun user atau Wakil Direktur.');
+                    }
+
                     $selectedLaporan = $laporans->firstWhere('id', (int) $laporanIdParam) ?? $laporans->first();
                     return view('laporan-kinerja', [
                         'perjanjian'     => $perjanjian,
@@ -77,6 +146,7 @@ class LaporanKinerjaController extends Controller
                         'activeSection'  => $activeSection,
                         'viewMode'       => 'form',
                         'editLaporanId'  => (int) $laporanIdParam,
+                        'isActualWadir'  => $isActualWadir,
                     ]);
                 }
 
@@ -87,6 +157,7 @@ class LaporanKinerjaController extends Controller
                     'message'       => null,
                     'activeSection' => $activeSection,
                     'viewMode'      => 'list',
+                    'isActualWadir' => $isActualWadir,
                 ]);
             }
             // Bukan Wadir dan bukan pihak2 – lanjut ke alur normal staf
@@ -121,6 +192,7 @@ class LaporanKinerjaController extends Controller
                 'message' => 'Belum ada perjanjian kinerja yang disetujui. Silakan buat atau tunggu perjanjian kinerja Anda disetujui oleh atasan.',
                 'activeSection' => $activeSection,
                 'viewMode' => 'form',
+                'isActualWadir' => false,
             ]);
         }
 
@@ -137,6 +209,7 @@ class LaporanKinerjaController extends Controller
             'message' => null,
             'activeSection' => $activeSection,
             'viewMode' => 'form',
+            'isActualWadir' => false,
         ]);
     }
 
@@ -155,7 +228,7 @@ class LaporanKinerjaController extends Controller
         $triwulanAktif = (int) $this->getTriwulanAktif();
 
         // Find user's most recent approved perjanjian
-        $perjanjian = Perjanjian::where('user_id', $user->id)
+                $perjanjian = Perjanjian::where('user_id', $user->id)
             ->where(function ($q) {
                 $q->where('status', 'disetujui')
                   ->orWhere('status', 'approved')
@@ -201,9 +274,12 @@ class LaporanKinerjaController extends Controller
             }
             if (is_array($realisasiData)) {
                 foreach ($realisasiData['rows'] ?? [] as $row) {
-                    $val = $row['realisasi'] ?? '';
-                    if ($val !== '' && $val !== null) {
-                        $validCount++;
+                    $rowId = $row['row'] ?? '';
+                    if (str_starts_with($rowId, 'kinerja-')) {
+                        $val = $row['realisasi'] ?? '';
+                        if ($val !== '' && $val !== null) {
+                            $validCount++;
+                        }
                     }
                 }
                 // If no rows in realisasi but laporan exists, fall back to total
@@ -247,44 +323,77 @@ class LaporanKinerjaController extends Controller
             return redirect()->route('login');
         }
         $user = Auth::user();
-        if (!$user->isWadir()) {
-            abort(403, 'Halaman ini hanya untuk Wakil Direktur.');
+        $isActualWadir = $this->isActualWadir($user);
+
+        // Untuk Wadir aktual: lihat seluruh perjanjian yang disupervisi.
+        // Untuk user dashboard non-Wadir aktual: batasi ke data milik sendiri agar endpoint tidak 403.
+        if ($isActualWadir) {
+            $wadirPerjanjians = Perjanjian::where(function ($q) use ($user) {
+                $q->where('pihak2_name', $user->nama)
+                  ->orWhere('pihak2_jabatan', $user->jabatan)
+                  ->orWhere('pihak2_nip', $user->nip)
+                  ->orWhere('user_id', $user->id);
+            })->get();
+        } else {
+            $wadirPerjanjians = Perjanjian::where('user_id', $user->id)->get();
         }
 
-        // Load all perjanjians supervised by this wadir
-        $wadirPerjanjians = Perjanjian::where(function ($q) use ($user) {
-            $q->where('pihak2_name', $user->nama)
-              ->orWhere('pihak2_jabatan', $user->jabatan)
-              ->orWhere('pihak2_nip', $user->nip)
-              ->orWhere('user_id', $user->id);
-        })->get();
-
-        // Only perjanjians that are approved (same logic as DashboardController)
+        // Klasifikasi status perjanjian agar laporan tetap terlihat saat perjanjian dikembalikan untuk edit.
         $perjanjians = $wadirPerjanjians->filter(function ($p) {
             if (!empty($p->rejected) && (string) $p->rejected !== '0') return false;
             if (!empty($p->pihak2_signature)) return true;
             return in_array(strtolower((string) ($p->status ?? '')), ['disetujui', 'approved']);
         })->values();
 
-        $perjanjianIds = $perjanjians->pluck('id')->toArray();
+        $normalizePerjanjianStatus = function ($p) {
+            if (!$p) {
+                return 'terkirim';
+            }
+
+            if (!empty($p->rejected) && (string) $p->rejected !== '0') {
+                return 'ditolak';
+            }
+
+            $status = strtolower((string) ($p->status ?? ''));
+            if (!empty($p->pihak2_signature)) {
+                return 'disetujui';
+            }
+            if (in_array($status, ['menunggu', 'waiting'])) {
+                return 'menunggu';
+            }
+            if (in_array($status, ['ditolak', 'rejected'])) {
+                return 'ditolak';
+            }
+
+            return 'terkirim';
+        };
+
+        $perjanjianIds = $wadirPerjanjians->pluck('id')->toArray();
         $laporans = Laporan::whereIn('perjanjian_id', $perjanjianIds)->get();
 
         // Build items with computed status
-        $allItems = $laporans->map(function ($l) use ($perjanjians) {
+        $allItems = $laporans->map(function ($l) use ($wadirPerjanjians, $normalizePerjanjianStatus) {
+            $perjanjian = $wadirPerjanjians->firstWhere('id', $l->perjanjian_id);
+            $perjanjianStatus = $normalizePerjanjianStatus($perjanjian);
+
             $hasRealisasi = false;
             for ($tw = 1; $tw <= 4; $tw++) {
                 if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
             }
-            $status = 'terkirim';
-            if (!empty($l->pihak2_signature)) {
-                $status = 'disetujui';
-            } elseif (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan)) {
-                $status = 'ditolak';
-            } elseif ($hasRealisasi && empty($l->kesimpulan) && empty($l->tanggapan_pimpinan)) {
+
+            // Parent perjanjian non-disetujui -> laporan tetap ada namun status menunggu.
+            if ($perjanjianStatus !== 'disetujui') {
                 $status = 'menunggu';
+            } elseif (!empty($l->pihak2_signature)) {
+                $status = 'disetujui';
+            } elseif ($hasRealisasi && empty($l->pihak2_signature) && (empty($l->rejected) || $l->rejected == false || $l->rejected == 0 || $l->rejected === '0')) {
+                $status = 'menunggu';
+            } elseif ((!empty($l->rejected) && (string) $l->rejected !== '0') || (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan))) {
+                $status = 'ditolak';
+            } else {
+                $status = 'terkirim';
             }
 
-            $perjanjian = $perjanjians->firstWhere('id', $l->perjanjian_id);
             return [
                 'id'            => $l->id,
                 'perjanjian_id' => $l->perjanjian_id,
@@ -335,7 +444,7 @@ class LaporanKinerjaController extends Controller
             return redirect()->route('login');
         }
         $user = Auth::user();
-        if (!$user->isWadir()) {
+        if (!$this->isActualWadir($user)) {
             abort(403, 'Hanya Wakil Direktur yang dapat menghapus laporan.');
         }
 
@@ -367,8 +476,8 @@ class LaporanKinerjaController extends Controller
 
         // Authorization: owner, wadir, or pihak2 (direktur)
         $user = Auth::user();
-        $isPihak2 = $user->nama === $perjanjian->pihak2_name || $user->nip === $perjanjian->pihak2_nip;
-        if ($perjanjian->user_id !== $user->id && !$user->isWadir() && !$isPihak2) {
+        $isPihak2 = $this->matchesPerjanjianPihakKedua($user, $perjanjian);
+        if ((int) $perjanjian->user_id !== (int) $user->id && !$this->isActualWadir($user) && !$isPihak2) {
             abort(403, 'Tidak diizinkan mengakses laporan ini.');
         }
 
@@ -391,8 +500,28 @@ class LaporanKinerjaController extends Controller
             'tanggapanVal'  => $laporan->tanggapan_pimpinan ?? '',
         ];
 
-        // Always render as HTML preview so action buttons are visible.
-        // PDF download is handled separately via browser print dialog.
+        $downloadRequested = in_array((string) $request->query('download', '0'), ['1', 'true', 'yes'], true);
+        if ($downloadRequested) {
+            $viewData['for_pdf'] = true;
+            $html = view('laporan.pdf', $viewData)->render();
+
+            $pdf = \Barryvdh\Snappy\Facades\SnappyPdf::loadHTML($html)
+                ->setPaper('Folio')
+                ->setOrientation('Portrait')
+                ->setOption('enable-local-file-access', true)
+                ->setOption('disable-smart-shrinking', true)
+                ->setOption('zoom', 1.0);
+
+            $namaPerjanjian = $perjanjian->nomor_perjanjian ?? ('PK-' . $perjanjian->id);
+            $namaPerjanjian = preg_replace('/[^A-Za-z0-9]+/', '_', $namaPerjanjian);
+            $fileName = 'Laporan_Kinerja_' . $namaPerjanjian . '_Triwulan_' . $triwulan . '.pdf';
+
+            return response($pdf->output())
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+        }
+
+        // Keep HTML preview for on-screen reading and action buttons.
         return view('laporan.pdf', $viewData);
     }
 
@@ -460,6 +589,7 @@ class LaporanKinerjaController extends Controller
                 'realisasi_rows.*.row' => 'nullable|string',
                 'realisasi_rows.*.realisasi' => 'nullable|numeric',
                 'realisasi_rows.*.target' => 'nullable|numeric',
+                'realisasi_rows.*.indicator_type' => 'nullable|string',
                 'realisasi_rows.*.ket' => 'nullable|string',
                 'rencana_tindak_lanjut' => 'nullable|string',
                 'kesimpulan' => 'nullable|string',
@@ -476,6 +606,7 @@ class LaporanKinerjaController extends Controller
 
             $laporan = null;
             $perjanjian = null;
+            $triwulan = (int) $validated['triwulan'];
 
             // Mode 1: Dari perjanjian_id (langsung input realisasi)
             if ($request->has('perjanjian_id')) {
@@ -490,15 +621,17 @@ class LaporanKinerjaController extends Controller
                     ], 403);
                 }
 
-                // Cari atau buat laporan untuk perjanjian ini
+                // Cari atau buat laporan untuk perjanjian + triwulan yang aktif.
+                // Jangan ambil "laporan terbaru" lintas triwulan karena dapat membuat status panel tidak sinkron.
                 $laporan = Laporan::where('perjanjian_id', $perjanjianId)
-                    ->orderBy('created_at', 'desc')
+                    ->where('triwulan_aktif', $triwulan)
+                    ->orderBy('updated_at', 'desc')
                     ->first();
 
                 if (!$laporan) {
                     // Buat laporan baru jika belum ada
                     $laporan = Laporan::create(
-                        $this->buildLaporanCreatePayload($perjanjian, $perjanjianId, (int) $validated['triwulan'])
+                        $this->buildLaporanCreatePayload($perjanjian, $perjanjianId, $triwulan)
                     );
                 }
             }
@@ -522,7 +655,6 @@ class LaporanKinerjaController extends Controller
             }
 
             // Simpan realisasi ke kolom yang sesuai
-            $triwulan = $validated['triwulan'];
             $columnName = 'realisasi_tb' . $triwulan;
 
             $realisasiValue = $validated['realisasi'];
@@ -532,23 +664,24 @@ class LaporanKinerjaController extends Controller
                     'rows' => array_map(function ($row) {
                         $realisasiValue = null;
                         $targetValue = isset($row['target']) ? floatval($row['target']) : null;
+                        $indicatorType = $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif');
                         $pct = null;
+                        $performancePct = null;
                         
                         if (array_key_exists('realisasi', $row) && $row['realisasi'] !== null && $row['realisasi'] !== '') {
                             $realisasiValue = floatval($row['realisasi']);
-                            // Hitung persentase: realisasi / target * 100
-                            if ($targetValue !== null && $targetValue > 0) {
-                                $pct = round(($realisasiValue / $targetValue) * 100, 2);
-                            } elseif ($realisasiValue > 0) {
-                                $pct = 100;
-                            }
+                            // Capaian selalu realisasi/target*100; analisis performa disesuaikan tipe indikator.
+                            $pct = $this->calculateCapaianPercentage($targetValue, $realisasiValue);
+                            $performancePct = $this->calculatePerformancePercentage($targetValue, $realisasiValue, $indicatorType);
                         }
 
                         return [
                             'row' => isset($row['row']) ? (string) $row['row'] : null,
                             'realisasi' => $realisasiValue,
                             'target' => $targetValue,
+                            'indicator_type' => $indicatorType,
                             'pct' => $pct,
+                            'performance_pct' => $performancePct,
                             'ket' => isset($row['ket']) ? (string) $row['ket'] : '',
                         ];
                     }, $validated['realisasi_rows']),
@@ -564,6 +697,18 @@ class LaporanKinerjaController extends Controller
 
             $updates = [
                 $columnName => $realisasiValue,
+                'triwulan_aktif' => $triwulan,
+                'rejected' => false,
+                'rejection_reason' => null,
+                'catatan_pihak2' => null,
+                'tanggapan_pimpinan' => null,
+                'pihak2_signature' => null,
+                'tanggapan_laporan_kurang_baik' => false,
+                'tanggapan_laporan_sudah_baik' => false,
+                'tanggapan_laporan_diperbaiki' => false,
+                'tanggapan_laporan_diteliti_ulang' => false,
+                'tanggapan_realisasi_diteliti_ulang' => false,
+                'tanggapan_capaian_diteliti_ulang' => false,
             ];
 
             // Sinkronisasi BAB laporan agar validasi rule-based memiliki konteks yang lengkap.
@@ -600,9 +745,9 @@ class LaporanKinerjaController extends Controller
 
             $laporan->save();
 
-            // Saat edit laporan (jika laporan sudah ada sebelumnya dan bukan finalisasi), batalkan validasi untuk triwulan ini
-            // agar user harus validasi ulang setelah edit
-            if ($laporanId && empty($validated['finalize'])) {
+            // Saat laporan diedit (bukan finalisasi), batalkan validasi untuk triwulan ini
+            // agar user harus validasi ulang setelah ada perubahan konten.
+            if (empty($validated['finalize'])) {
                 $validationResults = $laporan->validation_results ?? [];
                 if (is_string($validationResults)) {
                     $validationResults = json_decode($validationResults, true) ?? [];
@@ -842,6 +987,10 @@ class LaporanKinerjaController extends Controller
                 'realisasi_tb2' => $laporan->realisasi_tb2,
                 'realisasi_tb3' => $laporan->realisasi_tb3,
                 'realisasi_tb4' => $laporan->realisasi_tb4,
+                'pihak2_signature' => $laporan->pihak2_signature,
+                'rejected' => $laporan->rejected,
+                'rejection_reason' => $laporan->rejection_reason,
+                'tanggapan_pimpinan' => $laporan->tanggapan_pimpinan,
                 'updated_at' => now()->toDateTimeString(),
             ];
 
@@ -946,7 +1095,8 @@ class LaporanKinerjaController extends Controller
                 'warnings' => $validated['warnings'],
                 'suggestions' => $validated['suggestions'],
                 'validated' => true,
-                'validated_at' => now()->toDateTimeString(),
+                // Simpan dengan offset timezone agar tidak ambigu saat ditampilkan di klien.
+                'validated_at' => now('Asia/Jakarta')->toIso8601String(),
                 'total' => $validated['total'],
                 'valid' => $validated['valid'],
             ];
@@ -995,6 +1145,46 @@ class LaporanKinerjaController extends Controller
                 ]);
             }
 
+            $capaian_pct = 0.0;
+            $raw = $laporan->{'realisasi_tb' . $tw} ?? null;
+            $parsed = is_string($raw) ? json_decode($raw, true) : $raw;
+            if (is_array($parsed) && isset($parsed['rows']) && is_array($parsed['rows'])) {
+                $kinerjaPcts = [];
+                foreach ($parsed['rows'] as $row) {
+                    if (isset($row['row']) && str_starts_with($row['row'], 'kinerja-')) {
+                        $targetVal = isset($row['target']) ? floatval($row['target']) : null;
+                        $realVal = isset($row['realisasi']) ? floatval($row['realisasi']) : null;
+                        $indicatorType = $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif');
+                        $performancePct = $this->calculatePerformancePercentage($targetVal, $realVal, $indicatorType);
+                        if ($performancePct !== null) {
+                            $kinerjaPcts[] = $performancePct;
+                        } elseif (isset($row['performance_pct']) && $row['performance_pct'] !== null && $row['performance_pct'] !== '') {
+                            // Fallback untuk data lama jika target/realisasi tidak lengkap.
+                            $kinerjaPcts[] = floatval($row['performance_pct']);
+                        }
+                    }
+                }
+                if (count($kinerjaPcts) > 0) {
+                    $capaian_pct = array_sum($kinerjaPcts) / count($kinerjaPcts);
+                }
+            }
+            $capaian_pct = round($capaian_pct, 2);
+
+            $validatedAtRaw = $result['validated_at'] ?? null;
+            $validatedAtWib = null;
+            if (!empty($validatedAtRaw)) {
+                try {
+                    $validatedAt = \Carbon\Carbon::parse($validatedAtRaw);
+                    // Kompatibilitas data lama: string tanpa offset dianggap UTC.
+                    if (!preg_match('/(Z|[+\-]\d{2}:?\d{2})$/', (string) $validatedAtRaw)) {
+                        $validatedAt = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', (string) $validatedAtRaw, 'UTC');
+                    }
+                    $validatedAtWib = $validatedAt->setTimezone('Asia/Jakarta')->toIso8601String();
+                } catch (\Throwable $e) {
+                    $validatedAtWib = null;
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'validated' => true,
@@ -1002,9 +1192,10 @@ class LaporanKinerjaController extends Controller
                 'issues' => $result['issues'] ?? 0,
                 'warnings' => $result['warnings'] ?? 0,
                 'suggestions' => $result['suggestions'] ?? 0,
-                'validated_at' => $result['validated_at'] ?? null,
+                'validated_at' => $validatedAtWib,
                 'total' => $result['total'] ?? 0,
                 'valid' => $result['valid'] ?? 0,
+                'capaian_pct' => $capaian_pct,
             ]);
         } catch (\Throwable $e) {
             Log::error('Get validation result error: ' . $e->getMessage());

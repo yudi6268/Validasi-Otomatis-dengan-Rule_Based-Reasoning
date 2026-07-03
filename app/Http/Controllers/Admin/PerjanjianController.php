@@ -4,10 +4,19 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Perjanjian;
+use App\Services\SupabaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PerjanjianController extends Controller
 {
+    protected $supabase;
+
+    public function __construct(SupabaseService $supabase)
+    {
+        $this->supabase = $supabase;
+    }
+
     public function index(Request $request)
     {
         $query = Perjanjian::with('user')->latest();
@@ -57,7 +66,9 @@ class PerjanjianController extends Controller
                 'pihak2_signature'  => null,
                 'catatan_penolakan' => null,
                 'rejection_reason'  => null,
+                'status'            => 'menunggu',
             ]);
+            $this->syncPerjanjianToSupabase($perjanjian);
             return back()->with('success', 'Status perjanjian berhasil direset ke "Menunggu".');
         }
 
@@ -65,7 +76,9 @@ class PerjanjianController extends Controller
             $perjanjian->update([
                 'rejected'         => false,
                 'pihak2_signature' => 'admin_approved',
+                'status'           => 'disetujui',
             ]);
+            $this->syncPerjanjianToSupabase($perjanjian);
             return back()->with('success', 'Perjanjian berhasil disetujui oleh admin.');
         }
 
@@ -75,7 +88,9 @@ class PerjanjianController extends Controller
                 'pihak2_signature'  => null,
                 'catatan_penolakan' => $request->catatan,
                 'rejection_reason'  => $request->catatan,
+                'status'            => 'ditolak',
             ]);
+            $this->syncPerjanjianToSupabase($perjanjian);
             return back()->with('success', 'Perjanjian berhasil ditolak oleh admin.');
         }
     }
@@ -86,4 +101,46 @@ class PerjanjianController extends Controller
         $perjanjian->delete();
         return back()->with('success', 'Perjanjian berhasil dihapus.');
     }
+
+    private function syncPerjanjianToSupabase(Perjanjian $perjanjian)
+    {
+        try {
+            $payload = [
+                'pihak2_name' => $perjanjian->pihak2_name,
+                'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                'pihak2_nip' => $perjanjian->pihak2_nip,
+                'location' => $perjanjian->location,
+                'agreement_date' => $perjanjian->agreement_date,
+                'jabatan' => $perjanjian->jabatan,
+                'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                'status' => $perjanjian->status,
+                'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                'rejected' => $perjanjian->rejected,
+                'rejection_reason' => $perjanjian->rejection_reason,
+                'pihak2_signature' => $perjanjian->pihak2_signature,
+                'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
+                'tabelA' => $perjanjian->tabelA,
+                'tabelB' => $perjanjian->tabelB,
+                'tabelC' => $perjanjian->tabelC,
+            ];
+
+            $filters = ['local_id' => 'eq.' . $perjanjian->id];
+            $res = $this->supabase->update('perjanjians', $filters, $payload);
+            if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                $res = $this->supabase->update('perjanjians', $filters, $payload);
+            }
+            if (empty($res['success'])) {
+                Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in Admin: ' . ($res['error'] ?? 'unknown'));
+            } else {
+                Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in Admin');
+            }
+        } catch (\Exception $e) {
+            Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in Admin: ' . $e->getMessage());
+        }
+    }
 }
+

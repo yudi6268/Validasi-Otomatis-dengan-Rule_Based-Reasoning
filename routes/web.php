@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ProgramController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\BrowsershotPdfController;
+use Illuminate\Support\Facades\Auth;
 
 // LOGIN (boleh diakses meskipun sudah login)
 Route::get('/login', function () {
@@ -31,7 +32,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/', function () {
         // Admin langsung ke dashboard admin
-        if (auth()->user()->isAdmin()) {
+        if (Auth::user()?->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
 
@@ -54,12 +55,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/direktur/laporan-kinerja', [App\Http\Controllers\DirekturDashboardController::class, 'laporanKinerja'])->name('direktur.laporan');
         Route::post('/dashboard/direktur/perjanjian/{id}/approve', [App\Http\Controllers\DirekturDashboardController::class, 'approvePerjanjian'])->name('direktur.perjanjian.approve');
         Route::post('/dashboard/direktur/perjanjian/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectPerjanjian'])->name('direktur.perjanjian.reject');
-        Route::post('/dashboard/direktur/laporan/{id}/approve', [App\Http\Controllers\DirekturDashboardController::class, 'approveLaporan'])->name('direktur.laporan.approve');
-        Route::post('/dashboard/direktur/laporan/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectLaporan'])->name('direktur.laporan.reject');
     });
 
     // Dashboard Wadir (Umum, Pelayanan, dan Perencanaan/Keuangan digabung)
-    Route::middleware(['check.jabatan:Wakil Direktur Umum dan Keuangan,Wakil Direktur Pelayanan,Wakil Direktur Perencanaan dan Keuangan'])->group(function () {
+    Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/wadir', [DashboardController::class, 'wadir'])->name('dashboard.wadir');
     });
 
@@ -90,6 +89,8 @@ Route::middleware(['auth'])->group(function () {
     // Validation Result Persistence API
     Route::post('/api/validasi-laporan', [App\Http\Controllers\LaporanKinerjaController::class, 'saveValidasiResult'])->name('api.validasi.save');
     Route::get('/api/validasi-laporan/{laporanId}/{tw}', [App\Http\Controllers\LaporanKinerjaController::class, 'getValidasiResult'])->name('api.validasi.get');
+    Route::post('/dashboard/direktur/laporan/{id}/approve', [App\Http\Controllers\DirekturDashboardController::class, 'approveLaporan'])->name('direktur.laporan.approve');
+    Route::post('/dashboard/direktur/laporan/{id}/reject', [App\Http\Controllers\DirekturDashboardController::class, 'rejectLaporan'])->name('direktur.laporan.reject');
     Route::get('/perjanjian/create', [App\Http\Controllers\PerjanjianController::class, 'create'])->name('perjanjian.create');
     Route::post('/perjanjian', [App\Http\Controllers\PerjanjianController::class, 'store'])->name('perjanjian.store');
     Route::post('/perjanjian/save', [App\Http\Controllers\PerjanjianController::class, 'savePerjanjian'])->name('perjanjian.save');
@@ -104,6 +105,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Route untuk submit penolakan perjanjian (POST)
     Route::post('/perjanjian/{id}/tolak', [App\Http\Controllers\PerjanjianController::class, 'tolakSubmit'])->name('perjanjian.tolak.submit');
+    Route::post('/perjanjian/{id}/setujui', [App\Http\Controllers\PerjanjianController::class, 'setujuiSubmit'])->name('perjanjian.setujui.submit');
 
     // API untuk mendapatkan data user berdasarkan jabatan
     Route::get('/api/user-by-jabatan/{jabatan}', [App\Http\Controllers\PerjanjianController::class, 'getUserByJabatan'])->name('api.user.jabatan');

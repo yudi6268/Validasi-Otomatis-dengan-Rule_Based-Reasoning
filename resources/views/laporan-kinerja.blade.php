@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
@@ -1125,7 +1125,7 @@
               $statusColor = '#607D8B';
               if ($laporan0 && !empty($laporan0->pihak2_signature) && $hasData) {
                 $statusLabel = 'Disetujui'; $statusBg = '#E8F5E9'; $statusColor = '#2E7D32';
-              } elseif ($laporan0 && !empty($laporan0->tanggapan_pimpinan) && empty($laporan0->kesimpulan) && $hasData) {
+              } elseif ($laporan0 && ((!empty($laporan0->rejected) && (string) $laporan0->rejected !== '0') || (!empty($laporan0->tanggapan_pimpinan) && empty($laporan0->kesimpulan))) && $hasData) {
                 $statusLabel = 'Ditolak'; $statusBg = '#FFEBEE'; $statusColor = '#C62828';
               } elseif ($laporan0 && !empty($laporan0->kesimpulan) && $hasData) {
                 $statusLabel = 'Divalidasi'; $statusBg = '#E8F5E9'; $statusColor = '#2E7D32';
@@ -1432,6 +1432,7 @@
           </div>
 
           @php
+            $tabelA = $perjanjian ? (is_array($perjanjian->tabelA) ? $perjanjian->tabelA : json_decode($perjanjian->tabelA ?? '[]', true)) : [];
             $tabelB = $perjanjian ? (is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true)) : [];
             $tabelC = $perjanjian ? (is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true)) : [];
             $activeTriwulan = $triwulanAktif ?? 1;
@@ -1459,17 +1460,23 @@
                         @php
                           $targetValue = $tabelB[$activeTwKey][$index] ?? '';
                           $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
-                          $indicatorTypeRaw = strtolower($tabelB['indicator_type'][$index] ?? 'positif');
-                          $indicatorType = in_array($indicatorTypeRaw, ['positif', 'negatif']) ? $indicatorTypeRaw : 'positif';
+                          // Sumber utama tipe indikator diambil dari Tabel A (pilihan user saat membuat perjanjian),
+                          // lalu fallback ke Tabel B bila diperlukan.
+                          $indicatorTypeSource = $tabelA['indicator_type'][$index] ?? ($tabelB['indicator_type'][$index] ?? 'positif');
+                          $indicatorTypeRaw = strtolower(trim((string) $indicatorTypeSource));
+                          $indicatorTypeCompact = preg_replace('/[^a-z]/', '', $indicatorTypeRaw);
+                          $indicatorType = (
+                            in_array($indicatorTypeRaw, ['negatif', 'negative', 'minus', '-', 'rn', 'n'], true)
+                            || in_array($indicatorTypeCompact, ['negatif', 'negative', 'minus', 'rn', 'n'], true)
+                            || str_contains($indicatorTypeCompact, 'negatif')
+                            || str_contains($indicatorTypeCompact, 'negative')
+                          ) ? 'negatif' : 'positif';
                         @endphp
                         <tr>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $index + 1 }}</td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $sasaran ?? '-' }}</td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
                             {{ $tabelB['indikator'][$index] ?? '-' }}
-                            <div style="margin-top:4px; font-size:11px; color:#667085;">
-                              Jenis: <strong>{{ ucfirst($indicatorType) }}</strong>
-                            </div>
                           </td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $targetValue ?? '-' }}</td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
@@ -1499,9 +1506,10 @@
                       </tr>
                     </thead>
                     <tbody>
-                      @foreach($tabelC['programs'] as $program)
+                      @foreach($tabelC['programs'] as $programIndex => $program)
                         @php
-                          $programNo = $program['no'] ?? '';
+                          $programNoRaw = trim((string) ($program['no'] ?? ''));
+                          $programNo = $programNoRaw !== '' ? $programNoRaw : ('p' . ($programIndex + 1));
                           $targetValue = $program[$activeTwKey] ?? '';
                           $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                           $hasKegiatan = !empty($program['kegiatan'] ?? []);
@@ -1515,14 +1523,15 @@
                             @if($hasKegiatan)
                               <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-{{ $programNo }}" data-target="{{ $targetValueNormalized }}" value="-" />
                             @else
-                              <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-{{ $programNo }}" data-label="{{ $program['name'] ?? '' }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" />
+                              <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-{{ $programNo }}" data-label="{{ $program['name'] ?? '' }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" oninput="window.handleAnggaranInputInline && window.handleAnggaranInputInline(this)" onchange="window.handleAnggaranInputInline && window.handleAnggaranInputInline(this)" />
                             @endif
                           </td>
                           <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $programNo }}">-</td>
                         </tr>
-                        @foreach($program['kegiatan'] ?? [] as $kegiatan)
+                        @foreach($program['kegiatan'] ?? [] as $kegiatanIndex => $kegiatan)
                           @php
-                            $kegiatanNo = $kegiatan['no'] ?? '';
+                            $kegiatanNoRaw = trim((string) ($kegiatan['no'] ?? ''));
+                            $kegiatanNo = $kegiatanNoRaw !== '' ? $kegiatanNoRaw : ($programNo . '.k' . ($kegiatanIndex + 1));
                             $targetValue = $kegiatan[$activeTwKey] ?? '';
                             $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                             $hasSubKegiatan = !empty($kegiatan['subKegiatan'] ?? []);
@@ -1536,14 +1545,15 @@
                               @if($hasSubKegiatan)
                                 <input type="text" readonly disabled class="form-control computed-realisasi-value" data-row="anggaran-{{ $kegiatanNo }}" data-target="{{ $targetValueNormalized }}" value="-" />
                               @else
-                                <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-{{ $kegiatanNo }}" data-label="{{ $kegiatan['name'] ?? '' }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" />
+                                <input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-{{ $kegiatanNo }}" data-label="{{ $kegiatan['name'] ?? '' }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" oninput="window.handleAnggaranInputInline && window.handleAnggaranInputInline(this)" onchange="window.handleAnggaranInputInline && window.handleAnggaranInputInline(this)" />
                               @endif
                             </td>
                             <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $kegiatanNo }}">-</td>
                           </tr>
-                          @foreach($kegiatan['subKegiatan'] ?? [] as $sub)
+                          @foreach($kegiatan['subKegiatan'] ?? [] as $subIndex => $sub)
                             @php
-                              $subNo = $sub['no'] ?? '';
+                              $subNoRaw = trim((string) ($sub['no'] ?? ''));
+                              $subNo = $subNoRaw !== '' ? $subNoRaw : ($kegiatanNo . '.s' . ($subIndex + 1));
                               $targetValue = $sub[$activeTwKey] ?? '';
                               $targetValueNormalized = is_string($targetValue) ? str_replace(',', '.', $targetValue) : $targetValue;
                               $subKet = $sub['source'] ?? $sub['keterangan'] ?? $sub['ket'] ?? '';
@@ -1552,7 +1562,7 @@
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ $subNo }}</td>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; padding-left: 32px;">{{ $sub['name'] ?? '-' }}</td>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">{{ is_numeric($targetValue) ? number_format($targetValue, 0, ',', '.') : ($targetValue ?? '-') }}</td>
-                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-{{ $subNo }}" data-label="{{ $sub['name'] ?? '' }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" /></td>
+                              <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;"><input type="text" inputmode="decimal" class="form-control row-realisasi-input" data-row="anggaran-{{ $subNo }}" data-label="{{ $sub['name'] ?? '' }}" data-target="{{ $targetValueNormalized }}" placeholder="Realisasi" oninput="window.handleAnggaranInputInline && window.handleAnggaranInputInline(this)" onchange="window.handleAnggaranInputInline && window.handleAnggaranInputInline(this)" /></td>
                               <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top; text-align: center;" id="percentage-anggaran-{{ $subNo }}">-</td>
                             </tr>
                           @endforeach
@@ -1624,6 +1634,7 @@
                     </tbody>
                   </table>
                 </div>
+                
               </div>
               <textarea class="form-control" id="realisasiInput" name="realisasi" rows="8" 
                         placeholder="Uraikan secara akademik hasil evaluasi capaian indikator kinerja dan realisasi anggaran berdasarkan skala predikat, termasuk analisis faktor pendukung/penghambat serta arah tindak lanjut perbaikan." required></textarea>
@@ -1874,9 +1885,35 @@
       return `${base}${separator}triwulan=${triwulan}`;
     }
 
+    function getTriwulanRawContent(triwulan, preferredLaporanId = null, strictPreferred = false) {
+      const triwulanKey = String(triwulan);
+      const store = laporanRealisasi || {};
+
+      if (preferredLaporanId !== null && preferredLaporanId !== undefined) {
+        const preferred = store[String(preferredLaporanId)] || {};
+        const preferredRaw = preferred[triwulanKey] || preferred[triwulan] || '';
+        if (preferredRaw) {
+          return preferredRaw;
+        }
+        if (strictPreferred) {
+          return '';
+        }
+      }
+
+      const entries = Object.entries(store);
+      for (let index = entries.length - 1; index >= 0; index--) {
+        const [, laporanData] = entries[index];
+        const raw = (laporanData && (laporanData[triwulanKey] || laporanData[triwulan])) || '';
+        if (raw) {
+          return raw;
+        }
+      }
+
+      return '';
+    }
+
     function getStoredTriwulanData(triwulan) {
-      const store = Object.values(laporanRealisasi || {})[0] || {};
-      const raw = store[String(triwulan)] || store[triwulan] || '';
+      const raw = getTriwulanRawContent(triwulan);
       if (!raw) return null;
       try {
         return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1923,13 +1960,11 @@
         if (percentageCell) percentageCell.textContent = '-';
       });
 
-      const triwulanKey = 'realisasi_tb' + triwulan;
       // If forceEmpty, skip loading existing data (tambah mode)
       // If editing a specific laporan (edit mode), load from that laporan's data
-      const laporanData = (!forceEmpty && EDIT_LAPORAN_ID !== null && laporanRealisasi[String(EDIT_LAPORAN_ID)])
-        ? laporanRealisasi[String(EDIT_LAPORAN_ID)]
-        : (!forceEmpty ? (Object.values(laporanRealisasi || {})[0] || {}) : {});
-      const rawContent = forceEmpty ? '' : (laporanData[triwulan] || '');
+      const rawContent = forceEmpty
+        ? ''
+        : getTriwulanRawContent(triwulan, EDIT_LAPORAN_ID, EDIT_LAPORAN_ID !== null);
       let existingContent = '';
       let existingRows = [];
       let existingFollowUp = '';
@@ -1955,26 +1990,23 @@
       lastAutoGeneratedFollowUpText = '';
 
       document.querySelectorAll('.row-realisasi-input').forEach(input => {
-        input.removeEventListener('input', updatePercentage);
-        input.addEventListener('input', function(event) {
-          updatePercentage(event);
-          refreshComputedAnggaranRows();
-          updateEvaluasiText();
-          updateRencanaText();
-          updateTanggapanAtasan();
-        });
-        input.addEventListener('blur', function(event) {
+        // Bind langsung per input agar mode tambah/edit konsisten memicu update realtime.
+        input.oninput = function(event) {
+          handleRowRealisasiRealtimeUpdate(event.target);
+        };
+        input.onchange = function(event) {
+          handleRowRealisasiRealtimeUpdate(event.target);
+        };
+        input.onblur = function(event) {
           const field = event.target;
           if ((field.dataset.row || '').startsWith('kinerja-')) {
             formatRealisasiSasaranInput(field, true);
-            updatePercentage({ target: field });
-            refreshComputedAnggaranRows();
-            updateEvaluasiText();
-            updateRencanaText();
-            updateTanggapanAtasan();
+            handleRowRealisasiRealtimeUpdate(field);
           }
-        });
+        };
       });
+
+      bindGlobalAnggaranRealtimeHandlers();
 
       const textarea = document.getElementById('realisasiInput');
       const generatedText = generateEvaluasiSummary();
@@ -1982,6 +2014,8 @@
       if (!textarea.value.trim() || textarea.value.trim() === lastAutoGeneratedText.trim() || textarea.value.trim() === generatedText.trim()) {
         textarea.value = generatedText;
         lastAutoGeneratedText = generatedText;
+      } else {
+        lastAutoGeneratedText = textarea.value;
       }
 
       textarea.removeEventListener('input', textareaManualEditListener);
@@ -1993,6 +2027,8 @@
       if (!followUpTextarea.value.trim() || followUpTextarea.value.trim() === lastAutoGeneratedFollowUpText.trim() || followUpTextarea.value.trim() === generatedFollowUp.trim()) {
         followUpTextarea.value = generatedFollowUp;
         lastAutoGeneratedFollowUpText = generatedFollowUp;
+      } else {
+        lastAutoGeneratedFollowUpText = followUpTextarea.value;
       }
 
       followUpTextarea.removeEventListener('input', followUpTextareaManualEditListener);
@@ -2065,15 +2101,72 @@
       });
     });
     
-    // Fungsi untuk menghitung persentase otomatis
-    function calculatePercentage(target, realisasi, indicatorType = 'positif') {
-      if (isNaN(target) || target === 0 || isNaN(realisasi)) {
+    function normalizeIndicatorType(indicatorType) {
+      const normalized = String(indicatorType || 'positif').trim().toLowerCase();
+      const compact = normalized.replace(/[^a-z]/g, '');
+      if (
+        normalized === 'negatif'
+        || normalized === 'negative'
+        || normalized === 'minus'
+        || normalized === '-'
+        || normalized === 'rn'
+        || normalized === 'n'
+        || compact === 'negatif'
+        || compact === 'negative'
+        || compact === 'minus'
+        || compact === 'rn'
+        || compact === 'n'
+        || compact.includes('negatif')
+        || compact.includes('negative')
+      ) {
+        return 'negatif';
+      }
+      return 'positif';
+    }
+
+    // Capaian selalu dihitung dengan rumus baku: realisasi/target*100.
+    function calculatePercentage(target, realisasi) {
+      if (isNaN(realisasi) || realisasi === null || realisasi === '') {
         return null;
       }
 
-      // For both positive and negative indicators, capaian is computed as
-      // realisasi / target * 100% to keep the predicate mapping consistent.
+      if (isNaN(target) || target === null) {
+        return null;
+      }
+
+      if (target <= 0) {
+        return 0;
+      }
+
       return (realisasi / target) * 100;
+    }
+
+    // Skor performa untuk analisis:
+    // - Positif: realisasi/target*100
+    // - Negatif: (Target - (Realisasi - Target))/Target*100
+    function calculatePerformancePercentage(target, realisasi, indicatorType = 'positif') {
+      const capaianPercentage = calculatePercentage(target, realisasi);
+      if (capaianPercentage === null) {
+        return null;
+      }
+
+      if (isNaN(target) || target === null || target <= 0) {
+        return 0;
+      }
+
+      const normalizedType = normalizeIndicatorType(indicatorType);
+      if (normalizedType === 'negatif') {
+        const realisasiValue = Number(realisasi);
+        if (!Number.isFinite(realisasiValue)) {
+          return null;
+        }
+
+        const targetValue = Number(target);
+        const adjusted = targetValue - (realisasiValue - targetValue);
+        return (adjusted / targetValue) * 100;
+      }
+
+      return capaianPercentage;
     }
 
     function parseNumberValue(value) {
@@ -2189,10 +2282,24 @@
     }
 
     function setPercentageForRow(rowId, value, target, indicatorType = 'positif') {
-      const percentageCell = document.getElementById('percentage-' + rowId);
+      let percentageCell = document.getElementById('percentage-' + rowId);
+
+      // Fallback: cari sel persentase dari baris input/computed jika id tidak cocok persis.
+      if (!percentageCell) {
+        const editableRowInput = Array.from(document.querySelectorAll('.row-realisasi-input'))
+          .find(el => (el.dataset.row || '') === rowId);
+        const computedRowInput = Array.from(document.querySelectorAll('.computed-realisasi-value'))
+          .find(el => (el.dataset.row || '') === rowId);
+        const ownerInput = editableRowInput || computedRowInput;
+        const ownerTr = ownerInput ? ownerInput.closest('tr') : null;
+        if (ownerTr) {
+          percentageCell = ownerTr.querySelector('td[id^="percentage-"]') || ownerTr.lastElementChild;
+        }
+      }
+
       if (!percentageCell) return;
-      const percentage = calculatePercentage(target, value, indicatorType);
-      percentageCell.textContent = percentage === null ? '-' : percentage.toFixed(2) + '%';
+      const percentage = calculatePerformancePercentage(target, value, indicatorType);
+      percentageCell.textContent = percentage === null ? '-' : percentage.toFixed(2);
     }
 
     function updatePercentage(event) {
@@ -2203,8 +2310,8 @@
         formatRealisasiSasaranInput(input, false);
       }
       const target = parseNumberValue(input.dataset.target || '0');
-      const realisasi = parseNumberValue(input.value || '0');
-      const indicatorType = (input.dataset.indicatorType || 'positif').toLowerCase();
+      const realisasi = parseNumberValue(input.value);
+      const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
       setPercentageForRow(input.dataset.row, realisasi, target, indicatorType);
     }
 
@@ -2232,12 +2339,68 @@
         const computedValue = computeAggregateForRow(rowId);
         if (computedValue !== null) {
           element.value = formatNumberValue(computedValue);
-          const target = parseFloat(element.dataset.target || '0');
+          const target = parseNumberValue(element.dataset.target || '0');
           setPercentageForRow(rowId, computedValue, target);
         } else {
           element.value = '-';
-          setPercentageForRow(rowId, NaN, parseFloat(element.dataset.target || '0'));
+          setPercentageForRow(rowId, NaN, parseNumberValue(element.dataset.target || '0'));
         }
+      });
+    }
+
+    function handleRowRealisasiRealtimeUpdate(inputElement) {
+      if (!inputElement || !inputElement.classList || !inputElement.classList.contains('row-realisasi-input')) {
+        return;
+      }
+
+      inputElement.classList.remove('realisasi-error');
+      updatePercentage({ target: inputElement });
+      refreshComputedAnggaranRows();
+      updateEvaluasiText();
+      updateRencanaText();
+      updateTanggapanAtasan();
+    }
+
+    // Fallback deterministik untuk input anggaran: dipanggil langsung dari atribut oninput/onchange.
+    window.handleAnggaranInputInline = function(inputElement) {
+      if (!inputElement || !inputElement.classList || !inputElement.classList.contains('row-realisasi-input')) {
+        return;
+      }
+
+      const rowId = inputElement.dataset.row || '';
+      if (!rowId.startsWith('anggaran-')) {
+        return;
+      }
+
+      formatRealisasiAnggaranInput(inputElement);
+      const target = parseNumberValue(inputElement.dataset.target || '0');
+      const realisasi = parseNumberValue(inputElement.value);
+
+      // Tetap update via mapper umum agar kompatibel dengan alur lama.
+      setPercentageForRow(rowId, realisasi, target, 'positif');
+      refreshComputedAnggaranRows();
+      updateEvaluasiText();
+      updateRencanaText();
+      updateTanggapanAtasan();
+    };
+
+    function bindGlobalAnggaranRealtimeHandlers() {
+      document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]').forEach(function(input) {
+        if (input.dataset.anggaranRealtimeBound === '1') {
+          return;
+        }
+
+        input.dataset.anggaranRealtimeBound = '1';
+        input.addEventListener('input', function() {
+          if (window.handleAnggaranInputInline) {
+            window.handleAnggaranInputInline(input);
+          }
+        });
+        input.addEventListener('change', function() {
+          if (window.handleAnggaranInputInline) {
+            window.handleAnggaranInputInline(input);
+          }
+        });
       });
     }
 
@@ -2341,13 +2504,7 @@
 
     function generateEvaluasiSummary() {
       const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
-      const allAnggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
-      // Filter to only sub-kegiatan (row format: X.Y.Z, has two dots)
-      const anggaranInputs = allAnggaranInputs.filter(input => {
-        const rowId = input.dataset.row || '';
-        const dotsCount = (rowId.match(/\./g) || []).length;
-        return dotsCount === 2; // sub-kegiatan level only
-      });
+      const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
       const triwulan = parseInt((document.getElementById('triwulanEdit') || {}).value || '1', 10);
       const triwulanText = triwulan === 1 ? 'triwulan pertama' :
                           triwulan === 2 ? 'triwulan kedua' :
@@ -2357,15 +2514,32 @@
       const validKinerja = kinerjaInputs.map(input => {
         const target = parseNumberValue(input.dataset.target);
         const actual = parseNumberValue(input.value);
-        const indicatorType = (input.dataset.indicatorType || 'positif').toLowerCase();
-        const percentage = calculatePercentage(target, actual, indicatorType);
+        const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
+        const percentage = calculatePerformancePercentage(target, actual, indicatorType);
+        const rawPercentage = calculatePercentage(target, actual);
+        const hasValidTarget = !isNaN(target) && target > 0;
+        const isOffTarget = hasValidTarget
+          ? (indicatorType === 'negatif' ? actual > target : actual < target)
+          : false;
         return {
           target,
           actual,
+          indicatorType,
+          rawPercentage,
           percentage,
+          isOffTarget,
           hasValue: !isNaN(actual) && input.value !== '' && input.value !== null,
         };
       }).filter(item => item.hasValue && !isNaN(item.percentage));
+
+      const negativeCount = validKinerja.filter(item => item.indicatorType === 'negatif').length;
+      const positiveCount = validKinerja.filter(item => item.indicatorType !== 'negatif').length;
+      const indicatorMode = negativeCount > 0 && positiveCount > 0
+        ? 'campuran'
+        : (negativeCount > 0 ? 'negatif' : 'positif');
+
+      const offTargetPositiveCount = validKinerja.filter(item => item.indicatorType === 'positif' && item.isOffTarget).length;
+      const offTargetNegativeCount = validKinerja.filter(item => item.indicatorType === 'negatif' && item.isOffTarget).length;
 
       const kinerjaCount = kinerjaInputs.length;
       const averageKinerjaPercentage = validKinerja.length > 0
@@ -2386,18 +2560,41 @@
         ? (totalAnggaranActual / totalAnggaranTarget) * 100
         : 0;
 
-      const averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      let averagePercentage;
+      if (totalAnggaranTarget > 0) {
+        averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      } else {
+        averagePercentage = averageKinerjaPercentage;
+      }
+
       const averagePercentageText = formatPercentageIDR(averagePercentage);
       const overallScale = getOrdinalScaleInfo(averagePercentage);
       const kinerjaScale = getOrdinalScaleInfo(averageKinerjaPercentage);
-      const anggaranScale = getOrdinalScaleInfo(anggaranPercentage);
       const indicatorCountText = `${kinerjaCount}`;
       const measuredIndicatorCountText = `${validKinerja.length}`;
       const averageText = formatPercentageIDR(averageKinerjaPercentage);
-      const totalAnggaranText = formatCurrencyIDR(totalAnggaranActual);
-      const anggaranPercentText = formatPercentageIDR(anggaranPercentage);
 
-      return `Berdasarkan hasil evaluasi capaian pada ${triwulanText} ${jabatanText}, pengukuran terhadap ${measuredIndicatorCountText} dari ${indicatorCountText} indikator sasaran kinerja menunjukkan rerata ketercapaian sebesar ${averageText}% dengan predikat ${kinerjaScale.label} (${kinerjaScale.code}). Dari sisi anggaran, realisasi tercatat sebesar ${totalAnggaranText} atau ${anggaranPercentText}% terhadap target, yang berada pada predikat ${anggaranScale.label} (${anggaranScale.code}). Secara komposit, rata-rata capaian kinerja dan anggaran adalah ${averagePercentageText}% dengan predikat ${overallScale.label} (${overallScale.code}). Temuan ini mengindikasikan bahwa ${overallScale.interpretation} Oleh karena itu, diperlukan penguatan tindak lanjut yang terukur, terutama pada indikator yang belum mencapai target, agar konsistensi kinerja pada periode berikutnya semakin meningkat.`;
+      let offTargetNarrative = 'masih terdapat indikator yang belum mencapai target.';
+      if (indicatorMode === 'negatif') {
+        offTargetNarrative = offTargetNegativeCount > 0
+          ? `terdapat ${offTargetNegativeCount} indikator negatif dengan realisasi yang masih melampaui batas target.`
+          : 'seluruh indikator negatif berada pada atau di bawah batas target yang ditetapkan.';
+      } else if (indicatorMode === 'campuran') {
+        offTargetNarrative = `terdapat ${offTargetPositiveCount} indikator positif yang belum mencapai target dan ${offTargetNegativeCount} indikator negatif yang masih melampaui batas target.`;
+      } else {
+        offTargetNarrative = offTargetPositiveCount > 0
+          ? `terdapat ${offTargetPositiveCount} indikator positif yang belum mencapai target.`
+          : 'seluruh indikator positif telah mencapai atau melampaui target.';
+      }
+
+      if (totalAnggaranTarget > 0) {
+        const totalAnggaranText = formatCurrencyIDR(totalAnggaranActual);
+        const anggaranPercentText = formatPercentageIDR(anggaranPercentage);
+        const anggaranScale = getOrdinalScaleInfo(anggaranPercentage);
+        return `Berdasarkan hasil evaluasi capaian pada ${triwulanText} ${jabatanText}, pengukuran terhadap ${measuredIndicatorCountText} dari ${indicatorCountText} indikator sasaran kinerja menunjukkan rerata ketercapaian sebesar ${averageText}% dengan predikat ${kinerjaScale.label} (${kinerjaScale.code}). Dari sisi anggaran, realisasi tercatat sebesar ${totalAnggaranText} atau ${anggaranPercentText}% terhadap target, yang berada pada predikat ${anggaranScale.label} (${anggaranScale.code}). Secara komposit, rata-rata capaian kinerja dan anggaran adalah ${averagePercentageText}% dengan predikat ${overallScale.label} (${overallScale.code}). Temuan ini mengindikasikan bahwa ${overallScale.interpretation} Pada analisis detail indikator, ${offTargetNarrative} Oleh karena itu, diperlukan penguatan tindak lanjut yang terukur agar konsistensi kinerja pada periode berikutnya semakin meningkat.`;
+      } else {
+        return `Berdasarkan hasil evaluasi capaian pada ${triwulanText} ${jabatanText}, pengukuran terhadap ${measuredIndicatorCountText} dari ${indicatorCountText} indikator sasaran kinerja menunjukkan rerata ketercapaian sebesar ${averageText}% dengan predikat ${kinerjaScale.label} (${kinerjaScale.code}). Temuan ini mengindikasikan bahwa ${overallScale.interpretation} Pada analisis detail indikator, ${offTargetNarrative} Oleh karena itu, diperlukan penguatan tindak lanjut yang terukur agar konsistensi kinerja pada periode berikutnya semakin meningkat.`;
+      }
     }
 
     function updateEvaluasiText() {
@@ -2416,13 +2613,7 @@
 
     function generateRencanaTindakLanjut() {
       const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
-      const allAnggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
-      // Filter to only sub-kegiatan (row format: X.Y.Z, has two dots)
-      const anggaranInputs = allAnggaranInputs.filter(input => {
-        const rowId = input.dataset.row || '';
-        const dotsCount = (rowId.match(/\./g) || []).length;
-        return dotsCount === 2; // sub-kegiatan level only
-      });
+      const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
       const triwulan = parseInt((document.getElementById('triwulanEdit') || {}).value || '1', 10);
       const triwulanText = triwulan === 1 ? 'triwulan pertama' :
                           triwulan === 2 ? 'triwulan kedua' :
@@ -2445,8 +2636,8 @@
       const validKinerja = kinerjaInputs.map(input => {
         const target = parseNumberValue(input.dataset.target);
         const actual = parseNumberValue(input.value);
-        const indicatorType = (input.dataset.indicatorType || 'positif').toLowerCase();
-        const percentage = calculatePercentage(target, actual, indicatorType);
+        const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
+        const percentage = calculatePerformancePercentage(target, actual, indicatorType);
         return {
           target,
           actual,
@@ -2459,19 +2650,21 @@
         ? validKinerja.reduce((sum, item) => sum + item.percentage, 0) / validKinerja.length
         : 0;
 
-      const averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      let averagePercentage;
+      if (totalAnggaranTarget > 0) {
+        averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      } else {
+        averagePercentage = averageKinerjaPercentage;
+      }
+      
       const overallScale = getOrdinalScaleInfo(averagePercentage);
       const kinerjaScale = getOrdinalScaleInfo(averageKinerjaPercentage);
-      const anggaranScale = getOrdinalScaleInfo(anggaranPercentage);
 
       const kinerjaGapTo91 = Math.max(0, 91 - averageKinerjaPercentage);
-      const anggaranGapTo91 = Math.max(0, 91 - anggaranPercentage);
 
       const averageKinerjaText = formatPercentageIDR(averageKinerjaPercentage);
-      const anggaranPercentageText = formatPercentageIDR(anggaranPercentage);
       const averageCompositeText = formatPercentageIDR(averagePercentage);
       const kinerjaGapText = formatPercentageIDR(kinerjaGapTo91);
-      const anggaranGapText = formatPercentageIDR(anggaranGapTo91);
 
       const items = [];
 
@@ -2494,6 +2687,10 @@
       }
 
       if (totalAnggaranTarget > 0) {
+        const anggaranScale = getOrdinalScaleInfo(anggaranPercentage);
+        const anggaranGapTo91 = Math.max(0, 91 - anggaranPercentage);
+        const anggaranPercentageText = formatPercentageIDR(anggaranPercentage);
+        const anggaranGapText = formatPercentageIDR(anggaranGapTo91);
         if (anggaranScale.code !== 'ST') {
           items.push(`Meningkatkan kualitas dan ketepatan realisasi anggaran dari ${anggaranPercentageText}% (predikat ${anggaranScale.label}) dengan menutup gap ${anggaranGapText}% menuju batas 91%, melalui percepatan proses belanja, sinkronisasi jadwal kegiatan, dan mitigasi hambatan administratif.`);
         } else {
@@ -2504,7 +2701,8 @@
       items.push('Memperkuat tata kelola tindak lanjut melalui forum evaluasi berkala pimpinan-unit kerja, penetapan penanggung jawab per indikator, serta pelaporan progres berbasis bukti untuk menjamin keberlanjutan peningkatan kinerja.');
 
       const listText = items.map((item, index) => `${index + 1}. ${item}`).join('\n');
-      return `Berdasarkan hasil evaluasi Form C pada ${triwulanText}, dengan capaian komposit ${averageCompositeText}% (predikat ${overallScale.label}), rencana tindak lanjut ditetapkan sebagai berikut:\n${listText}`;
+      const capaianLabel = totalAnggaranTarget > 0 ? 'capaian komposit' : 'capaian kinerja';
+      return `Berdasarkan hasil evaluasi Form C pada ${triwulanText}, dengan ${capaianLabel} ${averageCompositeText}% (predikat ${overallScale.label}), rencana tindak lanjut ditetapkan sebagai berikut:\n${listText}`;
     }
 
     function updateRencanaText() {
@@ -2528,8 +2726,8 @@
       const validKinerja = kinerjaInputs.map(input => {
         const target = parseNumberValue(input.dataset.target);
         const actual = parseNumberValue(input.value);
-        const indicatorType = (input.dataset.indicatorType || 'positif').toLowerCase();
-        const percentage = calculatePercentage(target, actual, indicatorType);
+        const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
+        const percentage = calculatePerformancePercentage(target, actual, indicatorType);
         return {
           percentage,
           hasValue: !isNaN(actual) && input.value !== '' && input.value !== null,
@@ -2554,7 +2752,12 @@
         ? (totalAnggaranActual / totalAnggaranTarget) * 100
         : 0;
 
-      const averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      let averagePercentage;
+      if (totalAnggaranTarget > 0) {
+        averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      } else {
+        averagePercentage = averageKinerjaPercentage;
+      }
       setTanggapanAtasan(averagePercentage);
     }
 
@@ -2569,10 +2772,17 @@
           } else if ((input.dataset.row || '').startsWith('kinerja-')) {
             formatRealisasiSasaranInput(input, true);
           }
-          // Jika pct tersimpan, gunakan itu; jika tidak, hitung ulang
-          if (row.pct !== undefined && row.pct !== null) {
+          // Untuk indikator kinerja, selalu hitung ulang agar konsisten dengan tipe indikator terbaru.
+          if ((row.row || '').startsWith('kinerja-')) {
+            setPercentageForRow(
+              row.row,
+              parseNumberValue(input.value),
+              parseNumberValue(input.dataset.target || '0'),
+              normalizeIndicatorType(input.dataset.indicatorType || row.indicator_type || 'positif')
+            );
+          } else if (row.pct !== undefined && row.pct !== null) {
             const percentageCell = document.getElementById('percentage-' + row.row);
-            if (percentageCell) percentageCell.textContent = row.pct.toFixed(2) + '%';
+            if (percentageCell) percentageCell.textContent = row.pct.toFixed(2);
           } else {
             setPercentageForRow(
               row.row,
@@ -2588,7 +2798,7 @@
           // Jika pct tersimpan, gunakan itu; jika tidak, hitung ulang
           if (row.pct !== undefined && row.pct !== null) {
             const percentageCell = document.getElementById('percentage-' + row.row);
-            if (percentageCell) percentageCell.textContent = row.pct.toFixed(2) + '%';
+            if (percentageCell) percentageCell.textContent = row.pct.toFixed(2);
           } else {
             setPercentageForRow(row.row, parseNumberValue(row.realisasi), parseNumberValue(computed.dataset.target || '0'), 'positif');
           }
@@ -2611,8 +2821,8 @@
         const validKinerja = kinerjaInputs.map(input => {
           const target = parseNumberValue(input.dataset.target);
           const actual = parseNumberValue(input.value);
-          const indicatorType = (input.dataset.indicatorType || 'positif').toLowerCase();
-          const percentage = calculatePercentage(target, actual, indicatorType);
+          const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
+          const percentage = calculatePerformancePercentage(target, actual, indicatorType);
           return {
             percentage,
             hasValue: !isNaN(actual) && input.value !== '' && input.value !== null,
@@ -2637,7 +2847,12 @@
           ? (totalAnggaranActual / totalAnggaranTarget) * 100
           : 0;
 
-        const averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+        let averagePercentage;
+        if (totalAnggaranTarget > 0) {
+          averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+        } else {
+          averagePercentage = averageKinerjaPercentage;
+        }
         setTanggapanAtasan(averagePercentage);
       }, 50);
     }
@@ -2747,6 +2962,7 @@
           row: rowId,
           realisasi: isNaN(realisasiValue) ? null : realisasiValue,
           target: element.dataset.target ? parseFloat(element.dataset.target) : null,
+          indicator_type: normalizeIndicatorType(element.dataset.indicatorType || 'positif'),
           ket: ketValue,
         });
       });
@@ -2781,8 +2997,8 @@
       const validKinerja = kinerjaInputs.map(input => {
         const target = parseNumberValue(input.dataset.target);
         const actual = parseNumberValue(input.value);
-        const indicatorType = (input.dataset.indicatorType || 'positif').toLowerCase();
-        const percentage = calculatePercentage(target, actual, indicatorType);
+        const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
+        const percentage = calculatePerformancePercentage(target, actual, indicatorType);
         return {
           target,
           actual,
@@ -2818,7 +3034,12 @@
         : 0;
 
       // Rata-rata keseluruhan
-      const overallPercentage = (averageKinerja + anggaranPercentage) / 2;
+      let overallPercentage;
+      if (totalAnggaranTarget > 0) {
+        overallPercentage = (averageKinerja + anggaranPercentage) / 2;
+      } else {
+        overallPercentage = averageKinerja;
+      }
       
       const overallScale = getOrdinalScaleInfo(overallPercentage);
 
@@ -2835,7 +3056,8 @@
             ? 'upaya tindak lanjut diarahkan pada akselerasi kinerja melalui penajaman prioritas, penguatan koordinasi, dan monitoring lebih intensif.'
             : 'upaya tindak lanjut diarahkan pada langkah korektif terstruktur, penataan strategi pelaksanaan, serta peningkatan disiplin monitoring dan evaluasi.';
 
-      const kesimpulan = `BAB III PENUTUP\n\nBerdasarkan hasil pengukuran kinerja triwulan ${triwulan} (${triwulanText}) Tahun ${tahun} pada jabatan ${jabatan}, capaian komposit indikator kinerja dan anggaran mencapai ${persentaseFormatted}% dengan predikat ${overallScale.label} (${overallScale.code}). Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.\n\nDengan demikian, ${arahPerbaikan} Pelaksanaan rencana perbaikan diharapkan mampu meningkatkan kualitas capaian pada periode berikutnya secara konsisten, akuntabel, dan berorientasi hasil.`;
+      const labelCapaian = totalAnggaranTarget > 0 ? 'capaian komposit indikator kinerja dan anggaran' : 'capaian indikator kinerja';
+      const kesimpulan = `BAB III PENUTUP\n\nBerdasarkan hasil pengukuran kinerja triwulan ${triwulan} (${triwulanText}) Tahun ${tahun} pada jabatan ${jabatan}, ${labelCapaian} mencapai ${persentaseFormatted}% dengan predikat ${overallScale.label} (${overallScale.code}). Capaian ini menjadi dasar evaluasi untuk memastikan kesinambungan peningkatan kualitas pelaksanaan program pada periode berikutnya.\n\nDengan demikian, ${arahPerbaikan} Pelaksanaan rencana perbaikan diharapkan mampu meningkatkan kualitas capaian pada periode berikutnya secara konsisten, akuntabel, dan berorientasi hasil.`;
 
       return kesimpulan;
     }
@@ -2958,7 +3180,8 @@
           });
 
           setTimeout(() => {
-            window.location.href = REDIRECT_AFTER_SAVE;
+            const separator = REDIRECT_AFTER_SAVE.includes('?') ? '&' : '?';
+            window.location.replace(`${REDIRECT_AFTER_SAVE}${separator}r=${Date.now()}`);
           }, 400);
         } else {
           showAlert('Terjadi kesalahan: ' + data.message, 'error');
@@ -3024,11 +3247,17 @@
     document.head.appendChild(style);
 
     // Clear realisasi error highlight when user types a value
-    document.getElementById('realisasiModal').addEventListener('input', function(e) {
-      if (e.target.classList.contains('row-realisasi-input')) {
-        e.target.classList.remove('realisasi-error');
-      }
-    });
+    const realisasiModalEl = document.getElementById('realisasiModal');
+    if (realisasiModalEl) {
+      realisasiModalEl.addEventListener('input', function(e) {
+        handleRowRealisasiRealtimeUpdate(e.target);
+      });
+
+      // Fallback untuk browser/perangkat yang lebih konsisten memicu change.
+      realisasiModalEl.addEventListener('change', function(e) {
+        handleRowRealisasiRealtimeUpdate(e.target);
+      });
+    }
     
     // ==================== SMART VALIDATION ====================
     
@@ -3538,6 +3767,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+      bindGlobalAnggaranRealtimeHandlers();
+
       // Ensure triwulan cards and inner buttons always open the realisasi modal.
       document.addEventListener('click', function (event) {
         const trigger = event.target.closest('[data-triwulan]');
@@ -3639,9 +3870,13 @@
         // Flag: set to true after successful submission so cancel-redirect is suppressed
         window._editFormCompleted = false;
 
-        setTimeout(function () {
+        const dashboardLaporanUrl = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
+        try {
           openRealisasiModal(triwulanAktif);
-        }, 150);
+        } catch (err) {
+          console.error('Gagal membuka form edit laporan, redirect ke dashboard laporan.', err);
+          window.location.href = dashboardLaporanUrl;
+        }
 
         // When realisasiModal closes in edit mode, redirect — BUT only if no
         // laporan-entry modal (rencana / penutup) opened as continuation, and
@@ -3649,19 +3884,13 @@
         var realisasiModalEl = document.getElementById('realisasiModal');
         if (realisasiModalEl) {
           realisasiModalEl.addEventListener('hidden.bs.modal', function () {
-            setTimeout(function () {
-              if (window._editFormCompleted) return;
-              var anyOpen = document.querySelector(
-                '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
-              );
-              if (!anyOpen) {
-                if (window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  window.location.href = '{{ route("laporan.wadir.index", ["from" => "dashboard_wadir_laporan"]) }}';
-                }
-              }
-            }, 150);
+            if (window._editFormCompleted) return;
+            var anyOpen = document.querySelector(
+              '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
+            );
+            if (!anyOpen) {
+              window.location.href = dashboardLaporanUrl;
+            }
           });
         }
       }

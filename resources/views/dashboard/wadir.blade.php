@@ -168,6 +168,13 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 28px 56px rgba(0,0,0,0.08);
     }
 
     .summary-card i {
@@ -707,6 +714,69 @@
     .panel-stat-card.validasi-done .panel-stat-number { color: #2e7d32; }
     .panel-stat-card.validasi-pending { background: linear-gradient(135deg, #f3f8f7 0%, #edf2f4 100%); border: 1.5px solid #cfd8dc; }
     .panel-stat-card.validasi-pending .panel-stat-number { color: #607d8b; }
+
+    .notice-box {
+      background: #fff;
+      width: min(420px, 92vw);
+      border-radius: 18px;
+      box-shadow: 0 20px 56px rgba(16, 24, 40, 0.2);
+      border: 1px solid #e8eef2;
+      padding: 22px 24px 20px;
+      text-align: center;
+    }
+
+    .notice-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 12px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      background: linear-gradient(135deg, #e8fffa 0%, #dff6ff 100%);
+      color: #009a86;
+      border: 1px solid #c9ece5;
+    }
+
+    .notice-title {
+      margin: 0 0 10px;
+      font-size: 31px;
+      font-weight: 700;
+      color: #1b2a41;
+      line-height: 1.3;
+    }
+
+    .notice-message {
+      margin: 0;
+      font-size: 16px;
+      color: #4b5565;
+      line-height: 1.7;
+    }
+
+    .notice-actions {
+      margin-top: 18px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .notice-close-btn {
+      border: none;
+      border-radius: 10px;
+      background: #00b5a0;
+      color: #fff;
+      padding: 9px 26px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(0, 181, 160, 0.26);
+      transition: transform .15s ease, opacity .15s ease;
+    }
+
+    .notice-close-btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.92;
+    }
   </style>
 </head>
 <body>
@@ -741,22 +811,22 @@
          </div>
 
         <div class="summary-grid">
-          <div class="summary-card">
+          <div class="summary-card" onclick="openModal('modalTotalPerjanjian')">
             <i class="fas fa-file-contract"></i>
             <h4>Perjanjian Kinerja</h4>
             <div class="number">{{ $totalPerjanjian }}</div>
           </div>
-          <div class="summary-card">
+          <div class="summary-card" onclick="openModal('modalLaporanKinerja')">
             <i class="fas fa-file-alt"></i>
             <h4>Laporan Kinerja</h4>
             <div class="number">{{ $totalLaporan ?? 0 }}</div>
           </div>
-          <div class="summary-card">
+          <div class="summary-card" onclick="openModal('modalValidasiLaporan')">
             <i class="fas fa-check-circle"></i>
             <h4>Validasi Laporan</h4>
             <div class="number">{{ $laporanValidatedCount ?? 0 }}</div>
           </div>
-          <div class="summary-card">
+          <div class="summary-card" onclick="openModal('modalMenungguReviu')">
             <i class="fas fa-hourglass-half"></i>
             <h4>Menunggu Reviu</h4>
             <div class="number">{{ $laporanWaitingReviewCount ?? 0 }}</div>
@@ -765,11 +835,11 @@
 
         <div class="dashboard-widgets">
           <div class="chart-card">
-            <h5>Basis Kinerja</h5>
+            <h5>Persentase Realisasi Basis Kinerja vs Basis Anggaran</h5>
             <canvas id="kinerjaChart" height="300"></canvas>
           </div>
           <div class="chart-card">
-            <h5>Basis Keuangan</h5>
+            <h5>Perbandingan Target dan Realisasi Basis Anggaran</h5>
             <canvas id="keuanganChart" height="300"></canvas>
           </div>
         </div>
@@ -781,36 +851,27 @@
                       </div>
 
           <div class="panel-shell">
-            @php
-              $dashboardPerjanjianBackParams = ['from' => 'dashboard_wadir_perjanjian'];
-              $perjanjianStatusRoutes = [
-                'sent' => route('perjanjian.index', array_merge(['status' => 'sent'], $dashboardPerjanjianBackParams)),
-                'approved' => route('perjanjian.index', array_merge(['status' => 'approved'], $dashboardPerjanjianBackParams)),
-                'rejected' => route('perjanjian.index', array_merge(['status' => 'rejected'], $dashboardPerjanjianBackParams)),
-                'waiting' => route('perjanjian.index', array_merge(['status' => 'waiting'], $dashboardPerjanjianBackParams)),
-              ];
-            @endphp
-            
+
             <div class="panel-stat-grid">
-              <div class="panel-stat-card panel-stat-green" onclick="openPerjanjianStatusPanel('Terkirim', {{ (int) ($perjanjianSent ?? 0) }}, '{{ $perjanjianStatusRoutes['sent'] }}')">
+              <div class="panel-stat-card panel-stat-green" onclick="openPerjanjianStatusPanel('Terkirim', {{ (int) ($perjanjianSent ?? 0) }})">
                 <div class="panel-stat-number">{{ $perjanjianSent ?? 0 }}</div>
                 <div class="panel-stat-label">Terkirim</div>
-                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Terkirim', {{ (int) ($perjanjianSent ?? 0) }}, '{{ $perjanjianStatusRoutes['sent'] }}')" class="panel-stat-btn">Lihat</a>
+                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Terkirim', {{ (int) ($perjanjianSent ?? 0) }})" class="panel-stat-btn">Lihat</a>
               </div>
-              <div class="panel-stat-card panel-stat-yellow" onclick="openPerjanjianStatusPanel('Disetujui', {{ (int) $perjanjianApproved }}, '{{ $perjanjianStatusRoutes['approved'] }}')">
+              <div class="panel-stat-card panel-stat-yellow" onclick="openPerjanjianStatusPanel('Disetujui', {{ (int) $perjanjianApproved }})">
                 <div class="panel-stat-number">{{ $perjanjianApproved }}</div>
                 <div class="panel-stat-label">Disetujui</div>
-                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Disetujui', {{ (int) $perjanjianApproved }}, '{{ $perjanjianStatusRoutes['approved'] }}')" class="panel-stat-btn">Lihat</a>
+                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Disetujui', {{ (int) $perjanjianApproved }})" class="panel-stat-btn">Lihat</a>
               </div>
-              <div class="panel-stat-card panel-stat-red" onclick="openPerjanjianStatusPanel('Ditolak', {{ (int) $perjanjianRejected }}, '{{ $perjanjianStatusRoutes['rejected'] }}')">
+              <div class="panel-stat-card panel-stat-red" onclick="openPerjanjianStatusPanel('Ditolak', {{ (int) $perjanjianRejected }})">
                 <div class="panel-stat-number">{{ $perjanjianRejected }}</div>
                 <div class="panel-stat-label">Ditolak</div>
-                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Ditolak', {{ (int) $perjanjianRejected }}, '{{ $perjanjianStatusRoutes['rejected'] }}')" class="panel-stat-btn">Lihat</a>
+                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Ditolak', {{ (int) $perjanjianRejected }})" class="panel-stat-btn">Lihat</a>
               </div>
-              <div class="panel-stat-card panel-stat-blue" onclick="openPerjanjianStatusPanel('Menunggu', {{ (int) $perjanjianWaiting }}, '{{ $perjanjianStatusRoutes['waiting'] }}')">
+              <div class="panel-stat-card panel-stat-blue" onclick="openPerjanjianStatusPanel('Menunggu', {{ (int) $perjanjianWaiting }})">
                 <div class="panel-stat-number">{{ $perjanjianWaiting }}</div>
                 <div class="panel-stat-label">Menunggu</div>
-                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Menunggu', {{ (int) $perjanjianWaiting }}, '{{ $perjanjianStatusRoutes['waiting'] }}')" class="panel-stat-btn">Lihat</a>
+                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openPerjanjianStatusPanel('Menunggu', {{ (int) $perjanjianWaiting }})" class="panel-stat-btn">Lihat</a>
               </div>
             </div>
 
@@ -932,54 +993,57 @@
   @include('components.logout-modal')
 
   <!-- Modals for counts -->
-  <div id="modalTotalPerjanjian" class="logout-modal" style="display:none;">
-    <div class="logout-box">
-      <h3>Total Perjanjian</h3>
-      <p style="margin-top:8px;">Total: <strong>{{ $totalPerjanjian }}</strong></p>
-      <p>Disetujui: <strong>{{ $perjanjianApproved }}</strong></p>
-      <p>Menunggu: <strong>{{ $perjanjianWaiting }}</strong></p>
-      <div class="logout-buttons">
-        <button class="btn-logout" onclick="closeModal('modalTotalPerjanjian')">Tutup</button>
+  <div id="modalTotalPerjanjian" class="logout-modal" style="display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;z-index:9999;padding:16px;">
+    <div class="notice-box">
+      <div class="notice-icon"><i class="fas fa-file-contract"></i></div>
+      <h3 class="notice-title">Total Perjanjian</h3>
+      <p class="notice-message">Total: <strong>{{ $totalPerjanjian }}</strong><br>Terkirim: <strong>{{ $perjanjianSent }}</strong><br>Disetujui: <strong>{{ $perjanjianApproved }}</strong><br>Ditolak: <strong>{{ $perjanjianRejected }}</strong><br>Menunggu: <strong>{{ $perjanjianWaiting }}</strong></p>
+      <div class="notice-actions">
+        <button class="notice-close-btn" onclick="closeModal('modalTotalPerjanjian')">Tutup</button>
       </div>
     </div>
   </div>
 
-  <div id="modalPerjanjianApproved" class="logout-modal" style="display:none;">
-    <div class="logout-box">
-      <h3>Perjanjian Kinerja Disetujui</h3>
-      <p style="margin-top:8px;">Jumlah perjanjian yang telah disetujui oleh pimpinan: <strong>{{ $perjanjianApproved }}</strong></p>
-      <div class="logout-buttons">
-        <button class="btn-logout" onclick="closeModal('modalPerjanjianApproved')">Tutup</button>
+  <div id="modalPerjanjianApproved" class="logout-modal" style="display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;z-index:9999;padding:16px;">
+    <div class="notice-box">
+      <div class="notice-icon"><i class="fas fa-circle-check"></i></div>
+      <h3 class="notice-title">Perjanjian Disetujui</h3>
+      <p class="notice-message">Jumlah perjanjian yang telah disetujui oleh pimpinan: <strong>{{ $perjanjianApproved }}</strong></p>
+      <div class="notice-actions">
+        <button class="notice-close-btn" onclick="closeModal('modalPerjanjianApproved')">Tutup</button>
       </div>
     </div>
   </div>
 
-  <div id="modalLaporanKinerja" class="logout-modal" style="display:none;">
-    <div class="logout-box">
-      <h3>Laporan Kinerja Disetujui</h3>
-      <p style="margin-top:8px;">Jumlah laporan kinerja yang telah disetujui oleh pimpinan: <strong>{{ $laporanApprovedByPimpinan ?? 0 }}</strong></p>
-      <div class="logout-buttons">
-        <button class="btn-logout" onclick="closeModal('modalLaporanKinerja')">Tutup</button>
+  <div id="modalLaporanKinerja" class="logout-modal" style="display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;z-index:9999;padding:16px;">
+    <div class="notice-box">
+      <div class="notice-icon"><i class="fas fa-file-circle-check"></i></div>
+      <h3 class="notice-title">Laporan Kinerja</h3>
+      <p class="notice-message">Jumlah laporan kinerja yang telah disetujui oleh pimpinan: <strong>{{ $laporanApprovedByPimpinan ?? 0 }}</strong></p>
+      <div class="notice-actions">
+        <button class="notice-close-btn" onclick="closeModal('modalLaporanKinerja')">Tutup</button>
       </div>
     </div>
   </div>
 
-  <div id="modalValidasiLaporan" class="logout-modal" style="display:none;">
-    <div class="logout-box">
-      <h3>Validasi Laporan</h3>
-      <p style="margin-top:8px;">Jumlah laporan yang telah divalidasi (kesimpulan terisi): <strong>{{ $laporanValidatedCount ?? 0 }}</strong></p>
-      <div class="logout-buttons">
-        <button class="btn-logout" onclick="closeModal('modalValidasiLaporan')">Tutup</button>
+  <div id="modalValidasiLaporan" class="logout-modal" style="display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;z-index:9999;padding:16px;">
+    <div class="notice-box">
+      <div class="notice-icon"><i class="fas fa-shield-check"></i></div>
+      <h3 class="notice-title">Validasi Laporan</h3>
+      <p class="notice-message">Jumlah laporan yang telah divalidasi (kesimpulan terisi): <strong>{{ $laporanValidatedCount ?? 0 }}</strong></p>
+      <div class="notice-actions">
+        <button class="notice-close-btn" onclick="closeModal('modalValidasiLaporan')">Tutup</button>
       </div>
     </div>
   </div>
 
-  <div id="modalMenungguReviu" class="logout-modal" style="display:none;">
-    <div class="logout-box">
-      <h3>Menunggu Reviu</h3>
-      <p style="margin-top:8px;">Jumlah laporan yang menunggu reviu: <strong>{{ $laporanWaitingReviewCount ?? 0 }}</strong></p>
-      <div class="logout-buttons">
-        <button class="btn-logout" onclick="closeModal('modalMenungguReviu')">Tutup</button>
+  <div id="modalMenungguReviu" class="logout-modal" style="display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;z-index:9999;padding:16px;">
+    <div class="notice-box">
+      <div class="notice-icon"><i class="fas fa-hourglass-half"></i></div>
+      <h3 class="notice-title">Menunggu Reviu</h3>
+      <p class="notice-message">Jumlah laporan yang menunggu reviu: <strong>{{ $laporanWaitingReviewCount ?? 0 }}</strong></p>
+      <div class="notice-actions">
+        <button class="notice-close-btn" onclick="closeModal('modalMenungguReviu')">Tutup</button>
       </div>
     </div>
   </div>
@@ -1058,11 +1122,25 @@
   </div>
 
   <div id="modalPerjanjianStatusKosong" class="logout-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
-    <div class="logout-box" style="background:#fff;padding:32px 24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);min-width:300px;text-align:center;">
-      <h3 style="margin-bottom:18px;">Informasi</h3>
-      <p id="modalPerjanjianStatusKosongText" style="margin-top:8px;color:#555;line-height:1.7;">Tidak ada data perjanjian untuk status ini.</p>
-      <div class="logout-buttons" style="display:flex;gap:16px;justify-content:center;margin-top:18px;">
-        <button type="button" onclick="closeModal('modalPerjanjianStatusKosong')" style="background:#eee;color:#333;padding:8px 24px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Tutup</button>
+    <div class="notice-box">
+      <div class="notice-icon"><i class="fas fa-circle-info"></i></div>
+      <h3 class="notice-title">Informasi</h3>
+      <p id="modalPerjanjianStatusKosongText" class="notice-message">Tidak ada data perjanjian untuk status ini.</p>
+      <div class="notice-actions">
+        <button type="button" class="notice-close-btn" onclick="closeModal('modalPerjanjianStatusKosong')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalPerjanjianPreview" class="logout-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:28px 24px 24px;border-radius:18px;box-shadow:0 30px 60px rgba(0,0,0,0.18);width:min(680px,95vw);max-height:82vh;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0;">
+        <h3 id="perjanjianPreviewTitle" style="font-size:18px;font-weight:700;color:#1B2A41;margin:0;"></h3>
+        <button onclick="closeModal('modalPerjanjianPreview')" style="background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:#aaa;padding:0 4px;">&times;</button>
+      </div>
+      <div id="perjanjianPreviewList" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;padding-right:4px;min-height:60px;"></div>
+      <div style="margin-top:18px;text-align:center;flex-shrink:0;">
+        <button onclick="closeModal('modalPerjanjianPreview')" style="background:#00B5A0;color:#fff;padding:10px 32px;border:none;border-radius:999px;font-weight:700;font-size:14px;cursor:pointer;transition:background .2s;" onmouseover="this.style.background='#00977f'" onmouseout="this.style.background='#00B5A0'">Tutup</button>
       </div>
     </div>
   </div>
@@ -1140,11 +1218,20 @@
     // Try to use server-provided variables when available
     const serverChart = window.serverChartData || null;
     const kinerjaLabels = serverChart?.kinerja_labels || sampleKinerjaLabels;
-    const realisasiKinerjaPersen = serverChart?.kinerja_realisasi_kinerja_persen || sampleKinerjaRealisasiPersen;
-    const realisasiAnggaranPersen = serverChart?.kinerja_realisasi_anggaran_persen || sampleAnggaranRealisasiPersen;
+    const toNumber = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+    const toNumberArray = (arr, fallback) => {
+      if (!Array.isArray(arr) || arr.length === 0) return fallback.slice();
+      return arr.map(toNumber);
+    };
+
+    const realisasiKinerjaPersen = toNumberArray(serverChart?.kinerja_realisasi_kinerja_persen, sampleKinerjaRealisasiPersen);
+    const realisasiAnggaranPersen = toNumberArray(serverChart?.kinerja_realisasi_anggaran_persen, sampleAnggaranRealisasiPersen);
     const keuanganLabels = serverChart?.keuangan_labels || chartLabels;
-    const targetKeuangan = serverChart?.keuangan_targets || sampleTargetKeuangan;
-    const realisasiKeuangan = serverChart?.keuangan_realisasi || sampleRealisasiKeuangan;
+    const targetKeuangan = toNumberArray(serverChart?.keuangan_targets, sampleTargetKeuangan);
+    const realisasiKeuangan = toNumberArray(serverChart?.keuangan_realisasi, sampleRealisasiKeuangan);
 
     const formatIdr = (value) => new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(Number(value || 0));
     const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`;
@@ -1193,7 +1280,14 @@
           maintainAspectRatio:false,
           plugins:{
             legend:{position:'top'},
-            datalabels: { clamp: true, clip: false }
+            datalabels: { clamp: true, clip: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + formatPercent(context.parsed.y);
+                }
+              }
+            }
           },
           scales:{
             y:{
@@ -1251,9 +1345,25 @@
           maintainAspectRatio:false,
           plugins:{
             legend:{position:'top'},
-            datalabels: { clamp: true, clip: false }
+            datalabels: { clamp: true, clip: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return (context.dataset.label || '') + ': ' + formatIdr(context.parsed.y);
+                }
+              }
+            }
           },
-          scales: { y: { beginAtZero:true, ticks: { callback: function(v){ return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(v); } } } }
+          scales: {
+            y: {
+              beginAtZero:true,
+              ticks: {
+                callback: function(v){
+                  return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(v);
+                }
+              }
+            }
+          }
         }
       });
     })();
@@ -1292,7 +1402,7 @@
       openModal('modalLaporanPdfPicker');
     }
 
-    function openPerjanjianStatusPanel(statusLabel, count, targetUrl) {
+    function openPerjanjianStatusPanel(statusLabel, count) {
       if (Number(count || 0) <= 0) {
         const textEl = document.getElementById('modalPerjanjianStatusKosongText');
         if (textEl) {
@@ -1302,7 +1412,14 @@
         return;
       }
 
-      window.location.href = targetUrl;
+      const statusKeyMap = {
+        'terkirim': 'terkirim',
+        'disetujui': 'disetujui',
+        'ditolak': 'ditolak',
+        'menunggu': 'menunggu'
+      };
+      const mappedStatus = statusKeyMap[String(statusLabel || '').toLowerCase()] || 'terkirim';
+      openPerjanjianStatusModal(mappedStatus);
     }
 
     function openLaporanStatusPanel(statusLabel, count, targetUrl) {
@@ -1366,18 +1483,28 @@
         });
       }
 
+      const modalPerjanjian = document.getElementById('modalPerjanjianPreview');
+      if (modalPerjanjian) {
+        modalPerjanjian.addEventListener('click', function (e) {
+          if (e.target === modalPerjanjian) closeModal('modalPerjanjianPreview');
+        });
+      }
+
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
           closeModal('modalPerjanjianStatusKosong');
           closeModal('modalLaporanPreview');
+          closeModal('modalPerjanjianPreview');
         }
       });
     });
 
     // ---- Laporan preview modal ----
     const LAPORAN_ITEMS = @json($laporanItems ?? []);
+    const PERJANJIAN_ITEMS = @json($perjanjianItems ?? []);
     const LAPORAN_KINERJA_URL = "{{ route('laporan.kinerja') }}";
     const OWN_LAPORAN_TRIWULANS = @json($ownLaporanTriwulans ?? []);
+    const VALIDASI_ITEMS = @json($validasiLaporanItems ?? []);
 
     // ---- Validasi Drawer ----
     const VALIDASI_TW_LABELS = { 1: 'Triwulan I', 2: 'Triwulan II', 3: 'Triwulan III', 4: 'Triwulan IV' };
@@ -1391,8 +1518,8 @@
     }
 
     function findLaporanForTw(tw) {
-      // Find the laporan item whose triwulan_aktif matches
-      return LAPORAN_ITEMS.find(function(i) { return Number(i.triwulan_aktif) === Number(tw); }) || null;
+      // Only use the scoped validation list so we never pull another user's laporan.
+      return VALIDASI_ITEMS.find(function(i) { return Number(i.triwulan_aktif) === Number(tw); }) || null;
     }
 
     function isValidatedForTw(tw) {
@@ -1412,6 +1539,21 @@
         var raw = localStorage.getItem(key);
         return raw ? JSON.parse(raw) : null;
       } catch(e) { return null; }
+    }
+
+    function formatDateTimeWib(value) {
+      if (!value) return '';
+      var d = new Date(value);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }) + ' WIB';
     }
 
     // Open triwulan selection modal for validation (shows validated state)
@@ -1475,7 +1617,8 @@
         var displayVal = '—';
         var btnText = 'Lihat';
         if (done) {
-          displayVal = (summary && summary.score != null) ? String(summary.score) : '✓';
+          var capaian = (summary && summary.capaian_pct != null) ? Number(summary.capaian_pct) : 0;
+          displayVal = capaian.toFixed(2) + '%';
           btnText = 'Tervalidasi';
         }
         numEl.textContent = displayVal;
@@ -1519,8 +1662,8 @@
         var updatedAt = el('vdUpdatedAt');
         if (updatedAt) {
           if (summary.updatedAt) {
-            var d = new Date(summary.updatedAt);
-            updatedAt.textContent = 'Divalidasi: ' + d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+            var formatted = formatDateTimeWib(summary.updatedAt);
+            updatedAt.textContent = formatted ? ('Divalidasi: ' + formatted) : '';
           } else {
             updatedAt.textContent = '';
           }
@@ -1547,6 +1690,7 @@
 
     document.addEventListener('DOMContentLoaded', function() {
       updateValidasiCards();
+      updateValidasiCardsAsync();
     });
 
     // === ASYNC VALIDATION FUNCTIONS ===
@@ -1587,7 +1731,8 @@
               warnings: data.warnings,
               suggestions: data.suggestions,
               updatedAt: data.validated_at,
-              summary: 'Validasi Triwulan ' + tw + ' selesai'
+              summary: 'Validasi Triwulan ' + tw + ' selesai',
+              capaian_pct: data.capaian_pct
             });
             try {
               var laporan = findLaporanForTw(tw);
@@ -1601,12 +1746,26 @@
                   warnings: data.warnings,
                   suggestions: data.suggestions,
                   summary: 'Validasi Triwulan ' + tw + ' selesai',
-                  updatedAt: data.validated_at
+                  updatedAt: data.validated_at,
+                  capaian_pct: data.capaian_pct
                 }));
               }
             } catch(e) {}
             return validationCache[tw];
           }
+
+          // Jika backend menyatakan belum tervalidasi, bersihkan cache lokal agar status lama tidak muncul.
+          try {
+            var currentLaporan = findLaporanForTw(tw);
+            if (currentLaporan) {
+              var doneKey = getValidationStateKeyDashboard(currentLaporan.perjanjian_id, currentLaporan.id, tw);
+              var sumKey = getValidationSummaryKeyDashboard(currentLaporan.perjanjian_id, currentLaporan.id, tw);
+              localStorage.removeItem(doneKey);
+              localStorage.removeItem(sumKey);
+            }
+          } catch (e) {}
+          delete validationCache[tw];
+          delete validationCacheTime[tw];
           return null;
         })
         .catch(e => {
@@ -1625,7 +1784,8 @@
             var displayVal = '—';
             var btnText = 'Lihat';
             if (summary) {
-              displayVal = (summary.score != null) ? String(summary.score) : '✓';
+              var capaian = (summary.capaian_pct != null) ? Number(summary.capaian_pct) : 0;
+              displayVal = capaian.toFixed(2) + '%';
               btnText = 'Tervalidasi';
             }
             numEl.textContent = displayVal;
@@ -1678,8 +1838,8 @@
           var updatedAt = el('vdUpdatedAt');
           if (updatedAt) {
             if (summary.updatedAt) {
-              var d = new Date(summary.updatedAt);
-              updatedAt.textContent = 'Divalidasi: ' + d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+              var formatted = formatDateTimeWib(summary.updatedAt);
+              updatedAt.textContent = formatted ? ('Divalidasi: ' + formatted) : '';
             } else {
               updatedAt.textContent = '';
             }
@@ -1757,8 +1917,10 @@
               '</div>';
             
             if (data.validated_at) {
-              var d = new Date(data.validated_at);
-              html += '<p style="font-size:12px;color:#999;margin:0;text-align:right;">Divalidasi: ' + d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) + '</p>';
+              var formatted = formatDateTimeWib(data.validated_at);
+              if (formatted) {
+                html += '<p style="font-size:12px;color:#999;margin:0;text-align:right;">Divalidasi: ' + formatted + '</p>';
+              }
             }
             
             html += '</div>';
@@ -1839,6 +2001,53 @@
       });
 
       openModal('modalLaporanPreview');
+    }
+
+    function openPerjanjianStatusModal(status) {
+      const statusMap = {
+        terkirim : { label: 'Perjanjian Kinerja — Terkirim',  bg: '#e3f9f1', color: '#009970', text: 'Terkirim'  },
+        disetujui: { label: 'Perjanjian Kinerja — Disetujui', bg: '#fff3e0', color: '#FFA500', text: 'Disetujui' },
+        ditolak  : { label: 'Perjanjian Kinerja — Ditolak',   bg: '#fde8e8', color: '#DC3545', text: 'Ditolak'   },
+        menunggu : { label: 'Perjanjian Kinerja — Menunggu',  bg: '#e3f2fd', color: '#2196F3', text: 'Menunggu' },
+      };
+
+      const meta = statusMap[status] || statusMap['terkirim'];
+      const items = PERJANJIAN_ITEMS.filter(function(i){ return i.status === status; });
+
+      if (items.length === 0) {
+        const textEl = document.getElementById('modalPerjanjianStatusKosongText');
+        if (textEl) textEl.textContent = 'Tidak ada dokumen perjanjian dengan status ' + meta.text.toLowerCase() + '.';
+        openModal('modalPerjanjianStatusKosong');
+        return;
+      }
+
+      const titleEl = document.getElementById('perjanjianPreviewTitle');
+      const container = document.getElementById('perjanjianPreviewList');
+      if (!titleEl || !container) return;
+
+      titleEl.textContent = meta.label;
+      container.innerHTML = '';
+
+      items.forEach(function(item) {
+        const sc = statusMap[item.status] || statusMap['terkirim'];
+        const nomor = item.nomor_perjanjian || ('ID #' + item.id);
+        const tanggal = item.agreement_date || item.created_at || '-';
+
+        const div = document.createElement('div');
+        div.className = 'laporan-preview-item';
+        div.innerHTML =
+          '<div class="laporan-preview-info">'
+            + '<div class="laporan-preview-name">' + escapeHtml(nomor) + '</div>'
+            + '<div class="laporan-preview-meta">' + escapeHtml((item.pihak1_name || '-') + ' • ' + tanggal) + '</div>'
+          + '</div>'
+          + '<div class="laporan-preview-right">'
+            + '<span class="laporan-preview-badge" style="background:' + sc.bg + ';color:' + sc.color + ';">' + sc.text + '</span>'
+            + '<a href="' + escapeHtml(item.document_url || '#') + '" target="_blank" rel="noopener noreferrer" class="laporan-preview-action-btn">Lihat Dokumen</a>'
+          + '</div>';
+        container.appendChild(div);
+      });
+
+      openModal('modalPerjanjianPreview');
     }
   </script>
 

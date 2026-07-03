@@ -576,7 +576,8 @@ window.deleteRow = function(btn, tableId = null) {
         return;
     }
     
-    // Minimal 1 baris program harus ada
+    // Minimal 1 baris program harus ada - disabled to allow empty table
+    /*
     if (row.classList.contains('program-row')) {
         const remainingPrograms = tbody.querySelectorAll('tr.program-row');
         if (remainingPrograms.length <= 1) {
@@ -584,6 +585,7 @@ window.deleteRow = function(btn, tableId = null) {
             return;
         }
     }
+    */
     
     const rowNo = row.querySelector('.no-col')?.textContent;
     console.log('Deleting row:', rowNo);
@@ -756,15 +758,14 @@ console.log('=== Global functions loaded ===');
         {{-- PIHAK KEDUA --}}
         <div class="flex-col">
             <input type="text" class="input-box" name="pihak2_name" id="pihak2_name" 
-                value="{{ $direktur->nama ?? '' }}" readonly tabindex="-1" style="pointer-events:none;background:#e9ecef;">
-            {{-- Tidak tampilkan notifikasi jika direktur tidak ditemukan --}}
+                value="{{ $pihak2User->nama ?? '' }}" readonly tabindex="-1" style="pointer-events:none;background:#e9ecef;">
+            {{-- Pihak kedua otomatis ditentukan dari relasi jabatan membawahi (jika tersedia). --}}
 
             <input type="text" class="input-box" name="pihak2_jabatan" id="pihak2_jabatan" 
-                value="Direktur" readonly tabindex="-1" style="pointer-events:none;background:#e9ecef;">
+                value="{{ $pihak2Jabatan ?? '' }}" readonly tabindex="-1" style="pointer-events:none;background:#e9ecef;">
 
-            {{-- Hidden fields untuk pangkat dan NIP direktur --}}
-            <input type="hidden" name="pihak2_pangkat" value="{{ $direktur->pangkat ?? '' }}">
-            <input type="hidden" name="pihak2_nip" value="{{ $direktur->nip ?? '' }}">
+            <input type="hidden" name="pihak2_pangkat" value="{{ $pihak2User->pangkat ?? '' }}">
+            <input type="hidden" name="pihak2_nip" value="{{ $pihak2User->nip ?? '' }}">
 
             <p style="text-align:center; font-size:12px; margin-top:3px;">
                 Selanjutnya disebut <b>PIHAK KEDUA</b>.
@@ -1376,6 +1377,13 @@ function hitungHierarchicalTW() {
     
     const allRows = Array.from(tbody.querySelectorAll('tr'));
     
+    const parseRupiah = (val) => {
+        if (!val) return 0;
+        // Remove dots (thousands separator), replace comma with dot (decimal separator), then remove non-digits
+        const cleanStr = val.toString().replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+        return parseFloat(cleanStr) || 0;
+    };
+    
     // Step 1: Sum sub-kegiatan -> kegiatan
     allRows.forEach(row => {
         const key = row.dataset.key;
@@ -1401,16 +1409,16 @@ function hitungHierarchicalTW() {
                 let tw1Sum = 0, tw2Sum = 0, tw3Sum = 0, tw4Sum = 0;
                 
                 siblings.forEach(sub => {
-                    tw1Sum += parseInt(sub.querySelector('.tw1')?.value.replace(/[^\d]/g, '') || 0);
-                    tw2Sum += parseInt(sub.querySelector('.tw2')?.value.replace(/[^\d]/g, '') || 0);
-                    tw3Sum += parseInt(sub.querySelector('.tw3')?.value.replace(/[^\d]/g, '') || 0);
-                    tw4Sum += parseInt(sub.querySelector('.tw4')?.value.replace(/[^\d]/g, '') || 0);
+                    tw1Sum += parseRupiah(sub.querySelector('.tw1')?.value);
+                    tw2Sum += parseRupiah(sub.querySelector('.tw2')?.value);
+                    tw3Sum += parseRupiah(sub.querySelector('.tw3')?.value);
+                    tw4Sum += parseRupiah(sub.querySelector('.tw4')?.value);
                 });
-                
-                kegiatanRow.querySelector('.tw1').value = tw1Sum.toLocaleString('id-ID');
-                kegiatanRow.querySelector('.tw2').value = tw2Sum.toLocaleString('id-ID');
-                kegiatanRow.querySelector('.tw3').value = tw3Sum.toLocaleString('id-ID');
-                kegiatanRow.querySelector('.tw4').value = tw4Sum.toLocaleString('id-ID');
+
+                kegiatanRow.querySelector('.tw1').value = Math.round(tw1Sum).toLocaleString('id-ID');
+                kegiatanRow.querySelector('.tw2').value = Math.round(tw2Sum).toLocaleString('id-ID');
+                kegiatanRow.querySelector('.tw3').value = Math.round(tw3Sum).toLocaleString('id-ID');
+                kegiatanRow.querySelector('.tw4').value = Math.round(tw4Sum).toLocaleString('id-ID');
             }
         }
     });
@@ -1440,16 +1448,16 @@ function hitungHierarchicalTW() {
                 let tw1Sum = 0, tw2Sum = 0, tw3Sum = 0, tw4Sum = 0;
                 
                 kegiatans.forEach(keg => {
-                    tw1Sum += parseInt(keg.querySelector('.tw1')?.value.replace(/[^\d]/g, '') || 0);
-                    tw2Sum += parseInt(keg.querySelector('.tw2')?.value.replace(/[^\d]/g, '') || 0);
-                    tw3Sum += parseInt(keg.querySelector('.tw3')?.value.replace(/[^\d]/g, '') || 0);
-                    tw4Sum += parseInt(keg.querySelector('.tw4')?.value.replace(/[^\d]/g, '') || 0);
+                    tw1Sum += parseRupiah(keg.querySelector('.tw1')?.value);
+                    tw2Sum += parseRupiah(keg.querySelector('.tw2')?.value);
+                    tw3Sum += parseRupiah(keg.querySelector('.tw3')?.value);
+                    tw4Sum += parseRupiah(keg.querySelector('.tw4')?.value);
                 });
-                
-                programRow.querySelector('.tw1').value = tw1Sum.toLocaleString('id-ID');
-                programRow.querySelector('.tw2').value = tw2Sum.toLocaleString('id-ID');
-                programRow.querySelector('.tw3').value = tw3Sum.toLocaleString('id-ID');
-                programRow.querySelector('.tw4').value = tw4Sum.toLocaleString('id-ID');
+
+                programRow.querySelector('.tw1').value = Math.round(tw1Sum).toLocaleString('id-ID');
+                programRow.querySelector('.tw2').value = Math.round(tw2Sum).toLocaleString('id-ID');
+                programRow.querySelector('.tw3').value = Math.round(tw3Sum).toLocaleString('id-ID');
+                programRow.querySelector('.tw4').value = Math.round(tw4Sum).toLocaleString('id-ID');
             }
         }
     });
@@ -1458,17 +1466,17 @@ function hitungHierarchicalTW() {
     let t1 = 0, t2 = 0, t3 = 0, t4 = 0;
     allRows.forEach(tr => {
         if (!tr.dataset.key || !tr.dataset.key.startsWith('program-')) return;
-        
-        t1 += parseInt(tr.querySelector('.tw1')?.value.replace(/[^\d]/g,'') || 0);
-        t2 += parseInt(tr.querySelector('.tw2')?.value.replace(/[^\d]/g,'') || 0);
-        t3 += parseInt(tr.querySelector('.tw3')?.value.replace(/[^\d]/g,'') || 0);
-        t4 += parseInt(tr.querySelector('.tw4')?.value.replace(/[^\d]/g,'') || 0);
+
+        t1 += parseRupiah(tr.querySelector('.tw1')?.value);
+        t2 += parseRupiah(tr.querySelector('.tw2')?.value);
+        t3 += parseRupiah(tr.querySelector('.tw3')?.value);
+        t4 += parseRupiah(tr.querySelector('.tw4')?.value);
     });
-    
-    document.getElementById('totalTW1').textContent = t1.toLocaleString('id-ID');
-    document.getElementById('totalTW2').textContent = t2.toLocaleString('id-ID');
-    document.getElementById('totalTW3').textContent = t3.toLocaleString('id-ID');
-    document.getElementById('totalTW4').textContent = t4.toLocaleString('id-ID');
+
+    document.getElementById('totalTW1').textContent = Math.round(t1).toLocaleString('id-ID');
+    document.getElementById('totalTW2').textContent = Math.round(t2).toLocaleString('id-ID');
+    document.getElementById('totalTW3').textContent = Math.round(t3).toLocaleString('id-ID');
+    document.getElementById('totalTW4').textContent = Math.round(t4).toLocaleString('id-ID');
     
     console.log('Total TW:', { t1, t2, t3, t4 });
 }
@@ -1604,15 +1612,19 @@ function switchInputMode(mode) {
         const input = document.getElementById('bln' + i);
         if (!input) continue;
         
-        const rawValue = input.value.replace(/[^\d]/g, '');
-        const numericValue = parseInt(rawValue) || 0;
+        const rawValue = input.value;
         
         if (mode === 'nominal') {
             input.placeholder = '0';
             if (rawValue) {
                 if (previousMode === 'prosentase' && pagu > 0) {
-                    input.value = Math.round((numericValue / 100) * pagu).toLocaleString('id-ID');
+                    let cleanValue = rawValue.replace(/,/g, '.').replace(/[^\d.]/g, '');
+                    const parts = cleanValue.split('.');
+                    if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join('');
+                    let percentValue = parseFloat(cleanValue) || 0;
+                    input.value = Math.round((percentValue / 100) * pagu).toLocaleString('id-ID');
                 } else {
+                    const numericValue = parseInt(rawValue.replace(/[^\d]/g, '')) || 0;
                     input.value = numericValue.toLocaleString('id-ID');
                 }
             }
@@ -1620,9 +1632,14 @@ function switchInputMode(mode) {
             input.placeholder = '0%';
             if (rawValue) {
                 if (previousMode === 'nominal' && pagu > 0) {
-                    input.value = Math.round((numericValue / pagu) * 100).toString();
+                    const numericValue = parseInt(rawValue.replace(/[^\d]/g, '')) || 0;
+                    let percentValue = (numericValue / pagu) * 100;
+                    input.value = (Math.round(percentValue * 100) / 100).toString();
                 } else {
-                    input.value = rawValue;
+                    let cleanValue = rawValue.replace(/,/g, '.').replace(/[^\d.]/g, '');
+                    const parts = cleanValue.split('.');
+                    if (parts.length > 2) cleanValue = parts[0] + '.' + parts.slice(1).join('');
+                    input.value = cleanValue;
                 }
             }
         }
@@ -1634,14 +1651,19 @@ function switchInputMode(mode) {
 
 function formatModalInput(input) {
     const mode = currentModalData.inputMode;
-    let value = input.value.replace(/[^\d]/g, '');
     
     if (mode === 'nominal') {
+        let value = input.value.replace(/[^\d]/g, '');
         // Format as rupiah for nominal mode
         input.value = value ? parseInt(value).toLocaleString('id-ID') : '';
     } else {
-        // For percentage, just keep the number
-        input.value = value || '';
+        // For percentage, allow numbers and decimal point
+        let value = input.value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+        const parts = value.split('.');
+        if (parts.length > 2) {
+            value = parts[0] + '.' + parts.slice(1).join('');
+        }
+        input.value = value;
     }
     
     // Immediately calculate after formatting
@@ -1668,17 +1690,21 @@ function calculateModalTotal() {
         const input = document.getElementById('bln' + i);
         if (!input) continue;
         
-        // Extract numeric value from formatted string
-        // Remove all non-digit characters (dots, commas, spaces, etc)
-        const cleanValue = input.value.replace(/\./g, '').replace(/[^\d]/g, '');
-        let value = parseInt(cleanValue) || 0;
-        
-        console.log('Bulan ' + i + ':', input.value, '→', cleanValue, '→', value);
-        
-        // Convert to nominal if in percentage mode
+        let value = 0;
         if (mode === 'prosentase') {
-            value = (value / 100) * pagu;
+            let cleanValue = input.value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+            const parts = cleanValue.split('.');
+            if (parts.length > 2) {
+                cleanValue = parts[0] + '.' + parts.slice(1).join('');
+            }
+            let percentValue = parseFloat(cleanValue) || 0;
+            value = (percentValue / 100) * pagu;
+        } else {
+            const cleanValue = input.value.replace(/\./g, '').replace(/[^\d]/g, '');
+            value = parseInt(cleanValue) || 0;
         }
+        
+        console.log('Bulan ' + i + ':', input.value, '→ value:', value);
         
         totalNominal += value;
         
@@ -1690,8 +1716,11 @@ function calculateModalTotal() {
     }
     
     // Calculate percentage and remaining budget
+    totalNominal = Math.round(totalNominal);
     const sisaPagu = pagu - totalNominal;
-    const prosentase = pagu > 0 ? (totalNominal / pagu) * 100 : 0;
+    let prosentase = pagu > 0 ? (totalNominal / pagu) * 100 : 0;
+    // Fix floating point precision
+    prosentase = Math.round(prosentase * 100) / 100;
     
     // Update total per triwulan
     const tw1Element = document.getElementById('totalTW1Modal');
@@ -1804,13 +1833,18 @@ function saveTargetModal() {
         const input = document.getElementById('bln' + i);
         if (!input) continue;
         
-        // Remove dots first, then remove other non-digit characters
-        const cleanValue = input.value.replace(/\./g, '').replace(/[^\d]/g, '');
-        let value = parseInt(cleanValue) || 0;
-        
-        // Convert to nominal if in percentage mode
+        let value = 0;
         if (mode === 'prosentase') {
-            value = (value / 100) * pagu;
+            let cleanValue = input.value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+            const parts = cleanValue.split('.');
+            if (parts.length > 2) {
+                cleanValue = parts[0] + '.' + parts.slice(1).join('');
+            }
+            let percentValue = parseFloat(cleanValue) || 0;
+            value = (percentValue / 100) * pagu;
+        } else {
+            const cleanValue = input.value.replace(/\./g, '').replace(/[^\d]/g, '');
+            value = parseInt(cleanValue) || 0;
         }
         
         // Group by triwulan
@@ -1986,7 +2020,8 @@ function syncTabelAToC() {
         const tw2 = existingData[index]?.tw2 || '';
         const tw3 = existingData[index]?.tw3 || '';
         const tw4 = existingData[index]?.tw4 || '';
-        const existingIndicatorType = existingData[index]?.indicatorType || indicatorType;
+        // Prioritaskan pilihan terbaru dari Tabel A agar perubahan positif/negatif tidak tertimpa nilai lama.
+        const existingIndicatorType = indicatorType || existingData[index]?.indicatorType || 'positif';
         
         const newRow = document.createElement('tr');
         newRow.innerHTML = `
@@ -2161,6 +2196,15 @@ function syncTabelAToTabel3() {
     // Ambil struktur yang ada
     let structure = getHierarchicalBudgetStructure();
     
+    // Jika struktur belum siap, jangan lanjutkan agar tidak error
+    if (!structure.programs || structure.programs.length === 0 || !structure.programs[0].kegiatan || structure.programs[0].kegiatan.length === 0) {
+        console.warn('Struktur tabel anggaran belum siap, lewati sync ke tabel 3');
+        return;
+    }
+    
+    // Simpan data subkegiatan yang sudah ada sebelumnya
+    const existingSubKegiatan = [...(structure.programs[0].kegiatan[0].subKegiatan || [])];
+    
     // Clear sub kegiatan yang ada
     structure.programs[0].kegiatan[0].subKegiatan = [];
     
@@ -2182,13 +2226,15 @@ function syncTabelAToTabel3() {
             subKegiatanName = `Sub Kegiatan ${index + 1}`;
         }
         
+        const existingData = existingSubKegiatan[index] || null;
+        
         structure.programs[0].kegiatan[0].subKegiatan.push({
             name: subKegiatanName,
             amount: target || '0',
-            tw1: '0',
-            tw2: '0',
-            tw3: '0',
-            tw4: '0'
+            tw1: existingData ? existingData.tw1 : '0',
+            tw2: existingData ? existingData.tw2 : '0',
+            tw3: existingData ? existingData.tw3 : '0',
+            tw4: existingData ? existingData.tw4 : '0'
         });
     });
     
@@ -2243,6 +2289,12 @@ function getHierarchicalBudgetStructure() {
     const tbody = document.getElementById('tabelProgram').querySelector('tbody');
     const rows = tbody.querySelectorAll('tr');
     
+    const cleanTWVal = (val) => {
+        if (!val) return 0;
+        const withoutDecimal = val.toString().split(',')[0];
+        return parseInt(withoutDecimal.replace(/[^\d]/g, ''), 10) || 0;
+    };
+    
     // Mapping antara nomor hierarki dengan data TW dari tabel keempat
     const twDataMap = {};
     const tbodyD = document.getElementById('hierarchical-budget-tbody');
@@ -2288,7 +2340,7 @@ function getHierarchicalBudgetStructure() {
         
         // Ambil anggaran dari input
         const anggaranInput = row.querySelector('input[type="text"]');
-        const amount = (anggaranInput?.value || '0').replace(/[^\d]/g, '');
+        const amount = anggaranInput ? cleanTWVal(anggaranInput.value) : 0;
         
         // Keterangan (source) - read from form element
         let ket = '';
@@ -2312,10 +2364,10 @@ function getHierarchicalBudgetStructure() {
                 name: name,
                 amount: amount,
                 source: ket,
-                tw1: twData.tw1,
-                tw2: twData.tw2,
-                tw3: twData.tw3,
-                tw4: twData.tw4,
+                tw1: cleanTWVal(twData.tw1),
+                tw2: cleanTWVal(twData.tw2),
+                tw3: cleanTWVal(twData.tw3),
+                tw4: cleanTWVal(twData.tw4),
                 kegiatan: []
             };
             structure.programs.push(currentProgram);
@@ -2325,10 +2377,10 @@ function getHierarchicalBudgetStructure() {
                 name: name,
                 amount: amount,
                 source: ket,
-                tw1: twData.tw1,
-                tw2: twData.tw2,
-                tw3: twData.tw3,
-                tw4: twData.tw4,
+                tw1: cleanTWVal(twData.tw1),
+                tw2: cleanTWVal(twData.tw2),
+                tw3: cleanTWVal(twData.tw3),
+                tw4: cleanTWVal(twData.tw4),
                 subKegiatan: []
             };
             currentProgram.kegiatan.push(currentKegiatan);
@@ -2338,10 +2390,10 @@ function getHierarchicalBudgetStructure() {
                 name: name,
                 amount: amount,
                 source: ket,
-                tw1: twData.tw1,
-                tw2: twData.tw2,
-                tw3: twData.tw3,
-                tw4: twData.tw4
+                tw1: cleanTWVal(twData.tw1),
+                tw2: cleanTWVal(twData.tw2),
+                tw3: cleanTWVal(twData.tw3),
+                tw4: cleanTWVal(twData.tw4)
             });
         }
     });
@@ -2355,14 +2407,18 @@ function getHierarchicalBudgetStructure() {
 function saveToSupabase(e) {
     e.preventDefault();
     
+    // Serialize hierarchical budget structure and set in hidden input
+    const hierarchicalStructure = getHierarchicalBudgetStructure();
+    const inputEl = document.getElementById('hierarchical-budget-json');
+    if (inputEl) {
+        inputEl.value = JSON.stringify(hierarchicalStructure);
+    }
+    
     const form = document.querySelector("form");
     const formData = new FormData(form);
     
-    // Serialize hierarchical budget structure and add to form
-    const hierarchicalStructure = getHierarchicalBudgetStructure();
     // Debug: log payload structure (amounts are digits-only strings)
     console.log('Hierarchical payload:', JSON.stringify(hierarchicalStructure, null, 2));
-    formData.append('hierarchical_budget_json', JSON.stringify(hierarchicalStructure));
     
     // Tampilkan loading
     const btn = e.target;
@@ -2413,7 +2469,7 @@ function saveToSupabase(e) {
         if (data.success) {
             showSuccessMessage(data.message || 'Berhasil disimpan.');
             setTimeout(() => {
-                window.location.href = '{{ auth()->check() && auth()->user()->isWadir() ? route("dashboard.wadir") : route("home", ["section" => "dashboard"]) }}';
+                window.location.href = '{{ auth()->check() && auth()->user()->isWadir() ? route("dashboard.wadir", ["panel" => "perjanjian"]) : route("home", ["section" => "dashboard"]) }}';
             }, 1200);
         } else {
             showErrorMessage(data.message || 'Gagal menyimpan data.');
@@ -2476,7 +2532,7 @@ function showErrorMessage(message) {
 // =========================
 // AUTO-FILL NAMA DAN NIP BERDASARKAN JABATAN
 // =========================
-// Pihak Kedua sudah otomatis terisi dengan data Direktur dari backend
+// Pihak Kedua sudah otomatis terisi dari backend berdasarkan jabatan/membawahi
 // Event listener tidak diperlukan lagi karena field readonly
 
 // =========================
@@ -2626,9 +2682,11 @@ function closePopupTTD() {
     document.getElementById("popupTTDKosong").style.display = "none";
 }
 
-// =========================
-// POPUP SUCCESS
-// =========================
+</script>
+
+<!-- =========================
+     POPUP SUCCESS
+     ========================= -->
 @if(session('success'))
 <div style="position:fixed; top:20px; right:20px; background:#009970; 
     color:white; padding:12px 20px; border-radius:8px; 
@@ -2642,6 +2700,5 @@ function closePopupTTD() {
     }, 3000);
 </script>
 @endif
-</script>
 
 @endsection

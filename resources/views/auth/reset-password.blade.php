@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buat Password Baru</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -246,7 +247,7 @@
                         required 
                         class="@error('password') error @enderror"
                     >
-                    <span class="toggle-password" onclick="togglePassword('password')">👁️</span>
+                    <span class="toggle-password" onclick="togglePassword('password', this)"><i class="fa-solid fa-eye"></i></span>
                 </div>
                 @error('password')
                     <small class="error-message">{{ $message }}</small>
@@ -262,12 +263,12 @@
                         placeholder="Konfirmasi Password" 
                         required
                     >
-                    <span class="toggle-password" onclick="togglePassword('password_confirmation')">👁️</span>
+                    <span class="toggle-password" onclick="togglePassword('password_confirmation', this)"><i class="fa-solid fa-eye"></i></span>
                 </div>
             </div>
 
             <div class="alert alert-warning">
-                <strong>💡 Tips:</strong> Gunakan ikon mata (👁️) untuk melihat password yang Anda ketik sebelum menyimpan.
+                <strong>💡 Tips:</strong> Gunakan ikon mata (<i class="fa-solid fa-eye"></i>) untuk melihat password yang Anda ketik sebelum menyimpan.
             </div>
 
             <button type="submit">SIMPAN</button>
@@ -280,12 +281,17 @@
     </div>
 
     <script>
-        function togglePassword(inputId) {
+        function togglePassword(inputId, el) {
             const input = document.getElementById(inputId);
+            const icon = el.querySelector('i');
             if (input.type === 'password') {
                 input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
             } else {
                 input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         }
     </script>

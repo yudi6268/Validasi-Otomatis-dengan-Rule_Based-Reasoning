@@ -66,7 +66,7 @@
                             <small class="text-muted">{{ $user->pangkat }}</small>
                         </td>
                         <td>
-                            <small>{{ $user->created_at->format('d/m/Y H:i') }}</small>
+                            <small>{{ $user->created_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}</small>
                             <br>
                             <small class="text-muted">{{ $user->created_at->diffForHumans() }}</small>
                         </td>

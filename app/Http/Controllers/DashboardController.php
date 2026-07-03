@@ -9,8 +9,10 @@ use App\Models\Notification;
 use App\Models\Perjanjian;
 use App\Models\Laporan;
 use App\Models\Setting;
+use App\Services\RuleBasedReasoningService;
 use App\Services\SupabaseService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
@@ -25,32 +27,17 @@ class DashboardController extends Controller
             return redirect()->route('login');
         }
         
-        // Redirect berdasarkan jabatan
-        $jabatan = $user->jabatan;
-        
-        // Direktur
-        if ($jabatan === 'Direktur') {
+        // Admin tetap ke panel admin, semua non-admin ke dashboard wadir bersama
+        if ($user->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+
+        // Direktur tetap memakai dashboard direktur
+        if ($user->jabatan === 'Direktur') {
             return redirect()->route('dashboard.direktur');
         }
-        
-        // Wakil Direktur (Umum, Pelayanan, dan Perencanaan/Keuangan digabung)
-        if ($jabatan === 'Wakil Direktur Umum dan Keuangan' || $jabatan === 'Wakil Direktur Pelayanan' || $jabatan === 'Wakil Direktur Perencanaan dan Keuangan') {
-            return redirect()->route('dashboard.wadir');
-        }
-        
-        // Kepala Bagian dan Kepala Bidang (Kabag.Kabid digabung)
-        if (strpos($jabatan, 'Kabag') !== false || strpos($jabatan, 'Kepala Bagian') !== false ||
-            strpos($jabatan, 'Kabid') !== false || strpos($jabatan, 'Kepala Bidang') !== false) {
-            return redirect()->route('dashboard.kabag.kabid');
-        }
-        
-        // Katimker/Staf (dahulu Kasi)
-        if (strpos($jabatan, 'Kasi') !== false || strpos($jabatan, 'Kepala Seksi') !== false) {
-            return redirect()->route('dashboard.katimker.staf');
-        }
-        
-        // Default ke home untuk staff dan lainnya
-        return redirect()->route('home');
+
+        return redirect()->route('dashboard.wadir');
     }
     
     /**
@@ -63,151 +50,43 @@ class DashboardController extends Controller
         $this->supabase = $supabase;
     }
 
+    private function resolveDashboardRouteForUser($user): ?string
+    {
+        if (!$user) {
+            return null;
+        }
+
+        if ($user->role === 'admin') {
+            return 'admin.dashboard';
+        }
+
+        $jabatan = (string) $user->jabatan;
+
+        if ($jabatan === 'Direktur') {
+            return 'dashboard.direktur';
+        }
+
+        if (in_array($jabatan, ['Wakil Direktur Umum dan Keuangan', 'Wakil Direktur Pelayanan', 'Wakil Direktur Perencanaan dan Keuangan'], true)) {
+            return 'dashboard.wadir';
+        }
+
+        if (strpos($jabatan, 'Kabag') !== false || strpos($jabatan, 'Kepala Bagian') !== false ||
+            strpos($jabatan, 'Kabid') !== false || strpos($jabatan, 'Kepala Bidang') !== false) {
+            return 'dashboard.kabag.kabid';
+        }
+
+        if (strpos($jabatan, 'Kasi') !== false || strpos($jabatan, 'Kepala Seksi') !== false ||
+            strpos($jabatan, 'Katimker') !== false || strpos($jabatan, 'Staf') !== false) {
+            return 'dashboard.katimker.staf';
+        }
+
+        return null;
+    }
+
     public function home(Request $request)
     {
         $user = Auth::user();
-        $activeSection = $request->query('section', 'dashboard');
-        $showNotificationModal = $request->session()->pull('show_notification_modal', false);
-
-        $homeNotification = null;
-        $shouldShowHomeNotification = false;
-
-        if ($showNotificationModal && $activeSection === 'dashboard') {
-            $homeNotification = Notification::where(function ($query) use ($user) {
-                    $query->where('user_id', $user->id)
-                          ->orWhereNull('user_id');
-                })
-                ->where('is_read', false)
-                ->latest('created_at')
-                ->first();
-
-            $shouldShowHomeNotification = $homeNotification !== null;
-        }
-
-        $chartPerjanjian = Perjanjian::where('user_id', $user->id)
-            ->latest('updated_at')
-            ->first();
-        $userChartData = $this->buildUserDashboardChartData($chartPerjanjian);
-
-        // Try to fetch perjanjian data from Supabase first. If it fails, fallback to local DB.
-        try {
-            $filters = [
-                'user_id' => 'eq.' . $user->id,
-                'select' => '*',
-                'order' => 'created_at.desc',
-                'limit' => 100
-            ];
-            $res = $this->supabase->select('perjanjians', $filters);
-
-            if (!empty($res['success']) && !empty($res['data'])) {
-                $items = collect($res['data'])->map(function($row) {
-                    // Normalize array to object with expected fields
-                    $obj = (object) $row;
-                    if (isset($obj->created_at)) {
-                        try { $obj->created_at = Carbon::parse($obj->created_at); } catch (\Exception $e) { $obj->created_at = null; }
-                    }
-                    return $obj;
-                });
-
-                $totalPerjanjian = $items->count();
-                $perjanjianApproved = $items->filter(function($i){
-                    return !empty($i->pihak2_signature) && (empty($i->rejected) || $i->rejected == false || $i->rejected == 0);
-                })->count();
-                $perjanjianWaiting = $items->filter(function($i){
-                    return empty($i->pihak2_signature) && (empty($i->rejected) || $i->rejected == false || $i->rejected == 0);
-                })->count();
-                $perjanjianRejected = $items->filter(function($i){
-                    return !empty($i->rejected) && ($i->rejected == true || $i->rejected == 1 || $i->rejected === '1');
-                })->count();
-
-                $perjanjians = $items->take(5);
-
-                $laporans = Laporan::whereHas('perjanjian', function($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                })->latest()->get();
-
-                $laporanTotal = $laporans->count();
-                $laporanValidated = $laporans->filter(function($laporan) {
-                    return !empty($laporan->kesimpulan);
-                })->count();
-                $laporanWaiting = $laporans->filter(function($laporan) {
-                    $hasRealisasi = false;
-                    for ($tw = 1; $tw <= 4; $tw++) {
-                        if (!empty($laporan->{'realisasi_tb' . $tw})) {
-                            $hasRealisasi = true;
-                            break;
-                        }
-                    }
-                    return $hasRealisasi && empty($laporan->kesimpulan);
-                })->count();
-                $laporanRejected = $laporans->filter(function($laporan) {
-                    return !empty($laporan->tanggapan_pimpinan) && empty($laporan->kesimpulan);
-                })->count();
-                $laporansLatest = $laporans->take(5);
-
-                return view('home', compact('activeSection', 'totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians', 'laporanTotal', 'laporanValidated', 'laporanWaiting', 'laporanRejected', 'laporansLatest', 'userChartData', 'homeNotification', 'shouldShowHomeNotification'));
-            }
-
-            // If supabase select returned no data or failed, fallthrough to DB
-        } catch (\Exception $e) {
-            // log and continue to fallback
-            Log::warning('Supabase fetch failed in DashboardController@home: ' . $e->getMessage());
-        }
-
-        // Fallback to local DB queries to avoid zeroing data when supabase is unreachable
-        $totalPerjanjian = Perjanjian::where('user_id', $user->id)->count();
-        $perjanjianApproved = Perjanjian::where('user_id', $user->id)
-            ->whereNotNull('pihak2_signature')
-            ->where(function($q) {
-                $q->whereNull('rejected')
-                  ->orWhere('rejected', false)
-                  ->orWhere('rejected', 0)
-                  ->orWhere('rejected', '0');
-            })
-            ->count();
-        $perjanjianWaiting = Perjanjian::where('user_id', $user->id)
-            ->whereNull('pihak2_signature')
-            ->where(function($q) {
-                $q->whereNull('rejected')
-                  ->orWhere('rejected', false)
-                  ->orWhere('rejected', 0)
-                  ->orWhere('rejected', '0');
-            })
-            ->count();
-        $perjanjianRejected = Perjanjian::where('user_id', $user->id)
-            ->where(function($q){
-                $q->where('rejected', true)
-                  ->orWhere('rejected', 1)
-                  ->orWhere('rejected', '1');
-            })
-            ->count();
-
-        $perjanjians = Perjanjian::where('user_id', $user->id)->latest()->take(5)->get();
-
-        $laporans = Laporan::whereHas('perjanjian', function($q) use ($user) {
-            $q->where('user_id', $user->id);
-        })->latest()->get();
-
-        $laporanTotal = $laporans->count();
-        $laporanValidated = $laporans->filter(function($laporan) {
-            return !empty($laporan->kesimpulan);
-        })->count();
-        $laporanWaiting = $laporans->filter(function($laporan) {
-            $hasRealisasi = false;
-            for ($tw = 1; $tw <= 4; $tw++) {
-                if (!empty($laporan->{'realisasi_tb' . $tw})) {
-                    $hasRealisasi = true;
-                    break;
-                }
-            }
-            return $hasRealisasi && empty($laporan->kesimpulan);
-        })->count();
-        $laporanRejected = $laporans->filter(function($laporan) {
-            return !empty($laporan->tanggapan_pimpinan) && empty($laporan->kesimpulan);
-        })->count();
-        $laporansLatest = $laporans->take(5);
-
-        return view('home', compact('activeSection', 'totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected', 'perjanjians', 'laporanTotal', 'laporanValidated', 'laporanWaiting', 'laporanRejected', 'laporansLatest', 'userChartData', 'homeNotification', 'shouldShowHomeNotification'));
+        return redirect()->route('dashboard.wadir');
     }
 
     private function buildUserDashboardChartData(?Perjanjian $perjanjian): array
@@ -255,13 +134,132 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Statistik perjanjian panel Wadir: samakan classifier status dengan halaman perjanjian.
-        $wadirPerjanjianItems = Perjanjian::where(function($q) use ($user) {
-            $q->where('pihak2_name', $user->nama)
-                ->orWhere('pihak2_jabatan', $user->jabatan)
-                ->orWhere('pihak2_nip', $user->nip)
-                ->orWhere('user_id', $user->id);
-        })->get();
+        if ($user?->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        $matchesCreatorIdentity = function ($query) use ($user) {
+            $normalizedNama = trim((string) ($user->nama ?? ''));
+            $normalizedJabatan = trim((string) ($user->jabatan ?? ''));
+            $normalizedNip = trim((string) ($user->nip ?? ''));
+            $normalizedNipDigits = preg_replace('/\D+/', '', $normalizedNip);
+
+            $query->orWhere('user_id', $user->id);
+
+            $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip, $normalizedNipDigits) {
+                if ($normalizedNama !== '') {
+                    $q->whereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama])
+                      ->orWhereRaw('LOWER(TRIM(pihak1_name)) LIKE LOWER(TRIM(?))', ['%' . $normalizedNama . '%']);
+                }
+
+                if ($normalizedJabatan !== '') {
+                    $q->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan])
+                      ->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) LIKE LOWER(TRIM(?))', ['%' . $normalizedJabatan . '%']);
+                }
+
+                if ($normalizedNip !== '') {
+                    $q->orWhereRaw("LOWER(REPLACE(TRIM(COALESCE(pihak1_nip, '')), ' ', '')) = LOWER(REPLACE(TRIM(?), ' ', ''))", [$normalizedNip]);
+                }
+
+                if (!empty($normalizedNipDigits)) {
+                    $q->orWhereRaw("regexp_replace(COALESCE(pihak1_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits]);
+                }
+            });
+        };
+
+        $matchesPihakKeduaIdentity = function ($query) use ($user) {
+            $normalizedNama = trim((string) ($user->nama ?? ''));
+            $normalizedJabatan = trim((string) ($user->jabatan ?? ''));
+            $normalizedNip = trim((string) ($user->nip ?? ''));
+            $normalizedNipDigits = preg_replace('/\D+/', '', $normalizedNip);
+
+            $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip, $normalizedNipDigits) {
+                // Identitas pihak kedua dibuat ketat agar nama sama lintas akun tidak masuk bersamaan.
+                if (!empty($normalizedNipDigits)) {
+                    if ($normalizedJabatan !== '') {
+                        $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits])
+                          ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+                    } else {
+                        $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits]);
+                    }
+                } elseif ($normalizedNip !== '') {
+                    if ($normalizedJabatan !== '') {
+                        $q->whereRaw("LOWER(REPLACE(TRIM(COALESCE(pihak2_nip, '')), ' ', '')) = LOWER(REPLACE(TRIM(?), ' ', ''))", [$normalizedNip])
+                          ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+                    } else {
+                        $q->whereRaw("LOWER(REPLACE(TRIM(COALESCE(pihak2_nip, '')), ' ', '')) = LOWER(REPLACE(TRIM(?), ' ', ''))", [$normalizedNip]);
+                    }
+                }
+
+                if ($normalizedNama !== '' && $normalizedJabatan !== '') {
+                    $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
+                        $qq->whereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama])
+                           ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
+                    });
+
+                    $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
+                        $qq->whereRaw('LOWER(TRIM(pihak2_name)) LIKE LOWER(TRIM(?))', ['%#' . $normalizedNama . '%'])
+                           ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
+                    });
+
+                    return;
+                }
+
+                if ($normalizedNama !== '' && $normalizedJabatan === '') {
+                    $q->orWhereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama]);
+                }
+            });
+        };
+
+        $jabatanLower = strtolower((string) ($user->jabatan ?? ''));
+        $isPihakKeduaMode = str_contains($jabatanLower, 'direktur') || str_contains($jabatanLower, 'wadir') || str_contains($jabatanLower, 'wakil direktur');
+
+        // Role user harus selalu melihat perjanjian yang dia buat.
+        // Untuk jabatan pimpinan/wadir, tetap tampilkan juga perjanjian saat menjadi pihak kedua.
+        if ($user->role === 'user') {
+            $wadirPerjanjianItems = Perjanjian::with('user')->where(function ($q) use ($matchesCreatorIdentity, $matchesPihakKeduaIdentity, $isPihakKeduaMode) {
+                $matchesCreatorIdentity($q);
+
+                if ($isPihakKeduaMode) {
+                    $matchesPihakKeduaIdentity($q);
+                }
+            })->get();
+        } else {
+            // Akun pimpinan/direktur fokus sebagai pihak kedua agar akun nama sama beda role tidak saling tarik data.
+            if ($isPihakKeduaMode) {
+                $wadirPerjanjianItems = Perjanjian::with('user')->where(function ($q) use ($matchesPihakKeduaIdentity) {
+                    $matchesPihakKeduaIdentity($q);
+                })->get();
+            } else {
+                // Statistik perjanjian panel Wadir: samakan classifier status dengan halaman perjanjian.
+                $wadirPerjanjianItems = Perjanjian::with('user')->where(function ($q) use ($matchesCreatorIdentity) {
+                        $matchesCreatorIdentity($q);
+                    })
+                    ->orWhere(function ($q) use ($matchesPihakKeduaIdentity) {
+                        $matchesPihakKeduaIdentity($q);
+                    })
+                    ->get();
+            }
+        }
+
+        // Jika pihak kedua menggunakan format tag (#), pastikan data pihak pertama
+        // mereferensikan user pembuat perjanjian (user yang melakukan tagging).
+        $wadirPerjanjianItems->each(function ($item) {
+            $pihak2Name = strtolower((string) ($item->pihak2_name ?? ''));
+            if (!str_contains($pihak2Name, '#')) {
+                return;
+            }
+
+            $creator = $item->user;
+            if (!$creator) {
+                return;
+            }
+
+            $item->pihak1_name = $creator->nama ?? $item->pihak1_name;
+            $item->pihak1_jabatan = $creator->jabatan ?? $item->pihak1_jabatan;
+            $item->pihak1_nip = $creator->nip ?? $item->pihak1_nip;
+            $item->pihak1_pangkat = $creator->pangkat ?? $item->pihak1_pangkat;
+        });
 
         $normalizeStatus = function ($item) {
             $status = strtolower((string) ($item->status ?? ''));
@@ -269,6 +267,9 @@ class DashboardController extends Controller
             // Utamakan indikator faktual agar status stale di kolom `status` tidak menyesatkan panel.
             if (!empty($item->rejected) && (string) $item->rejected !== '0') {
                 return 'ditolak';
+            }
+            if ($status === 'disetujui' && empty($item->pihak2_signature)) {
+                return 'menunggu';
             }
             if (!empty($item->pihak2_signature)) {
                 return 'disetujui';
@@ -306,13 +307,29 @@ class DashboardController extends Controller
             return $normalizeStatus($item) === 'menunggu';
         })->count();
 
+        $perjanjianItems = $wadirPerjanjianItems
+            ->sortByDesc('updated_at')
+            ->map(function ($item) use ($normalizeStatus) {
+                return [
+                    'id' => $item->id,
+                    'nomor_perjanjian' => $item->nomor_perjanjian,
+                    'pihak1_name' => $item->pihak1_name,
+                    'pihak2_name' => $item->pihak2_name,
+                    'status' => $normalizeStatus($item),
+                    'agreement_date' => optional($item->agreement_date)->format('d M Y'),
+                    'created_at' => optional($item->created_at)->format('d M Y'),
+                    'document_url' => route('perjanjian.print', ['id' => $item->id]),
+                ];
+            })
+            ->values();
+
         // Data perjanjian disetujui untuk turunan data laporan/chart Wadir.
         // Gunakan classifier status yang sama agar otomatis sinkron saat status berubah.
         $perjanjians = $wadirPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
             return $normalizeStatus($item) === 'disetujui';
         })->values();
 
-        $chartPerjanjian = $perjanjians->sortByDesc('updated_at')->first();
+        $chartPerjanjian = null;
         $chartLaporan = null;
         $chartData = [
             'kinerja_labels' => [],
@@ -323,13 +340,50 @@ class DashboardController extends Controller
             'keuangan_realisasi' => [0, 0, 0, 0],
         ];
 
-        if ($chartPerjanjian) {
-            $chartLaporan = Laporan::where('perjanjian_id', $chartPerjanjian->id)
-                ->orderByDesc('updated_at')
-                ->orderByDesc('id')
+        if ($user->role === 'user') {
+            $chartPerjanjian = $wadirPerjanjianItems
+                ->filter(function ($item) use ($normalizeStatus, $user) {
+                    return (int) $item->user_id === (int) $user->id && $normalizeStatus($item) === 'disetujui';
+                })
+                ->sortByDesc('updated_at')
                 ->first();
 
-            $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
+            if ($chartPerjanjian) {
+                $chartLaporan = Laporan::where('perjanjian_id', $chartPerjanjian->id)
+                    ->orderByDesc('updated_at')
+                    ->orderByDesc('id')
+                    ->first();
+
+                $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
+            }
+        } else {
+            $isPimpinanChartAccount = str_contains($jabatanLower, 'direktur') || str_contains($jabatanLower, 'wadir') || str_contains($jabatanLower, 'wakil direktur');
+
+            if ($isPimpinanChartAccount) {
+                $wadirApprovedPerjanjians = Perjanjian::with('user')
+                    ->whereHas('user', function ($q) {
+                        $q->whereRaw('LOWER(TRIM(jabatan)) LIKE ?', ['%wakil direktur%']);
+                    })
+                    ->get()
+                    ->filter(function ($item) use ($normalizeStatus) {
+                        return $normalizeStatus($item) === 'disetujui';
+                    })
+                    ->values();
+
+                if ($wadirApprovedPerjanjians->isNotEmpty()) {
+                    $chartData = $this->buildAggregatedWadirChartData($wadirApprovedPerjanjians);
+                }
+            } else {
+                $chartPerjanjian = $perjanjians->sortByDesc('updated_at')->first();
+                if ($chartPerjanjian) {
+                    $chartLaporan = Laporan::where('perjanjian_id', $chartPerjanjian->id)
+                        ->orderByDesc('updated_at')
+                        ->orderByDesc('id')
+                        ->first();
+
+                    $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
+                }
+            }
         }
 
         // Build simple notifications from recent laporans (fallback)
@@ -345,8 +399,12 @@ class DashboardController extends Controller
                                 ];
                             });
 
-        // Compute modal counts for dashboard using collection operations to avoid SQL on missing columns
-        $perjanjianIds = $perjanjians->pluck('id')->toArray();
+        // Compute modal counts for dashboard using collection operations to avoid SQL on missing columns.
+        // Gunakan SEMUA perjanjian terkait Wadir agar laporan tetap terlihat saat perjanjian dikembalikan untuk edit.
+        $perjanjianIds = $wadirPerjanjianItems->pluck('id')->toArray();
+        $perjanjianStatusById = $wadirPerjanjianItems->mapWithKeys(function ($p) use ($normalizeStatus) {
+            return [$p->id => $normalizeStatus($p)];
+        });
 
         // Fetch related laporans into collection (single query)
         $laporansForWaiting = \App\Models\Laporan::whereIn('perjanjian_id', $perjanjianIds)->get();
@@ -355,8 +413,9 @@ class DashboardController extends Controller
         $totalLaporan = $laporansForWaiting->count();
 
         // Laporan yang ditandatangani/approved by pimpinan (from fetched collection)
-        $laporanApprovedByPimpinan = $laporansForWaiting->filter(function($l){
-            return !empty($l->pihak2_signature);
+        $laporanApprovedByPimpinan = $laporansForWaiting->filter(function($l) use ($perjanjianStatusById){
+            $perjanjianStatus = $perjanjianStatusById[$l->perjanjian_id] ?? 'terkirim';
+            return $perjanjianStatus === 'disetujui' && !empty($l->pihak2_signature);
         })->count();
 
         // Laporan yang divalidasi (heuristic: kesimpulan tidak kosong) — computed in PHP to avoid missing-column SQL
@@ -367,15 +426,21 @@ class DashboardController extends Controller
         // Laporan menunggu reviu: memiliki minimal 1 realisasi triwulan, tetapi belum ada kesimpulan/tanggapan
         $laporanWaitingReviewCount = 0;
         foreach ($laporansForWaiting as $lap) {
+            $perjanjianStatus = $perjanjianStatusById[$lap->perjanjian_id] ?? 'terkirim';
+
+            // Jika parent perjanjian tidak disetujui (mis. dikembalikan untuk edit),
+            // paksa laporan berada pada status menunggu.
+            if ($perjanjianStatus !== 'disetujui') {
+                $laporanWaitingReviewCount++;
+                continue;
+            }
+
             $hasRealisasi = false;
             for ($tw = 1; $tw <= 4; $tw++) {
                 $field = 'realisasi_tb' . $tw;
                 if (!empty($lap->{$field})) { $hasRealisasi = true; break; }
             }
-            $hasKesimpulan = !empty($lap->kesimpulan);
-            $hasTanggapan = !empty($lap->tanggapan_pimpinan);
-
-            if ($hasRealisasi && !$hasKesimpulan && !$hasTanggapan) {
+            if ($hasRealisasi && empty($lap->pihak2_signature) && (empty($lap->rejected) || $lap->rejected == false || $lap->rejected == 0 || $lap->rejected === '0')) {
                 $laporanWaitingReviewCount++;
             }
         }
@@ -397,18 +462,23 @@ class DashboardController extends Controller
         }
 
         // Build laporan items with computed status for the preview modal
-        $laporanItems = $laporansForWaiting->map(function($l) {
+        $laporanItems = $laporansForWaiting->map(function($l) use ($perjanjianStatusById) {
             $hasRealisasi = false;
             for ($tw = 1; $tw <= 4; $tw++) {
                 if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
             }
-            $status = 'terkirim';
-            if (!empty($l->pihak2_signature)) {
-                $status = 'disetujui';
-            } elseif (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan)) {
-                $status = 'ditolak';
-            } elseif ($hasRealisasi && empty($l->kesimpulan) && empty($l->tanggapan_pimpinan)) {
+            $perjanjianStatus = $perjanjianStatusById[$l->perjanjian_id] ?? 'terkirim';
+
+            if ($perjanjianStatus !== 'disetujui') {
                 $status = 'menunggu';
+            } elseif (!empty($l->pihak2_signature)) {
+                $status = 'disetujui';
+            } elseif ($hasRealisasi && empty($l->pihak2_signature) && (empty($l->rejected) || $l->rejected == false || $l->rejected == 0 || $l->rejected === '0')) {
+                $status = 'menunggu';
+            } elseif ((!empty($l->rejected) && (string) $l->rejected !== '0') || (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan))) {
+                $status = 'ditolak';
+            } else {
+                $status = 'terkirim';
             }
             return [
                 'id'               => $l->id,
@@ -435,12 +505,37 @@ class DashboardController extends Controller
 
         // Check if active triwulan has already been validated
         $isActiveTrwValidated = false;
+
+        // Sumber data panel validasi:
+        // - Untuk akun Wadir/Direktur (pihak kedua), gunakan seluruh perjanjian yang direview.
+        // - Untuk akun user biasa, batasi ke perjanjian milik sendiri.
+        $validasiPerjanjianIds = $isPihakKeduaMode
+            ? $wadirPerjanjianItems->pluck('id')
+            : $ownPerjanjianIds;
+
+        $validasiLaporanItems = $laporansForWaiting
+            ->whereIn('perjanjian_id', $validasiPerjanjianIds->toArray())
+            ->sortByDesc('updated_at')
+            ->sortByDesc('id')
+            ->values()
+            ->map(function ($l) {
+                return [
+                    'id' => $l->id,
+                    'perjanjian_id' => $l->perjanjian_id,
+                    'triwulan_aktif' => $l->triwulan_aktif,
+                    'tahun' => $l->tahun ?? null,
+                    'periode' => $l->periode ?? null,
+                    'uraian_kegiatan' => $l->uraian_kegiatan ?? 'Laporan Kinerja',
+                ];
+            })
+            ->values();
         $setting = Setting::where('key', 'triwulan_aktif')->first();
         $triwulanAktif = $setting ? $setting->value : 1;
         $userPerjanjian = $wadirPerjanjianItems->firstWhere('user_id', $user->id);
         if ($userPerjanjian) {
             $userLaporan = \App\Models\Laporan::where('perjanjian_id', $userPerjanjian->id)->latest()->first();
-            if ($userLaporan && $userLaporan->hasValidationForTriwulan($triwulanAktif)) {
+            $userPerjanjianStatus = $normalizeStatus($userPerjanjian);
+            if ($userPerjanjianStatus === 'disetujui' && $userLaporan && $userLaporan->hasValidationForTriwulan($triwulanAktif)) {
                 $isActiveTrwValidated = true;
             }
         }
@@ -456,7 +551,9 @@ class DashboardController extends Controller
             ->with('laporanRejectedCount', $laporanRejectedCount)
             ->with('isActiveTrwValidated', $isActiveTrwValidated)
             ->with('laporanItems', $laporanItems)
+                ->with('perjanjianItems', $perjanjianItems)
             ->with('ownLaporanTriwulans', $ownLaporanTriwulans)
+            ->with('validasiLaporanItems', $validasiLaporanItems)
             ->with('pdfPerjanjianId', $pdfPerjanjianId)
             ->with('pdfTriwulanAvailability', $pdfTriwulanAvailability);
     }
@@ -614,11 +711,7 @@ class DashboardController extends Controller
         $leafRowLookup = array_fill_keys($leafRowIds, true);
 
         for ($tw = 1; $tw <= 4; $tw++) {
-            $laporan = Laporan::where('perjanjian_id', $perjanjianId)
-                ->where('triwulan_aktif', $tw)
-                ->orderByDesc('updated_at')
-                ->orderByDesc('id')
-                ->first();
+            $laporan = $this->resolveLaporanForTriwulan($perjanjianId, $tw);
 
             if (!$laporan) {
                 continue;
@@ -642,39 +735,58 @@ class DashboardController extends Controller
         $normalized = $this->normalizeTabelCPrograms($tabelC);
         $rowIds = [];
 
-        foreach ($normalized['programs'] ?? [] as $program) {
+        foreach (($normalized['programs'] ?? []) as $programIndex => $program) {
             if (is_array($program)) {
-                $this->collectKeuanganLeafRowIdsFromNode($program, $rowIds);
+                $this->collectKeuanganLeafRowIdsFromNode($program, $rowIds, null, (int) $programIndex + 1, null, null);
             }
         }
 
         return array_values(array_unique($rowIds));
     }
 
-    private function collectKeuanganLeafRowIdsFromNode(array $node, array &$rowIds): void
+    private function collectKeuanganLeafRowIdsFromNode(
+        array $node,
+        array &$rowIds,
+        ?string $parentNo = null,
+        ?int $programIndex = null,
+        ?int $kegiatanIndex = null,
+        ?int $subIndex = null
+    ): void
     {
+        $rawNo = trim((string) ($node['no'] ?? ''));
+        if ($rawNo !== '') {
+            $resolvedNo = $rawNo;
+        } elseif ($parentNo === null && $programIndex !== null) {
+            $resolvedNo = 'p' . $programIndex;
+        } elseif ($parentNo !== null && $kegiatanIndex !== null) {
+            $resolvedNo = $parentNo . '.k' . $kegiatanIndex;
+        } elseif ($parentNo !== null && $subIndex !== null) {
+            $resolvedNo = $parentNo . '.s' . $subIndex;
+        } else {
+            $resolvedNo = $parentNo ?? '';
+        }
+
         $hasKegiatan = !empty($node['kegiatan']) && is_array($node['kegiatan']);
         $hasSubKegiatan = !empty($node['subKegiatan']) && is_array($node['subKegiatan']);
 
         if ($hasKegiatan || $hasSubKegiatan) {
-            foreach ($node['kegiatan'] ?? [] as $kegiatan) {
+            foreach (($node['kegiatan'] ?? []) as $index => $kegiatan) {
                 if (is_array($kegiatan)) {
-                    $this->collectKeuanganLeafRowIdsFromNode($kegiatan, $rowIds);
+                    $this->collectKeuanganLeafRowIdsFromNode($kegiatan, $rowIds, $resolvedNo, null, (int) $index + 1, null);
                 }
             }
 
-            foreach ($node['subKegiatan'] ?? [] as $subKegiatan) {
+            foreach (($node['subKegiatan'] ?? []) as $index => $subKegiatan) {
                 if (is_array($subKegiatan)) {
-                    $this->collectKeuanganLeafRowIdsFromNode($subKegiatan, $rowIds);
+                    $this->collectKeuanganLeafRowIdsFromNode($subKegiatan, $rowIds, $resolvedNo, null, null, (int) $index + 1);
                 }
             }
 
             return;
         }
 
-        $no = trim((string) ($node['no'] ?? ''));
-        if ($no !== '') {
-            $rowIds[] = 'anggaran-' . $no;
+        if ($resolvedNo !== '') {
+            $rowIds[] = 'anggaran-' . strtolower($resolvedNo);
         }
     }
 
@@ -718,18 +830,42 @@ class DashboardController extends Controller
 
     private function buildWadirChartData(Perjanjian $perjanjian, ?Laporan $laporan): array
     {
-        $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB ?? '[]', true);
         $tabelC = is_array($perjanjian->tabelC) ? $perjanjian->tabelC : json_decode($perjanjian->tabelC ?? '[]', true);
-        $kinerjaTargetByTriwulan = $this->extractKinerjaTargetsByTriwulan($tabelB);
-        $kinerjaRealisasiByTriwulan = $this->extractKinerjaRealisasiByTriwulan((int) $perjanjian->id);
         $targetKeuangan = $this->extractKeuanganTargetsByTriwulan($tabelC);
         $realisasiKeuangan = $this->extractKeuanganRealisasiByTriwulan((int) $perjanjian->id, $tabelC);
 
         $kinerjaPersen = [];
         $anggaranPersen = [];
-        for ($index = 0; $index < 4; $index++) {
-            $kinerjaPersen[] = $this->calculatePercentage($kinerjaRealisasiByTriwulan[$index] ?? 0, $kinerjaTargetByTriwulan[$index] ?? 0);
-            $anggaranPersen[] = $this->calculatePercentage($realisasiKeuangan[$index] ?? 0, $targetKeuangan[$index] ?? 0);
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $twLaporan = $this->resolveLaporanForTriwulan((int) $perjanjian->id, $tw);
+                
+            $avgKinerjaPct = 0.0;
+            if ($twLaporan) {
+                $raw = $twLaporan->{'realisasi_tb' . $tw} ?? null;
+                $parsed = is_string($raw) ? json_decode($raw, true) : $raw;
+                if (is_array($parsed) && isset($parsed['rows']) && is_array($parsed['rows'])) {
+                    $kinerjaPcts = [];
+                    foreach ($parsed['rows'] as $row) {
+                        if (isset($row['row']) && str_starts_with($row['row'], 'kinerja-')) {
+                            $targetVal = isset($row['target']) ? floatval($row['target']) : null;
+                            $realVal = isset($row['realisasi']) ? floatval($row['realisasi']) : null;
+                            $indicatorType = $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif');
+                            $performancePct = $this->calculatePerformancePercentage($targetVal, $realVal, $indicatorType);
+                            if ($performancePct !== null) {
+                                $kinerjaPcts[] = $performancePct;
+                            } elseif (isset($row['performance_pct']) && $row['performance_pct'] !== null && $row['performance_pct'] !== '') {
+                                // Fallback data lama jika target/realisasi tidak lengkap.
+                                $kinerjaPcts[] = floatval($row['performance_pct']);
+                            }
+                        }
+                    }
+                    if (count($kinerjaPcts) > 0) {
+                        $avgKinerjaPct = array_sum($kinerjaPcts) / count($kinerjaPcts);
+                    }
+                }
+            }
+            $kinerjaPersen[] = round($avgKinerjaPct, 2);
+            $anggaranPersen[] = $this->calculatePercentage($realisasiKeuangan[$tw - 1] ?? 0, $targetKeuangan[$tw - 1] ?? 0);
         }
 
         return [
@@ -740,6 +876,93 @@ class DashboardController extends Controller
             'keuangan_targets' => $targetKeuangan,
             'keuangan_realisasi' => $realisasiKeuangan,
         ];
+    }
+
+    private function buildAggregatedWadirChartData(Collection $perjanjians): array
+    {
+        $sumTargets = [0, 0, 0, 0];
+        $sumRealisasi = [0, 0, 0, 0];
+        $sumKinerjaPersen = [0, 0, 0, 0];
+        $sumAnggaranPersen = [0, 0, 0, 0];
+        $count = 0;
+
+        foreach ($perjanjians as $perjanjian) {
+            if (!$perjanjian instanceof Perjanjian) {
+                continue;
+            }
+
+            $singleChart = $this->buildWadirChartData($perjanjian, null);
+            $count++;
+
+            for ($i = 0; $i < 4; $i++) {
+                $sumTargets[$i] += (float) ($singleChart['keuangan_targets'][$i] ?? 0);
+                $sumRealisasi[$i] += (float) ($singleChart['keuangan_realisasi'][$i] ?? 0);
+                $sumKinerjaPersen[$i] += (float) ($singleChart['kinerja_realisasi_kinerja_persen'][$i] ?? 0);
+                $sumAnggaranPersen[$i] += (float) ($singleChart['kinerja_realisasi_anggaran_persen'][$i] ?? 0);
+            }
+        }
+
+        if ($count <= 0) {
+            return [
+                'kinerja_labels' => ['Triwulan 1','Triwulan 2','Triwulan 3','Triwulan 4'],
+                'kinerja_realisasi_kinerja_persen' => [0, 0, 0, 0],
+                'kinerja_realisasi_anggaran_persen' => [0, 0, 0, 0],
+                'keuangan_labels' => ['Triwulan 1','Triwulan 2','Triwulan 3','Triwulan 4'],
+                'keuangan_targets' => [0, 0, 0, 0],
+                'keuangan_realisasi' => [0, 0, 0, 0],
+            ];
+        }
+
+        $avgKinerjaPersen = array_map(function ($value) use ($count) {
+            return round($value / $count, 2);
+        }, $sumKinerjaPersen);
+
+        $avgAnggaranPersen = array_map(function ($value) use ($count) {
+            return round($value / $count, 2);
+        }, $sumAnggaranPersen);
+
+        return [
+            'kinerja_labels' => ['Triwulan 1','Triwulan 2','Triwulan 3','Triwulan 4'],
+            'kinerja_realisasi_kinerja_persen' => $avgKinerjaPersen,
+            'kinerja_realisasi_anggaran_persen' => $avgAnggaranPersen,
+            'keuangan_labels' => ['Triwulan 1','Triwulan 2','Triwulan 3','Triwulan 4'],
+            'keuangan_targets' => $sumTargets,
+            'keuangan_realisasi' => $sumRealisasi,
+        ];
+    }
+
+    private function resolveLaporanForTriwulan(int $perjanjianId, int $tw): ?Laporan
+    {
+        $field = 'realisasi_tb' . $tw;
+
+        // Prioritas 1: record yang memang ditandai triwulan aktif tersebut.
+        $laporan = Laporan::where('perjanjian_id', $perjanjianId)
+            ->where('triwulan_aktif', $tw)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($laporan && !empty($laporan->{$field})) {
+            return $laporan;
+        }
+
+        // Prioritas 2: fallback ke record terbaru yang menyimpan field triwulan terkait.
+        $fallback = Laporan::where('perjanjian_id', $perjanjianId)
+            ->whereNotNull($field)
+            ->where($field, '!=', '')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($fallback) {
+            return $fallback;
+        }
+
+        // Prioritas 3: record terbaru apapun untuk menjaga backward compatibility.
+        return Laporan::where('perjanjian_id', $perjanjianId)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function extractKinerjaRealisasiByTriwulan(int $perjanjianId): array
@@ -778,6 +1001,21 @@ class DashboardController extends Controller
         }
 
         return round(($actualValue / $targetValue) * 100, 2);
+    }
+
+    private function normalizeIndicatorType($rawType): string
+    {
+        return RuleBasedReasoningService::normalizeIndicatorType($rawType);
+    }
+
+    private function calculateCapaianPercentage($target, $realisasi): ?float
+    {
+        return RuleBasedReasoningService::calculateCapaianPercentage($target, $realisasi);
+    }
+
+    private function calculatePerformancePercentage($target, $realisasi, $indicatorType = 'positif'): ?float
+    {
+        return RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasi, $indicatorType);
     }
 
     private function normalizeTabelCPrograms(array $tabelC): array
@@ -917,60 +1155,14 @@ class DashboardController extends Controller
      */
     public function kabagKabid()
     {
-        $user = Auth::user();
-        
-        // Statistik perjanjian yang dibuat oleh user
-        $totalPerjanjian = Perjanjian::where('user_id', $user->id)->count();
-        $perjanjianApproved = Perjanjian::where('user_id', $user->id)
-            ->whereNotNull('pihak2_signature')
-            ->where(function($q) {
-                $q->whereNull('rejected')
-                  ->orWhere('rejected', false)
-                  ->orWhere('rejected', 0)
-                  ->orWhere('rejected', '0');
-            })
-            ->count();
-        $perjanjianWaiting = Perjanjian::where('user_id', $user->id)
-            ->whereNull('pihak2_signature')
-            ->where(function($q) {
-                $q->whereNull('rejected')
-                  ->orWhere('rejected', false)
-                  ->orWhere('rejected', 0)
-                  ->orWhere('rejected', '0');
-            })
-            ->count();
-        $perjanjianRejected = Perjanjian::where('user_id', $user->id)
-            ->where(function($q){
-                $q->where('rejected', true)
-                  ->orWhere('rejected', 1)
-                  ->orWhere('rejected', '1');
-            })
-            ->count();
-        
-        return view('dashboard.kabag-kabid', compact('totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected'));
+        return redirect()->route('dashboard.wadir');
     }
     
     /**
      * Dashboard untuk Katimker/Staf (dahulu Kasi)
      */
-    public function katimkerStaf()
-    {
-        $user = Auth::user();
-        
-        // Statistik perjanjian yang dibuat oleh user
-        $totalPerjanjian = Perjanjian::where('user_id', $user->id)->count();
-        $perjanjianApproved = Perjanjian::where('user_id', $user->id)
-            ->whereNotNull('pihak2_signature')
-            ->where('rejected', false)
-            ->count();
-        $perjanjianWaiting = Perjanjian::where('user_id', $user->id)
-            ->whereNull('pihak2_signature')
-            ->where('rejected', false)
-            ->count();
-        $perjanjianRejected = Perjanjian::where('user_id', $user->id)
-            ->where('rejected', true)
-            ->count();
-        
-        return view('dashboard.katimker-staf', compact('totalPerjanjian', 'perjanjianApproved', 'perjanjianWaiting', 'perjanjianRejected'));
+     public function katimkerStaf()
+     {
+        return redirect()->route('dashboard.wadir');
     }
 }

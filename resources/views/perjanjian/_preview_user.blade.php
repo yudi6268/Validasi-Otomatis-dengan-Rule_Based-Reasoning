@@ -7,10 +7,10 @@
         $penolak_jabatan = $penolak_jabatan ?? ($perjanjian->pihak2_jabatan ?? '-');
         $tanggal_penolakan = $tanggal_penolakan ?? (
             ($perjanjian->rejection_date ?? null)
-                ? \Carbon\Carbon::parse($perjanjian->rejection_date)->translatedFormat('d F Y')
+                ? \Carbon\Carbon::parse($perjanjian->rejection_date)->locale('id')->translatedFormat('d F Y')
                 : (
                     ($perjanjian->updated_at ?? null)
-                        ? \Carbon\Carbon::parse($perjanjian->updated_at)->translatedFormat('d F Y')
+                        ? \Carbon\Carbon::parse($perjanjian->updated_at)->locale('id')->translatedFormat('d F Y')
                         : '-'
                   )
         );

@@ -83,9 +83,6 @@
                         <option value="user" {{ old('role', $user->role) == 'user' ? 'selected' : '' }}>User</option>
                         <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Admin</option>
                         <option value="direktur" {{ old('role', $user->role) == 'direktur' ? 'selected' : '' }}>Direktur</option>
-                        <option value="wadir" {{ old('role', $user->role) == 'wadir' ? 'selected' : '' }}>Wakil Direktur</option>
-                        <option value="kabag-kabid" {{ old('role', $user->role) == 'kabag-kabid' ? 'selected' : '' }}>Kabag/Kabid</option>
-                        <option value="katimker-staf" {{ old('role', $user->role) == 'katimker-staf' ? 'selected' : '' }}>Katimker/Staf</option>
                     </select>
                     @error('role')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -123,11 +120,11 @@
             <table class="table table-sm">
                 <tr>
                     <td><strong>Dibuat:</strong></td>
-                    <td>{{ $user->created_at->format('d/m/Y H:i') }}</td>
+                    <td>{{ $user->created_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}</td>
                 </tr>
                 <tr>
                     <td><strong>Update Terakhir:</strong></td>
-                    <td>{{ $user->updated_at->format('d/m/Y H:i') }}</td>
+                    <td>{{ $user->updated_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}</td>
                 </tr>
                 <tr>
                     <td><strong>Total Perjanjian:</strong></td>

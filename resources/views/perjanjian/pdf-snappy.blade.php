@@ -1257,6 +1257,71 @@
         }
         @endif
     </style>
+
+    <style>
+        /* Fit and wrap content specifically for page 2 and page 3 tables. */
+        .page-two .table,
+        .page-three .table {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse;
+        }
+
+        .page-two .table th,
+        .page-two .table td,
+        .page-three .table th,
+        .page-three .table td {
+            padding: 3px 2px !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            hyphens: auto;
+        }
+
+        .page-two .table-responsive,
+        .page-three .table-responsive {
+            width: 100% !important;
+            overflow: visible !important;
+        }
+
+        .page-two .content-section,
+        .page-three .content-section {
+            padding-left: 3mm !important;
+            padding-right: 2mm !important;
+        }
+
+        .page-three .signature-wrapper {
+            margin-top: 10px !important;
+            width: 100% !important;
+            display: flex !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+            padding-left: 6mm !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .page-three .signature-block {
+            width: 42% !important;
+            max-width: 300px !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            text-align: center !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .page-three .signature-block img {
+            max-height: 32px !important;
+            margin: 3px 0 !important;
+        }
+    </style>
 </head>
 
 <body style="min-height:100vh;">
@@ -1536,7 +1601,7 @@
                         placeholder="Jabatan"
                         style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
                     <input type="text" name="tanggal"
-                        value="{{ \Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d-m-Y') }}"
+                        value="{{ \Carbon\Carbon::now('Asia/Jakarta')->locale('id')->translatedFormat('d F Y') }}"
                         readonly placeholder="Tanggal"
                         style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:15px;">
                     <textarea name="rejection_reason" required placeholder="Tulis Alasan"
@@ -1707,7 +1772,7 @@
                                     style="font-weight:600;color:#333;min-width:85px;display:inline-block;flex-shrink:0;">Tanggal</span>
                                 <span style="font-weight:600;color:#333;margin:0 8px;flex-shrink:0;">:</span>
                                 <span
-                                    style="color:#333;flex:1;word-wrap:break-word;">{{ \Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}</span>
+                                    style="color:#333;flex:1;word-wrap:break-word;">{{ \Carbon\Carbon::parse($perjanjian->updated_at)->timezone('Asia/Jakarta')->locale('id')->translatedFormat('d F Y') }}</span>
                             </div>
                         </div>
 
@@ -1852,7 +1917,7 @@
                         </div>
                         <div class="sig-flex-col" style="text-align:center;width:45%;">
                             Pasuruan,
-                            {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
+                            {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->locale('id')->translatedFormat('d F Y') }}<br>
                             PIHAK PERTAMA<br>
                             @if(!empty($for_pdf) && !empty($pihak1_ttd_data))
                                 <img src="{{ $pihak1_ttd_data }}" style="max-height:50px;margin:2px 0;" alt="TTD Pihak 1">
@@ -1876,7 +1941,7 @@
 
             @if($hasTabelAData || $hasProgramData)
                 <!-- PAGE 2: INDIKATOR KINERJA, TUGAS, FUNGSI, TABEL -->
-                <div class="page">
+                <div class="page page-two">
                     <div class="header" style="text-align:center;">
                         <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">INDIKATOR KINERJA INDIVIDU</div>
                         <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">UOBK RSUD BANGIL</div>
@@ -1887,6 +1952,14 @@
                             $tugasValue = $perjanjian->tugas_pelaksana;
                             if ($tugasValue === null || $tugasValue === '') {
                                 $tugasValue = $perjanjian->tugas ?: '-';
+                            }
+                            if (is_array($tugasValue)) {
+                                $tugasValue = implode("\n", $tugasValue);
+                            } elseif (is_string($tugasValue)) {
+                                $decodedTugas = json_decode($tugasValue, true);
+                                if (is_array($decodedTugas)) {
+                                    $tugasValue = implode("\n", $decodedTugas);
+                                }
                             }
                             $fungsiValue = $perjanjian->fungsi_pelaksana;
                             if ($fungsiValue === null || $fungsiValue === '') {
@@ -2150,60 +2223,7 @@
                             </div>
                         @endif
 
-                        {{-- Signature dengan repeat header jika pindah halaman --}}
-                        <div style="margin-top:10px;">
-                            {{-- Repeat header jika signature ada di halaman baru --}}
-                            <div class="header-repeat" style="display:none;">
-                                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;text-align:center;">RENCANA
-                                    ANGGARAN BIAYA</div>
-                                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:2px;text-align:center;">
-                                    {{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}
-                                </div>
-                                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:20px;text-align:center;">TAHUN
-                                    {{ $tahun ?? '2025' }}
-                                </div>
-                            </div>
-
-                            <div class="sig-flex-row" style="display:flex;justify-content:space-between;">
-                                <div class="sig-flex-col" style="text-align:center;width:45%;">
-                                    PIHAK KEDUA<br><br>
-                                    @if(!empty($for_pdf) && !empty($pihak2_ttd_data))
-                                        <img src="{{ $pihak2_ttd_data }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 2">
-                                    @elseif(!empty($perjanjian->pihak2_signature))
-                                        <img src="{{ $perjanjian->pihak2_signature }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 2" loading="lazy">
-                                    @elseif(!empty($perjanjian->pihak2_ttd_path))
-                                        <img src="{{ asset('storage/' . $perjanjian->pihak2_ttd_path) }}"
-                                            style="max-height:60px;margin:5px 0;" alt="TTD Pihak 2" loading="lazy">
-                                    @else
-                                        <div style="height:60px;"></div>
-                                    @endif
-                                    <br>
-                                    <u>{{ $perjanjian->pihak2_name ?? '-' }}</u><br>
-                                    {{ $perjanjian->pihak2_pangkat ?? '-' }}<br>
-                                    NIP. {{ $perjanjian->pihak2_nip ?? '-' }}
-                                </div>
-                                <div class="sig-flex-col" style="text-align:center;width:45%;">
-                                    Pasuruan,
-                                    {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
-                                    PIHAK PERTAMA<br>
-                                    @if(!empty($for_pdf) && !empty($pihak1_ttd_data))
-                                        <img src="{{ $pihak1_ttd_data }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 1">
-                                    @elseif(!empty($perjanjian->pihak1_ttd))
-                                        <img src="{{ $perjanjian->pihak1_ttd }}" style="max-height:60px;margin:5px 0;"
-                                            alt="TTD Pihak 1" loading="lazy">
-                                    @else
-                                        <div style="height:60px;"></div>
-                                    @endif
-                                    <br>
-                                    <u>{{ $perjanjian->pihak1_name ?? '-' }}</u><br>
-                                    {{ $perjanjian->pihak1_pangkat ?? '-' }}<br>
-                                    NIP. {{ $perjanjian->pihak1_nip ?? '-' }}
-                                </div>
-                            </div>
-                        </div>
+                        {{-- Halaman kedua fokus pada indikator dan anggaran: tanpa blok tanda tangan. --}}
                     </div>
                 </div>
             @endif
@@ -2216,7 +2236,7 @@
             @if((!isset($pdf_part) || $pdf_part == 'landscape') && ($hasTabelBData || $hasTabelDData))
                 <!-- PAGE 3: RENCANA AKSI -->
                 <!-- Removed 'page-landscape' class to avoid rotation hack, use raw landscape size in Snappy -->
-                <div class="page" style="width:100%; padding: 8mm 8mm; font-size:10pt !important;">
+                <div class="page page-three" style="width:100%; padding: 8mm 10mm 8mm 12mm; font-size:10pt !important;">
                     <div class="header" style="text-align:center;">
                         <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">RENCANA AKSI</div>
                         <div style="font-weight:bold;font-size:9pt;margin-bottom:1px;line-height:1.1;">
@@ -2268,10 +2288,10 @@
                                                 <td>{{ $row['sasaran'] ?? '' }}</td>
                                                 <td>{{ $row['indikator'] ?? '' }}</td>
                                                 <td style="text-align:center;">{{ $row['target'] ?? '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw1']) ? $row['tw1'] : '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw2']) ? $row['tw2'] : '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw3']) ? $row['tw3'] : '' }}</td>
-                                                <td style="text-align:right;">{{ !empty($row['tw4']) ? $row['tw4'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw1']) && trim((string)$row['tw1']) !== '') ? $row['tw1'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw2']) && trim((string)$row['tw2']) !== '') ? $row['tw2'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw3']) && trim((string)$row['tw3']) !== '') ? $row['tw3'] : '' }}</td>
+                                                <td style="text-align:right;">{{ (isset($row['tw4']) && trim((string)$row['tw4']) !== '') ? $row['tw4'] : '' }}</td>
                                             </tr>
                                         @empty
                                             <tr>
@@ -2418,10 +2438,10 @@
                                                     <td style="text-align:center;">{{ $row['no'] ?? ($i + 1) }}</td>
                                                     <td style="font-weight: {{ ($row['level'] ?? '') === 'program' ? 'bold' : 'normal' }}; font-style: {{ ($row['level'] ?? '') === 'kegiatan' ? 'italic' : 'normal' }};">{{ $row['name'] }}</td>
                                                     <td style="text-align:right;">{{ number_format((int) $row['amount'], 0, ',', '.') }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw1']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw1']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw1']), 0, ',', '.') : '' }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw2']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw2']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw2']), 0, ',', '.') : '' }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw3']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw3']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw3']), 0, ',', '.') : '' }}</td>
-                                                    <td style="text-align:right; background-color: {{ empty($row['tw4']) ? '#f9f9f9' : 'transparent' }};">{{ !empty($row['tw4']) ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw4']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw1']) || trim((string)$row['tw1']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw1']) && trim((string)$row['tw1']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw1']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw2']) || trim((string)$row['tw2']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw2']) && trim((string)$row['tw2']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw2']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw3']) || trim((string)$row['tw3']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw3']) && trim((string)$row['tw3']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw3']), 0, ',', '.') : '' }}</td>
+                                                    <td style="text-align:right; background-color: {{ (!isset($row['tw4']) || trim((string)$row['tw4']) === '') ? '#f9f9f9' : 'transparent' }};">{{ (isset($row['tw4']) && trim((string)$row['tw4']) !== '') ? number_format((int) preg_replace('/[^0-9]/', '', (string) $row['tw4']), 0, ',', '.') : '' }}</td>
                                                 </tr>
                                             @empty
                                                 <tr><td colspan="7" class="no-data">
@@ -2444,9 +2464,9 @@
                         @endif
 
                             {{-- Tanda tangan, pisah div sendiri --}}
-                            <div class="signature-wrapper" style="margin-top: 20px; width: 100%; text-align: left;">
-                                <div class="signature-block" style="width: auto; display: inline-block; text-align: center; margin-left: 15%;">
-                                    Pasuruan, {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->translatedFormat('d F Y') }}<br>
+                            <div class="signature-wrapper">
+                                <div class="signature-block">
+                                    Pasuruan, {{ Carbon\Carbon::parse($perjanjian->agreement_date ?? $perjanjian->created_at)->locale('id')->translatedFormat('d F Y') }}<br>
                                     {{ strtoupper($perjanjian->pihak1_jabatan ?? '-') }}<br><br>
 
                                     @if(!empty($for_pdf) && !empty($pihak1_ttd_data))

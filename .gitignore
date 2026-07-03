@@ -18,7 +18,11 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/framework/views/*.php
 /vendor
+/public/print_output.html
+/public/temp_script.js
+*.bak
 Homestead.json
 Homestead.yaml
 Thumbs.db

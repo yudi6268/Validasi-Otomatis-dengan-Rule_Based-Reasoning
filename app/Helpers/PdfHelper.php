@@ -183,7 +183,7 @@ class PdfHelper
             'logoRsud' => $logo_data,
             'pihak1_ttd_data' => $pihak1_ttd_data,
             'pihak2_ttd_data' => $pihak2_ttd_data,
-            'tanggal' => \Carbon\Carbon::parse($tanggalData)->translatedFormat('d F Y'),
+            'tanggal' => \Carbon\Carbon::parse($tanggalData)->locale('id')->translatedFormat('d F Y'),
             'tahun' => $tahun,
             'for_pdf' => true,
             'user' => $user,

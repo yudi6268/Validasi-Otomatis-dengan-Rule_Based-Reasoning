@@ -10,18 +10,69 @@ use App\Models\Notification;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use App\Services\RuleBasedReasoningService;
 use App\Services\SupabaseService;
 
 class DirekturDashboardController extends Controller
 {
+    protected $supabase;
+
+    public function __construct(SupabaseService $supabase)
+    {
+        $this->supabase = $supabase;
+    }
+
+    protected function applyDirekturPihakKeduaScope($query, $user, bool $excludeBagianBidangMaker = true)
+    {
+        $normalizedNama = trim((string) ($user->nama ?? ''));
+        $normalizedJabatan = trim((string) ($user->jabatan ?? ''));
+        $normalizedNipDigits = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+
+        $query->where(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNipDigits) {
+            if ($normalizedNipDigits !== '') {
+                if ($normalizedJabatan !== '') {
+                    $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits])
+                      ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+                } else {
+                    $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits]);
+                }
+            }
+
+            if ($normalizedNama !== '' && $normalizedJabatan !== '') {
+                $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
+                          $qq->whereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama])
+                              ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+                });
+            } elseif ($normalizedNama !== '') {
+                $q->orWhereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama]);
+            }
+        });
+
+        if ($excludeBagianBidangMaker) {
+            // Perjanjian yang dibuat unit Bagian/Bidang wajib diproses di akun Wakil Direktur, bukan Direktur.
+            $query->whereDoesntHave('user', function ($userQuery) {
+                $userQuery->where(function ($j) {
+                    $j->whereRaw("LOWER(COALESCE(jabatan, '')) LIKE ?", ['%bagian%'])
+                      ->orWhereRaw("LOWER(COALESCE(jabatan, '')) LIKE ?", ['%bidang%'])
+                      ->orWhereRaw("LOWER(COALESCE(jabatan, '')) LIKE ?", ['%kabag%'])
+                      ->orWhereRaw("LOWER(COALESCE(jabatan, '')) LIKE ?", ['%kabid%'])
+                      ->orWhereRaw("LOWER(COALESCE(jabatan, '')) LIKE ?", ['%kepala bagian%'])
+                      ->orWhereRaw("LOWER(COALESCE(jabatan, '')) LIKE ?", ['%kepala bidang%']);
+                });
+            });
+        }
+
+        return $query;
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
 
         // All perjanjian where direktur is pihak kedua
-        $allPerjanjians = Perjanjian::where(function ($q) use ($user) {
-            $q->where('pihak2_name', $user->nama)->orWhere('pihak2_nip', $user->nip);
-        })->orderBy('created_at', 'desc')->get();
+        $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $perjanjianItems = $allPerjanjians->map(function ($p) {
             $status = $this->isRejectedValue($p->rejected) ? 'ditolak'
@@ -59,9 +110,9 @@ class DirekturDashboardController extends Controller
             $status = 'terkirim';
             if (!empty($l->pihak2_signature)) {
                 $status = 'disetujui';
-            } elseif (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan)) {
+            } elseif ((!empty($l->rejected) && (string) $l->rejected !== '0') || (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan))) {
                 $status = 'ditolak';
-            } elseif ($hasRealisasi && empty($l->kesimpulan) && empty($l->tanggapan_pimpinan)) {
+            } elseif ($hasRealisasi && !empty($l->kesimpulan) && empty($l->pihak2_signature)) {
                 $status = 'menunggu';
             }
             return [
@@ -94,71 +145,145 @@ class DirekturDashboardController extends Controller
 
     private function buildDirectorChartData($allPerjanjians, $allLaporans): array
     {
-        $kinerjaTargets = [0, 0, 0, 0];
+        $currentYear = date('Y');
+        $chartPerjanjians = [];
+        
+        foreach ($allPerjanjians as $p) {
+            $periode = $p->periode ?? optional($p->created_at)->format('Y');
+            if ($periode != $currentYear) continue;
+            
+            $key = $p->pihak1_name ?? $p->pihak1_nip;
+            if (!isset($chartPerjanjians[$key]) || $p->id > $chartPerjanjians[$key]->id) {
+                $chartPerjanjians[$key] = $p;
+            }
+        }
+
         $keuanganTargets = [0, 0, 0, 0];
         $leafRowIds = [];
+        $perjanjianBData = [];
 
-        foreach ($allPerjanjians as $p) {
+        foreach ($chartPerjanjians as $p) {
             $tabelB = is_array($p->tabelB) ? $p->tabelB : json_decode($p->tabelB ?? '[]', true);
             $tabelC = is_array($p->tabelC) ? $p->tabelC : json_decode($p->tabelC ?? '[]', true);
 
-            $kinerjaTargets = $this->addSeries($kinerjaTargets, $this->extractKinerjaTargetsByTriwulan($tabelB));
+            $perjanjianBData[$p->id] = $tabelB;
             $keuanganTargets = $this->addSeries($keuanganTargets, $this->extractKeuanganTargetsByTriwulan($tabelC));
             $leafRowIds = array_merge($leafRowIds, $this->collectKeuanganLeafRowIds($tabelC));
         }
 
         $leafRowLookup = array_fill_keys(array_unique($leafRowIds), true);
+        
         $latestLaporans = [];
+        $validPerjanjianIds = array_keys($perjanjianBData);
 
-        foreach ($allLaporans as $laporan) {
-            $perjanjianId = $laporan->perjanjian_id;
-            $triwulan = (int) ($laporan->triwulan_aktif ?? 0);
-            if ($triwulan < 1 || $triwulan > 4) {
-                continue;
-            }
-
-            if (!isset($latestLaporans[$perjanjianId][$triwulan])
-                || $laporan->updated_at > $latestLaporans[$perjanjianId][$triwulan]->updated_at
-                || ($laporan->updated_at == $latestLaporans[$perjanjianId][$triwulan]->updated_at && $laporan->id > $latestLaporans[$perjanjianId][$triwulan]->id)
-            ) {
-                $latestLaporans[$perjanjianId][$triwulan] = $laporan;
-            }
-        }
-
-        $kinerjaRealisasi = [0, 0, 0, 0];
         $keuanganRealisasi = [0, 0, 0, 0];
+        $kinerjaPercent = [0.0, 0.0, 0.0, 0.0];
+        $hasLaporanForTw = [false, false, false, false];
 
-        foreach ($latestLaporans as $triwulans) {
-            foreach ($triwulans as $triwulan => $laporan) {
-                $rowMap = $this->extractRealisasiRowMap($laporan->{'realisasi_tb' . $triwulan} ?? null);
-                foreach ($rowMap as $rowKey => $value) {
-                    if (str_starts_with($rowKey, 'kinerja-')) {
-                        $kinerjaRealisasi[$triwulan - 1] += $value;
+        for ($tw = 1; $tw <= 4; $tw++) {
+            $sumPct = 0;
+            $countPct = 0;
+
+            foreach ($chartPerjanjians as $p) {
+                $pId = $p->id;
+                $tabelB = $perjanjianBData[$pId];
+                $sasaranCount = isset($tabelB['sasaran']) && is_array($tabelB['sasaran']) ? count($tabelB['sasaran']) : 0;
+                
+                if (!isset($latestLaporans[$pId][$tw])) {
+                    $latestLaporans[$pId][$tw] = $this->resolveLaporanForTriwulan((int) $pId, $tw);
+                }
+                $laporan = $latestLaporans[$pId][$tw] ?? null;
+                
+                if ($sasaranCount > 0) {
+                    if ($laporan) {
+                        $hasLaporanForTw[$tw - 1] = true;
+                        $capaianMap = $this->extractCapaianKinerjaMap($laporan->{'realisasi_tb' . $tw} ?? null);
+                        foreach ($capaianMap as $pct) {
+                            $sumPct += $pct;
+                        }
                     }
-                    if (isset($leafRowLookup[$rowKey])) {
-                        $keuanganRealisasi[$triwulan - 1] += $value;
+                    $countPct += $sasaranCount;
+                }
+
+                if ($laporan) {
+                    $hasLaporanForTw[$tw - 1] = true;
+                    $rowMap = $this->extractRealisasiRowMap($laporan->{'realisasi_tb' . $tw} ?? null);
+                    foreach ($rowMap as $rowKey => $value) {
+                        if (isset($leafRowLookup[$rowKey])) {
+                            $keuanganRealisasi[$tw - 1] += $value;
+                        }
                     }
                 }
             }
+            
+            if ($hasLaporanForTw[$tw - 1]) {
+                $kinerjaPercent[$tw - 1] = $countPct > 0 ? round($sumPct / $countPct, 2) : 0.0;
+            } else {
+                $kinerjaPercent[$tw - 1] = null;
+                $keuanganRealisasi[$tw - 1] = null;
+            }
         }
 
-        $kinerjaPercent = [];
         $keuanganPercent = [];
         for ($idx = 0; $idx < 4; $idx++) {
-            $kinerjaPercent[] = $this->calculatePercentage($kinerjaRealisasi[$idx], $kinerjaTargets[$idx] ?? 0);
-            $keuanganPercent[] = $this->calculatePercentage($keuanganRealisasi[$idx], $keuanganTargets[$idx] ?? 0);
+            if ($keuanganRealisasi[$idx] === null) {
+                $keuanganPercent[] = null;
+            } else {
+                $keuanganPercent[] = $this->calculatePercentage($keuanganRealisasi[$idx], $keuanganTargets[$idx] ?? 0);
+            }
         }
 
         return [
             'kinerja_labels' => ['Triwulan 1', 'Triwulan 2', 'Triwulan 3', 'Triwulan 4'],
-            'kinerja_targets' => $kinerjaTargets,
-            'kinerja_realisasi' => $kinerjaRealisasi,
             'kinerja_percent' => $kinerjaPercent,
             'keuangan_labels' => ['Triwulan 1', 'Triwulan 2', 'Triwulan 3', 'Triwulan 4'],
             'keuangan_targets' => $keuanganTargets,
             'keuangan_realisasi' => $keuanganRealisasi,
             'keuangan_percent' => $keuanganPercent,
         ];
+    }
+
+    private function extractCapaianKinerjaMap($raw): array
+    {
+        $capaian = [];
+        if (empty($raw)) return $capaian;
+        $parsed = is_string($raw) ? json_decode($raw, true) : $raw;
+        if (!is_array($parsed) || empty($parsed['rows'])) return $capaian;
+
+        foreach ($parsed['rows'] as $row) {
+            $rowKey = strtolower(trim((string) ($row['row'] ?? '')));
+            if ($rowKey !== '' && str_starts_with($rowKey, 'kinerja-')) {
+                $target = $row['target'] ?? null;
+                $realisasi = $row['realisasi'] ?? null;
+                $indicatorType = $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif');
+                $performancePct = $this->calculatePerformancePercentage($target, $realisasi, $indicatorType);
+                if ($performancePct !== null) {
+                    $capaian[$rowKey] = $performancePct;
+                } elseif (isset($row['performance_pct']) && is_numeric($row['performance_pct'])) {
+                    // Fallback data lama jika target/realisasi tidak lengkap.
+                    $capaian[$rowKey] = (float) $row['performance_pct'];
+                } elseif (isset($row['pct']) && is_numeric($row['pct'])) {
+                    // Fallback untuk data legacy.
+                    $capaian[$rowKey] = (float) $row['pct'];
+                }
+            }
+        }
+        return $capaian;
+    }
+
+    private function normalizeIndicatorType($rawType): string
+    {
+        return RuleBasedReasoningService::normalizeIndicatorType($rawType);
+    }
+
+    private function calculateCapaianPercentage($target, $realisasi): ?float
+    {
+        return RuleBasedReasoningService::calculateCapaianPercentage($target, $realisasi);
+    }
+
+    private function calculatePerformancePercentage($target, $realisasi, $indicatorType = 'positif'): ?float
+    {
+        return RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasi, $indicatorType);
     }
 
     private function calculatePercentage($actual, $target): float
@@ -292,40 +417,90 @@ class DirekturDashboardController extends Controller
         $normalized = $this->normalizeTabelCPrograms($tabelC);
         $rowIds = [];
 
-        foreach ($normalized['programs'] ?? [] as $program) {
+        foreach (($normalized['programs'] ?? []) as $programIndex => $program) {
             if (is_array($program)) {
-                $this->collectKeuanganLeafRowIdsFromNode($program, $rowIds);
+                $this->collectKeuanganLeafRowIdsFromNode($program, $rowIds, null, (int) $programIndex + 1, null, null);
             }
         }
 
         return array_values(array_unique($rowIds));
     }
 
-    private function collectKeuanganLeafRowIdsFromNode(array $node, array &$rowIds): void
+    private function collectKeuanganLeafRowIdsFromNode(
+        array $node,
+        array &$rowIds,
+        ?string $parentNo = null,
+        ?int $programIndex = null,
+        ?int $kegiatanIndex = null,
+        ?int $subIndex = null
+    ): void
     {
+        $rawNo = trim((string) ($node['no'] ?? ''));
+        if ($rawNo !== '') {
+            $resolvedNo = $rawNo;
+        } elseif ($parentNo === null && $programIndex !== null) {
+            $resolvedNo = 'p' . $programIndex;
+        } elseif ($parentNo !== null && $kegiatanIndex !== null) {
+            $resolvedNo = $parentNo . '.k' . $kegiatanIndex;
+        } elseif ($parentNo !== null && $subIndex !== null) {
+            $resolvedNo = $parentNo . '.s' . $subIndex;
+        } else {
+            $resolvedNo = $parentNo ?? '';
+        }
+
         $hasKegiatan = !empty($node['kegiatan']) && is_array($node['kegiatan']);
         $hasSubKegiatan = !empty($node['subKegiatan']) && is_array($node['subKegiatan']);
 
         if ($hasKegiatan || $hasSubKegiatan) {
-            foreach ($node['kegiatan'] ?? [] as $kegiatan) {
+            foreach (($node['kegiatan'] ?? []) as $index => $kegiatan) {
                 if (is_array($kegiatan)) {
-                    $this->collectKeuanganLeafRowIdsFromNode($kegiatan, $rowIds);
+                    $this->collectKeuanganLeafRowIdsFromNode($kegiatan, $rowIds, $resolvedNo, null, (int) $index + 1, null);
                 }
             }
 
-            foreach ($node['subKegiatan'] ?? [] as $subKegiatan) {
+            foreach (($node['subKegiatan'] ?? []) as $index => $subKegiatan) {
                 if (is_array($subKegiatan)) {
-                    $this->collectKeuanganLeafRowIdsFromNode($subKegiatan, $rowIds);
+                    $this->collectKeuanganLeafRowIdsFromNode($subKegiatan, $rowIds, $resolvedNo, null, null, (int) $index + 1);
                 }
             }
 
             return;
         }
 
-        $no = trim((string) ($node['no'] ?? ''));
-        if ($no !== '') {
-            $rowIds[] = 'anggaran-' . $no;
+        if ($resolvedNo !== '') {
+            $rowIds[] = 'anggaran-' . strtolower($resolvedNo);
         }
+    }
+
+    private function resolveLaporanForTriwulan(int $perjanjianId, int $tw): ?Laporan
+    {
+        $field = 'realisasi_tb' . $tw;
+
+        $laporan = Laporan::where('perjanjian_id', $perjanjianId)
+            ->where('triwulan_aktif', $tw)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($laporan && !empty($laporan->{$field})) {
+            return $laporan;
+        }
+
+        $fallback = Laporan::where('perjanjian_id', $perjanjianId)
+            ->whereNotNull($field)
+            ->where($field, '!=', '')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($fallback) {
+            return $fallback;
+        }
+
+        return Laporan::where('perjanjian_id', $perjanjianId)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function normalizeTabelCPrograms(array $tabelC): array
@@ -400,25 +575,23 @@ class DirekturDashboardController extends Controller
             return (float) $value;
         }
 
-        if (is_string($value)) {
-            $normalized = trim($value);
-            if ($normalized === '') {
-                return 0.0;
-            }
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
 
-            $normalized = preg_replace('/[^0-9,\.\-]/', '', $normalized);
-            if ($normalized === '' || $normalized === '-' || $normalized === null) {
-                return 0.0;
-            }
+        $s = trim((string)$value);
+        
+        $isNegative = false;
+        if (str_starts_with($s, '-')) {
+            $isNegative = true;
+            $s = trim(substr($s, 1));
+        }
 
-            if (str_contains($normalized, ',') && str_contains($normalized, '.')) {
-                $normalized = str_replace('.', '', $normalized);
-                $normalized = str_replace(',', '.', $normalized);
-            } elseif (str_contains($normalized, ',') && !str_contains($normalized, '.')) {
-                $normalized = str_replace(',', '.', $normalized);
-            }
-
-            return is_numeric($normalized) ? (float) $normalized : 0.0;
+        if (preg_match('/^(?<int>[0-9]{1,3}(?:[\.\s][0-9]{3})*|[0-9]+)(?:[\.,](?<dec>[0-9]+))?$/', $s, $m)) {
+            $int = (float)str_replace(['.', ' '], '', $m['int']);
+            $dec = !empty($m['dec']) ? (float)('0.' . $m['dec']) : 0.0;
+            $val = $int + $dec;
+            return $isNegative ? -$val : $val;
         }
 
         return 0.0;
@@ -428,9 +601,9 @@ class DirekturDashboardController extends Controller
     {
         $user = Auth::user();
 
-        $allPerjanjians = Perjanjian::where(function ($q) use ($user) {
-            $q->where('pihak2_name', $user->nama)->orWhere('pihak2_nip', $user->nip);
-        })->orderBy('created_at', 'desc')->get();
+        $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $allItems = $allPerjanjians->map(function ($p) {
             $status = $this->isRejectedValue($p->rejected) ? 'ditolak'
@@ -438,7 +611,7 @@ class DirekturDashboardController extends Controller
             return [
                 'id'               => $p->id,
                 'periode'          => $p->periode ?? optional($p->created_at)->format('Y') ?? '-',
-                'tanggal'          => optional($p->created_at)->translatedFormat('d F Y') ?? '-',
+                'tanggal'          => optional($p->created_at)->locale('id')->translatedFormat('d F Y') ?? '-',
                 'status'           => $status,
                 'rejection_reason' => $p->rejection_reason ?? null,
                 'print_url'        => route('direktur.perjanjian.print', $p->id),
@@ -472,9 +645,7 @@ class DirekturDashboardController extends Controller
     {
         $user = Auth::user();
 
-        $allPerjanjians = Perjanjian::where(function ($q) use ($user) {
-            $q->where('pihak2_name', $user->nama)->orWhere('pihak2_nip', $user->nip);
-        })->pluck('id');
+        $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)->pluck('id');
 
         $allLaporans = Laporan::whereIn('perjanjian_id', $allPerjanjians)
             ->with('perjanjian')
@@ -485,14 +656,14 @@ class DirekturDashboardController extends Controller
             $status = 'terkirim';
             if (!empty($l->pihak2_signature)) {
                 $status = 'disetujui';
-            } elseif (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan)) {
+            } elseif ((!empty($l->rejected) && (string) $l->rejected !== '0') || (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan))) {
                 $status = 'ditolak';
             } else {
                 $hasRealisasi = false;
                 for ($tw = 1; $tw <= 4; $tw++) {
                     if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
                 }
-                if ($hasRealisasi && empty($l->kesimpulan) && empty($l->tanggapan_pimpinan)) {
+                if ($hasRealisasi && !empty($l->kesimpulan) && empty($l->pihak2_signature)) {
                     $status = 'menunggu';
                 }
             }
@@ -543,7 +714,10 @@ class DirekturDashboardController extends Controller
             'updated_at' => $perjanjian->updated_at,
         ]);
         // Jika user bukan pihak kedua, abort
-        if (!($user && ($user->nama === $perjanjian->pihak2_name || $user->nip === $perjanjian->pihak2_nip))) {
+        $canAccess = $user
+            ? $this->applyDirekturPihakKeduaScope(Perjanjian::query()->where('id', $perjanjian->id), $user)->exists()
+            : false;
+        if (!$canAccess) {
             abort(403, 'Anda tidak berhak mengakses perjanjian ini sebagai pihak kedua');
         }
         
@@ -568,10 +742,7 @@ class DirekturDashboardController extends Controller
         $user = Auth::user();
         
         // Ambil perjanjian yang direktur sebagai pihak kedua
-        $query = Perjanjian::where(function($q) use ($user) {
-                    $q->where('pihak2_name', $user->nama)
-                      ->orWhere('pihak2_nip', $user->nip);
-                })
+                $query = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
                 ->orderBy('created_at', 'desc');
 
         // Search functionality - filter berdasarkan nama, tanggal, atau status
@@ -604,10 +775,7 @@ class DirekturDashboardController extends Controller
         }
 
         // Ambil semua data direktur sebagai pihak kedua untuk kartu status (selalu real-time)
-        $allData = Perjanjian::where(function($q) use ($user) {
-                    $q->where('pihak2_name', $user->nama)
-                      ->orWhere('pihak2_nip', $user->nip);
-                })
+                $allData = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -689,10 +857,7 @@ class DirekturDashboardController extends Controller
         ];
 
         // Ambil aktivitas/notifikasi (perjanjian yang sudah di-approve atau reject)
-        $notifications = Perjanjian::where(function($q) use ($user) {
-                    $q->where('pihak2_name', $user->nama)
-                      ->orWhere('pihak2_nip', $user->nip);
-                })
+                $notifications = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
                 ->where(function($q) {
                     $q->whereNotNull('pihak2_signature')
                       ->orWhere('rejected', true);
@@ -731,10 +896,7 @@ class DirekturDashboardController extends Controller
         $user = Auth::user();
         
         // Ambil laporan yang terkait dengan perjanjian dimana direktur sebagai pihak kedua
-        $perjanjianIds = Perjanjian::where(function($q) use ($user) {
-                            $q->where('pihak2_name', $user->nama)
-                              ->orWhere('pihak2_nip', $user->nip);
-                        })->pluck('id');
+                $perjanjianIds = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)->pluck('id');
         
         $query = Laporan::whereIn('perjanjian_id', $perjanjianIds)
                         ->orderBy('created_at', 'desc');
@@ -787,12 +949,7 @@ class DirekturDashboardController extends Controller
                 ], 403);
             }
             // Cari perjanjian
-            $perjanjian = Perjanjian::where('id', $id)
-                                   ->where(function($q) use ($user) {
-                                       $q->where('pihak2_name', $user->nama)
-                                         ->orWhere('pihak2_nip', $user->nip);
-                                   })
-                                   ->firstOrFail();
+                        $perjanjian = $this->applyDirekturPihakKeduaScope(Perjanjian::query()->where('id', $id), $user, false)->firstOrFail();
             // Cek apakah sudah disetujui atau ditolak
             if ($perjanjian->pihak2_signature) {
                 if ($request->ajax() || $request->wantsJson()) {
@@ -828,7 +985,48 @@ class DirekturDashboardController extends Controller
             $perjanjian->pihak2_ttd_path = $signaturePath; // Field ini digunakan di halaman 2 & 3
             $perjanjian->rejected = false;
             $perjanjian->rejection_reason = null;
+            $perjanjian->catatan_penolakan = null;
+            $perjanjian->status = 'disetujui';
             $perjanjian->save();
+
+            // Sync to Supabase
+            try {
+                $payload = [
+                    'pihak2_name' => $perjanjian->pihak2_name,
+                    'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                    'pihak2_nip' => $perjanjian->pihak2_nip,
+                    'location' => $perjanjian->location,
+                    'agreement_date' => $perjanjian->agreement_date,
+                    'jabatan' => $perjanjian->jabatan,
+                    'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                    'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                    'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                    'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                    'status' => $perjanjian->status,
+                    'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                    'rejected' => $perjanjian->rejected,
+                    'rejection_reason' => $perjanjian->rejection_reason,
+                    'pihak2_signature' => $perjanjian->pihak2_signature,
+                    'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
+                    'tabelA' => $perjanjian->tabelA,
+                    'tabelB' => $perjanjian->tabelB,
+                    'tabelC' => $perjanjian->tabelC,
+                ];
+
+                $filters = ['local_id' => 'eq.' . $perjanjian->id];
+                $res = $this->supabase->update('perjanjians', $filters, $payload);
+                if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                    $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                    $res = $this->supabase->update('perjanjians', $filters, $payload);
+                }
+                if (empty($res['success'])) {
+                    Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in approvePerjanjian: ' . ($res['error'] ?? 'unknown'));
+                } else {
+                    Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in approvePerjanjian');
+                }
+            } catch (\Exception $e) {
+                Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in approvePerjanjian: ' . $e->getMessage());
+            }
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -862,12 +1060,7 @@ class DirekturDashboardController extends Controller
                 'rejection_reason' => 'required|string|min:10'
             ]);
             // Cari perjanjian
-            $perjanjian = Perjanjian::where('id', $id)
-                                   ->where(function($q) use ($user) {
-                                       $q->where('pihak2_name', $user->nama)
-                                         ->orWhere('pihak2_nip', $user->nip);
-                                   })
-                                   ->firstOrFail();
+                        $perjanjian = $this->applyDirekturPihakKeduaScope(Perjanjian::query()->where('id', $id), $user, false)->firstOrFail();
             // Cek apakah sudah disetujui
             if ($perjanjian->pihak2_signature) {
                 if ($request->ajax() || $request->wantsJson()) {
@@ -882,8 +1075,50 @@ class DirekturDashboardController extends Controller
             // Update perjanjian
             $perjanjian->rejected = true;
             $perjanjian->rejection_reason = $request->rejection_reason;
+            $perjanjian->catatan_penolakan = $request->rejection_reason;
             $perjanjian->pihak2_signature = null;
+            $perjanjian->pihak2_ttd_path = null;
+            $perjanjian->status = 'ditolak';
             $perjanjian->save();
+
+            // Sync to Supabase
+            try {
+                $payload = [
+                    'pihak2_name' => $perjanjian->pihak2_name,
+                    'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                    'pihak2_nip' => $perjanjian->pihak2_nip,
+                    'location' => $perjanjian->location,
+                    'agreement_date' => $perjanjian->agreement_date,
+                    'jabatan' => $perjanjian->jabatan,
+                    'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                    'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                    'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                    'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                    'status' => $perjanjian->status,
+                    'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                    'rejected' => $perjanjian->rejected,
+                    'rejection_reason' => $perjanjian->rejection_reason,
+                    'pihak2_signature' => null,
+                    'pihak2_ttd_path' => null,
+                    'tabelA' => $perjanjian->tabelA,
+                    'tabelB' => $perjanjian->tabelB,
+                    'tabelC' => $perjanjian->tabelC,
+                ];
+
+                $filters = ['local_id' => 'eq.' . $perjanjian->id];
+                $res = $this->supabase->update('perjanjians', $filters, $payload);
+                if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                    $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                    $res = $this->supabase->update('perjanjians', $filters, $payload);
+                }
+                if (empty($res['success'])) {
+                    Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian: ' . ($res['error'] ?? 'unknown'));
+                } else {
+                    Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian');
+                }
+            } catch (\Exception $e) {
+                Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian: ' . $e->getMessage());
+            }
             // Create notification for the user who created the perjanjian
             $pengusul = User::where('nama', $perjanjian->pihak1_name)->first();
             if ($pengusul) {
@@ -948,7 +1183,12 @@ class DirekturDashboardController extends Controller
             $laporan->pihak2_name       = $perjanjian->pihak2_name ?? $user->nama;
             $laporan->pihak2_jabatan    = $perjanjian->pihak2_jabatan ?? $user->jabatan;
             $laporan->pihak2_signature  = $user->tanda_tangan ?? $perjanjian->pihak2_signature ?? '';
+            $laporan->rejected          = false;
+            $laporan->rejection_reason  = null;
             $laporan->save();
+
+            // Sync to Supabase
+            $this->syncLaporanToSupabase($laporan, (int) ($laporan->triwulan_aktif ?? 1));
 
             return response()->json(['success' => true, 'message' => 'Laporan kinerja berhasil disetujui.']);
 
@@ -982,7 +1222,14 @@ class DirekturDashboardController extends Controller
             $laporan->pihak2_jabatan     = null;
             $laporan->bab_capaian        = null;
             $laporan->bab_rencana        = null;
+            $laporan->validation_results = null;
+            $laporan->validation_timestamp = null;
+            $laporan->rejected           = true;
+            $laporan->rejection_reason   = 'Ditolak oleh pimpinan';
             $laporan->save();
+
+            // Sync to Supabase
+            $this->syncLaporanToSupabase($laporan, (int) ($laporan->triwulan_aktif ?? 1));
 
             return response()->json(['success' => true, 'message' => 'Laporan kinerja telah dikembalikan ke pegawai.']);
 
@@ -1159,5 +1406,61 @@ class DirekturDashboardController extends Controller
     private function isNotRejected($value): bool
     {
         return !$this->isRejectedValue($value);
+    }
+
+    private function syncLaporanToSupabase(Laporan $laporan, int $triwulan): void
+    {
+        try {
+            $payload = [
+                'local_id' => $laporan->id,
+                'perjanjian_id' => $laporan->perjanjian_id,
+                'periode' => $laporan->periode,
+                'tahun' => $laporan->tahun,
+                'uraian_kegiatan' => $laporan->uraian_kegiatan,
+                'sasaran' => $laporan->sasaran,
+                'bobot' => $laporan->bobot,
+                'sumber_data' => $laporan->sumber_data,
+                'pihak1_name' => $laporan->pihak1_name,
+                'pihak2_name' => $laporan->pihak2_name,
+                'tabelA' => $laporan->tabelA,
+                'tabelB' => $laporan->tabelB,
+                'tabelC' => $laporan->tabelC,
+                'bab_capaian' => $laporan->bab_capaian,
+                'bab_rencana' => $laporan->bab_rencana,
+                'rencana_tindak_lanjut' => $laporan->rencana_tindak_lanjut,
+                'kesimpulan' => $laporan->kesimpulan,
+                'triwulan_aktif' => $triwulan,
+                'realisasi_tb1' => $laporan->realisasi_tb1,
+                'realisasi_tb2' => $laporan->realisasi_tb2,
+                'realisasi_tb3' => $laporan->realisasi_tb3,
+                'realisasi_tb4' => $laporan->realisasi_tb4,
+                'pihak2_signature' => $laporan->pihak2_signature,
+                'rejected' => $laporan->rejected,
+                'rejection_reason' => $laporan->rejection_reason,
+                'tanggapan_pimpinan' => $laporan->tanggapan_pimpinan,
+                'updated_at' => now()->toDateTimeString(),
+            ];
+
+            $existing = $this->supabase->select('laporans', [
+                'local_id' => 'eq.' . $laporan->id,
+                'select' => 'id',
+            ]);
+
+            if (!empty($existing['success']) && !empty($existing['data'])) {
+                $filters = ['local_id' => 'eq.' . $laporan->id];
+                $res = $this->supabase->update('laporans', $filters, $payload);
+                if (empty($res['success'])) {
+                    Log::warning('Supabase update failed for laporan local_id=' . $laporan->id . ': ' . ($res['error'] ?? 'unknown'));
+                }
+                return;
+            }
+
+            $res = $this->supabase->insert('laporans', [$payload]);
+            if (empty($res['success'])) {
+                Log::warning('Supabase insert failed for laporan local_id=' . $laporan->id . ': ' . ($res['error'] ?? 'unknown'));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Supabase sync exception for laporan local_id=' . $laporan->id . ': ' . $e->getMessage());
+        }
     }
 }

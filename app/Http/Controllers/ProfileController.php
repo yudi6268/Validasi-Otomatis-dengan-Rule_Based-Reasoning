@@ -101,25 +101,31 @@ class ProfileController extends Controller
              * 3) UPLOAD TANDA TANGAN KE SUPABASE
              ====================================================== */
             if ($request->filled('signature_data')) {
-
-                $fileName = $user->id . '_' . uniqid() . '.png';
-                $result = $this->supabase->uploadBase64Image(
-                    $request->signature_data,
-                    $fileName,
-                    'tanda_tangan'
-                );
-
-                if ($result['success']) {
-                    $user->tanda_tangan = $result['url'];
-                    \Log::info('Tanda tangan uploaded successfully', [
-                        'user_id' => $user->id,
-                        'url' => $result['url']
+                if ($request->signature_data === '__DELETE_SIGNATURE__') {
+                    $user->tanda_tangan = null;
+                    \Log::info('Tanda tangan deleted successfully', [
+                        'user_id' => $user->id
                     ]);
                 } else {
-                    \Log::error('Failed to upload tanda tangan', [
-                        'user_id' => $user->id,
-                        'error' => $result['error']
-                    ]);
+                    $fileName = $user->id . '_' . uniqid() . '.png';
+                    $result = $this->supabase->uploadBase64Image(
+                        $request->signature_data,
+                        $fileName,
+                        'tanda_tangan'
+                    );
+
+                    if ($result['success']) {
+                        $user->tanda_tangan = $result['url'];
+                        \Log::info('Tanda tangan uploaded successfully', [
+                            'user_id' => $user->id,
+                            'url' => $result['url']
+                        ]);
+                    } else {
+                        \Log::error('Failed to upload tanda tangan', [
+                            'user_id' => $user->id,
+                            'error' => $result['error']
+                        ]);
+                    }
                 }
             }
 
