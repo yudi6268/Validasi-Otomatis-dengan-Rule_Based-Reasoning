@@ -149,8 +149,10 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Browsershot diagnostics (local only)
-    Route::get('/pdf/diagnostics', [App\Http\Controllers\BrowsershotPdfController::class, 'diagnostics'])->name('pdf.diagnostics');
-    Route::get('/pdf/test', [App\Http\Controllers\BrowsershotPdfController::class, 'testPdf'])->name('pdf.test');
+    if (app()->environment('local')) {
+        Route::get('/pdf/diagnostics', [App\Http\Controllers\BrowsershotPdfController::class, 'diagnostics'])->name('pdf.diagnostics');
+        Route::get('/pdf/test', [App\Http\Controllers\BrowsershotPdfController::class, 'testPdf'])->name('pdf.test');
+    }
 });
 
 // === FORGOT PASSWORD - Public Routes ===
@@ -190,8 +192,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/jabatan/{jabatan}/edit', [JabatanController::class, 'edit'])->name('jabatan.edit');
     Route::put('/jabatan/{jabatan}', [JabatanController::class, 'update'])->name('jabatan.update');
     Route::delete('/jabatan/{jabatan}', [JabatanController::class, 'destroy'])->name('jabatan.destroy');
-    Route::get('/jabatan/diagnostics/test', [JabatanController::class, 'diagnostics'])->name('jabatan.diagnostics');
-    Route::get('/jabatan/debug/supabase-insert', [JabatanController::class, 'debugSupabaseInsert'])->name('jabatan.debug.supabase');
+    if (app()->environment('local')) {
+        Route::get('/jabatan/diagnostics/test', [JabatanController::class, 'diagnostics'])->name('jabatan.diagnostics');
+        Route::get('/jabatan/debug/supabase-insert', [JabatanController::class, 'debugSupabaseInsert'])->name('jabatan.debug.supabase');
+    }
 
     /* ================= PROGRAM, KEGIATAN, SUB KEGIATAN ================= */
     // Program Management
