@@ -340,50 +340,20 @@ class DashboardController extends Controller
             'keuangan_realisasi' => [0, 0, 0, 0],
         ];
 
-        if ($user->role === 'user') {
-            $chartPerjanjian = $wadirPerjanjianItems
-                ->filter(function ($item) use ($normalizeStatus, $user) {
-                    return (int) $item->user_id === (int) $user->id && $normalizeStatus($item) === 'disetujui';
-                })
-                ->sortByDesc('updated_at')
+        $chartPerjanjian = $wadirPerjanjianItems
+            ->filter(function ($item) use ($normalizeStatus, $user) {
+                return (int) $item->user_id === (int) $user->id && $normalizeStatus($item) === 'disetujui';
+            })
+            ->sortByDesc('updated_at')
+            ->first();
+
+        if ($chartPerjanjian) {
+            $chartLaporan = Laporan::where('perjanjian_id', $chartPerjanjian->id)
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id')
                 ->first();
 
-            if ($chartPerjanjian) {
-                $chartLaporan = Laporan::where('perjanjian_id', $chartPerjanjian->id)
-                    ->orderByDesc('updated_at')
-                    ->orderByDesc('id')
-                    ->first();
-
-                $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
-            }
-        } else {
-            $isPimpinanChartAccount = str_contains($jabatanLower, 'direktur') || str_contains($jabatanLower, 'wadir') || str_contains($jabatanLower, 'wakil direktur');
-
-            if ($isPimpinanChartAccount) {
-                $wadirApprovedPerjanjians = Perjanjian::with('user')
-                    ->whereHas('user', function ($q) {
-                        $q->whereRaw('LOWER(TRIM(jabatan)) LIKE ?', ['%wakil direktur%']);
-                    })
-                    ->get()
-                    ->filter(function ($item) use ($normalizeStatus) {
-                        return $normalizeStatus($item) === 'disetujui';
-                    })
-                    ->values();
-
-                if ($wadirApprovedPerjanjians->isNotEmpty()) {
-                    $chartData = $this->buildAggregatedWadirChartData($wadirApprovedPerjanjians);
-                }
-            } else {
-                $chartPerjanjian = $perjanjians->sortByDesc('updated_at')->first();
-                if ($chartPerjanjian) {
-                    $chartLaporan = Laporan::where('perjanjian_id', $chartPerjanjian->id)
-                        ->orderByDesc('updated_at')
-                        ->orderByDesc('id')
-                        ->first();
-
-                    $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
-                }
-            }
+            $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan);
         }
 
         // Build simple notifications from recent laporans (fallback)
