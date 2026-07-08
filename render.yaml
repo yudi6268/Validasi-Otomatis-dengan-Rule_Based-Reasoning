@@ -1,0 +1,65 @@
+services:
+  - type: web
+    name: perjanjian-kinerja-web
+    runtime: docker
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_RUNTIME
+        value: web
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DB_CONNECTION
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: QUEUE_CONNECTION
+        value: database
+
+  - type: worker
+    name: perjanjian-kinerja-worker
+    runtime: docker
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_RUNTIME
+        value: worker
+      - key: RUN_MIGRATIONS
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: DB_CONNECTION
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: QUEUE_NAME
+        value: default

@@ -15,6 +15,13 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\BrowsershotPdfController;
 use Illuminate\Support\Facades\Auth;
 
+Route::get('/healthz', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toIso8601String(),
+    ]);
+})->name('healthz');
+
 // LOGIN (boleh diakses meskipun sudah login)
 Route::get('/login', function () {
     return view('auth.login');
