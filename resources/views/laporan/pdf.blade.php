@@ -657,11 +657,10 @@
       <colgroup>
         <col style="width:4%;">
         <col style="width:25%;">
-        <col style="width:32%;">
+        <col style="width:34%;">
         <col style="width:12%;">
         <col style="width:12%;">
-        <col style="width:9%;">
-        <col style="width:6%;">
+        <col style="width:13%;">
       </colgroup>
       <thead>
         <tr>
@@ -669,7 +668,6 @@
           <th rowspan="2">Sasaran</th>
           <th rowspan="2">Indikator Kinerja</th>
           <th colspan="3">Triwulan {{ $twName }}</th>
-          <th rowspan="2">Ket</th>
         </tr>
         <tr>
           <th>Target</th><th>Realisasi</th><th>%</th>
@@ -713,7 +711,6 @@
             <td class="center">{{ $tgtRaw !== null ? $fmtTarget($tgtRaw) : '-' }}</td>
             <td class="center">{{ $relNum !== null ? $fmt2($relNum) : ($relRaw !== null ? $fmt2($relRaw) : '-') }}</td>
             <td class="center">{{ is_numeric($cap) ? $fmtPct($cap) : ($cap ?? '-') }}</td>
-            <td></td>
           </tr>
         @endforeach
       </tbody>
