@@ -557,9 +557,9 @@ window.addSubRow = function(parentNo) {
         }
         
         // Check setelah 100ms apakah ada perubahan
-        setTimeout(() => {
-            console.log('⏱ After 100ms - New row NO:', tr.querySelector('.no-col')?.textContent?.trim());
-        }, 100);
+        // setTimeout(() => {
+        //     console.log('⏱ After 100ms - New row NO:', tr.querySelector('.no-col')?.textContent?.trim());
+        // }, 100);
     } else {
         console.error('Insert position not found');
     }
@@ -1577,11 +1577,9 @@ function openTargetModal(no, nama, pagu, key) {
     // Open modal first
     document.getElementById('targetModal').style.display = 'block';
     
-    // Initialize mode and calculate with a small delay to ensure DOM is ready
-    setTimeout(() => {
-        switchInputMode(initialMode);
-        calculateModalTotal();
-    }, 100);
+    // Initialize mode and calculate immediately
+    switchInputMode(initialMode);
+    calculateModalTotal();
 }
 
 function closeTargetModal() {
@@ -1888,7 +1886,7 @@ function saveTargetModal() {
     successMsg.innerHTML = '<i class="fas fa-check-circle"></i> Target triwulan berhasil disimpan!';
     document.body.appendChild(successMsg);
     
-    setTimeout(() => successMsg.remove(), 3000);
+    // successMsg.remove() dipanggil manual jika diperlukan
 }
 </script>
 
@@ -2473,9 +2471,7 @@ function saveToSupabase(e) {
 
         if (data.success) {
             showSuccessMessage(data.message || 'Berhasil disimpan.');
-            setTimeout(() => {
-                window.location.href = '{{ auth()->check() && auth()->user()->isWadir() ? route("dashboard.wadir", ["panel" => "perjanjian"]) : route("home", ["section" => "dashboard"]) }}';
-            }, 1200);
+            window.location.href = '{{ auth()->check() && auth()->user()->isWadir() ? route("dashboard.wadir", ["panel" => "perjanjian"]) : route("home", ["section" => "dashboard"]) }}';
         } else {
             showErrorMessage(data.message || 'Gagal menyimpan data.');
         }
@@ -2508,7 +2504,7 @@ function showSuccessMessage(message) {
     div.innerText = '✓ ' + message;
     document.body.appendChild(div);
     
-    setTimeout(() => div.remove(), 3000);
+    // setTimeout dihapus
 }
 
 // =========================
@@ -2531,7 +2527,7 @@ function showErrorMessage(message) {
     div.innerText = '✗ ' + message;
     document.body.appendChild(div);
     
-    setTimeout(() => div.remove(), 5000);
+    // setTimeout dihapus
 }
 
 // =========================
@@ -2700,9 +2696,7 @@ function closePopupTTD() {
 </div>
 
 <script>
-    setTimeout(() => {
-        document.querySelector('[style*="position:fixed"]')?.remove();
-    }, 3000);
+    // setTimeout dihapus
 </script>
 @endif
 

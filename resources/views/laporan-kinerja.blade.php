@@ -1294,7 +1294,7 @@
         </div>
         <div class="modal-footer" style="gap:8px; justify-content:flex-end;">
           <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" id="alreadyHasLaporanBtnBack"
-            onclick="setTimeout(function(){ window.location.href='{{ route('dashboard.wadir', ['panel' => 'laporan']) }}'; }, 120);">
+            onclick="window.location.href='{{ route('dashboard.wadir', ['panel' => 'laporan']) }}';">
             Kembali ke Dashboard
           </button>
         </div>
@@ -2811,50 +2811,48 @@
       });
       refreshComputedAnggaranRows();
       // Update summary otomatis setelah data di-load
-      setTimeout(() => {
-        updateEvaluasiText();
-        updateRencanaText();
-        // Set tanggapan atasan berdasarkan persentase capaian
-        const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
-        const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
-        
-        const validKinerja = kinerjaInputs.map(input => {
-          const target = parseNumberValue(input.dataset.target);
-          const actual = parseNumberValue(input.value);
-          const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
-          const percentage = calculatePerformancePercentage(target, actual, indicatorType);
-          return {
-            percentage,
-            hasValue: !isNaN(actual) && input.value !== '' && input.value !== null,
-          };
-        }).filter(item => item.hasValue && !isNaN(item.percentage));
+      updateEvaluasiText();
+      updateRencanaText();
+      // Set tanggapan atasan berdasarkan persentase capaian
+      const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
+      const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
+      
+      const validKinerja = kinerjaInputs.map(input => {
+        const target = parseNumberValue(input.dataset.target);
+        const actual = parseNumberValue(input.value);
+        const indicatorType = normalizeIndicatorType(input.dataset.indicatorType || 'positif');
+        const percentage = calculatePerformancePercentage(target, actual, indicatorType);
+        return {
+          percentage,
+          hasValue: !isNaN(actual) && input.value !== '' && input.value !== null,
+        };
+      }).filter(item => item.hasValue && !isNaN(item.percentage));
 
-        const averageKinerjaPercentage = validKinerja.length > 0
-          ? validKinerja.reduce((sum, item) => sum + item.percentage, 0) / validKinerja.length
-          : 0;
+      const averageKinerjaPercentage = validKinerja.length > 0
+        ? validKinerja.reduce((sum, item) => sum + item.percentage, 0) / validKinerja.length
+        : 0;
 
-        const totalAnggaranActual = anggaranInputs.reduce((sum, input) => {
-          const value = parseNumberValue(input.value);
-          return sum + (isNaN(value) ? 0 : value);
-        }, 0);
+      const totalAnggaranActual = anggaranInputs.reduce((sum, input) => {
+        const value = parseNumberValue(input.value);
+        return sum + (isNaN(value) ? 0 : value);
+      }, 0);
 
-        const totalAnggaranTarget = anggaranInputs.reduce((sum, input) => {
-          const target = parseNumberValue(input.dataset.target);
-          return sum + (isNaN(target) ? 0 : target);
-        }, 0);
+      const totalAnggaranTarget = anggaranInputs.reduce((sum, input) => {
+        const target = parseNumberValue(input.dataset.target);
+        return sum + (isNaN(target) ? 0 : target);
+      }, 0);
 
-        const anggaranPercentage = totalAnggaranTarget > 0
-          ? (totalAnggaranActual / totalAnggaranTarget) * 100
-          : 0;
+      const anggaranPercentage = totalAnggaranTarget > 0
+        ? (totalAnggaranActual / totalAnggaranTarget) * 100
+        : 0;
 
-        let averagePercentage;
-        if (totalAnggaranTarget > 0) {
-          averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
-        } else {
-          averagePercentage = averageKinerjaPercentage;
-        }
-        setTanggapanAtasan(averagePercentage);
-      }, 50);
+      let averagePercentage;
+      if (totalAnggaranTarget > 0) {
+        averagePercentage = (averageKinerjaPercentage + anggaranPercentage) / 2;
+      } else {
+        averagePercentage = averageKinerjaPercentage;
+      }
+      setTanggapanAtasan(averagePercentage);
     }
 
     function textareaManualEditListener(event) {
@@ -3179,10 +3177,8 @@
             if (percentageCell) percentageCell.textContent = '-';
           });
 
-          setTimeout(() => {
-            const separator = REDIRECT_AFTER_SAVE.includes('?') ? '&' : '?';
-            window.location.replace(`${REDIRECT_AFTER_SAVE}${separator}r=${Date.now()}`);
-          }, 400);
+          const separator = REDIRECT_AFTER_SAVE.includes('?') ? '&' : '?';
+          window.location.replace(`${REDIRECT_AFTER_SAVE}${separator}r=${Date.now()}`);
         } else {
           showAlert('Terjadi kesalahan: ' + data.message, 'error');
         }
@@ -3220,9 +3216,7 @@
       alertDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
       document.body.appendChild(alertDiv);
       
-      setTimeout(() => {
-        alertDiv.remove();
-      }, 3000);
+      // setTimeout dihapus
     }
     
     // Add animation
@@ -3828,35 +3822,22 @@
           }
         });
 
-        if (alreadyHasData) {
-          var overlay = document.getElementById('tambahOverlay');
-          if (overlay) overlay.style.display = 'none';
-          // Show notification modal instead of blocking redirect
-          var modalEl = document.getElementById('alreadyHasLaporanModal');
-          if (modalEl && window.bootstrap) {
-            var twLabel = document.getElementById('alreadyHasLaporanTwLabel');
-            if (twLabel) twLabel.textContent = 'Triwulan ' + triwulanAktif;
-            new bootstrap.Modal(modalEl).show();
-          } else {
-            showAlert('Laporan kinerja Triwulan ' + triwulanAktif + ' sudah ada. Gunakan tombol Edit untuk mengubah.', 'error');
-            // Remove setTimeout, immediately redirect
-            window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
-          }
-        } else {
-          openRealisasiModal(triwulanAktif, true); // forceEmpty = true, opens immediately
+        var overlay = document.getElementById('tambahOverlay');
+        if (overlay) overlay.style.display = 'none';
 
-          var realisasiModalTambah = document.getElementById('realisasiModal');
-          if (realisasiModalTambah) {
-            realisasiModalTambah.addEventListener('hidden.bs.modal', function () {
-                if (window._editFormCompleted) return;
-                var anyOpen = document.querySelector(
-                  '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
-                );
-                if (!anyOpen) {
-                  window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
-                }
-            });
-          }
+        openRealisasiModal(triwulanAktif, !alreadyHasData);
+
+        var realisasiModalTambah = document.getElementById('realisasiModal');
+        if (realisasiModalTambah) {
+          realisasiModalTambah.addEventListener('hidden.bs.modal', function () {
+              if (window._editFormCompleted) return;
+              var anyOpen = document.querySelector(
+                '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
+              );
+              if (!anyOpen) {
+                window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
+              }
+          });
         }
       }
 

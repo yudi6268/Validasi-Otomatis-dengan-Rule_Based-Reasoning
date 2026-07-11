@@ -554,9 +554,7 @@ function saveToSupabase(e) {
 
             if (data.success) {
                 showSuccessMessage(data.message || "Berhasil disimpan.");
-                setTimeout(() => {
-                    window.location.href = "/perjanjian";
-                }, 1200);
+                window.location.href = "/perjanjian";
             } else {
                 showErrorMessage(data.message || "Gagal menyimpan data.");
             }
@@ -589,7 +587,7 @@ function showSuccessMessage(message) {
     div.innerText = "✓ " + message;
     document.body.appendChild(div);
 
-    setTimeout(() => div.remove(), 3000);
+    // setTimeout dihapus
 }
 
 // =========================
@@ -612,5 +610,5 @@ function showErrorMessage(message) {
     div.innerText = "✗ " + message;
     document.body.appendChild(div);
 
-    setTimeout(() => div.remove(), 5000);
+    // setTimeout dihapus
 }
