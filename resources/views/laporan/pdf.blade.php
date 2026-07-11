@@ -104,9 +104,18 @@
     if ($v === null || $v === '') return null;
     if (is_numeric($v)) return floatval($v);
     $s = (string)$v;
-    // remove spaces and dot thousand separators, convert comma decimal to dot
-    $s = preg_replace('/[\s\.]/', '', $s);
-    $s = str_replace(',', '.', $s);
+    // remove spaces, percentage signs, and dot thousand separators, convert comma decimal to dot
+    $s = preg_replace('/[^\d\,\.\-]/', '', $s);
+    if (strpos($s, '.') !== false && strpos($s, ',') !== false) {
+        $s = str_replace('.', '', $s);
+        $s = str_replace(',', '.', $s);
+    } elseif (strpos($s, ',') !== false) {
+        $s = str_replace(',', '.', $s);
+    }
+    // Remove multiple dots
+    if (substr_count($s, '.') > 1) {
+        $s = str_replace('.', '', $s);
+    }
     return is_numeric($s) ? floatval($s) : null;
   };
 
@@ -832,27 +841,17 @@
   <div class="section-heading">D. Rencana Tindak Lanjut</div>
   @if(!empty($babRencanaText))
     @php
-      $rLines = array_values(array_filter(preg_split('/\r\n|\r|\n/', trim($babRencanaText))));
-      // Fallback: also try splitting by "; " if no newlines found
-      if (count($rLines) < 2) {
-        $rAlt = array_values(array_filter(preg_split('/;\s+/', trim($babRencanaText))));
-        if (count($rAlt) >= 2) $rLines = $rAlt;
-      }
+      $cleanedBabRencanaText = trim($babRencanaText);
+      $cleanedBabRencanaText = preg_replace('/^Adapun\s+Rencana\s+Tindak\s+Lanjut[^:]*:\s*/ui', '', $cleanedBabRencanaText);
+      $rLines = array_values(array_filter(preg_split('/\r\n|\r|\n/', trim($cleanedBabRencanaText))));
     @endphp
-    @if(count($rLines) > 1)
-      <p class="body-text-noindent">Adapun Rencana Tindak Lanjut dari hasil capaian kinerja :</p>
-      @foreach($rLines as $idx => $line)
-        @php
-          // Strip any existing leading number/bullet (e.g. "1.", "2.1.", "a)") so
-          // the sequential counter we add is always clean: 1, 2, 3 …
-          $cleanLine = preg_replace('/^\s*[\d][\d\.]*[\.)\s]+/', '', trim($line));
-          $cleanLine = $cleanLine ?: trim($line);
-        @endphp
-        @if(trim($line))<div class="list-row"><span class="list-num">{{ $idx+1 }}.</span><span class="list-text">{{ $cleanLine }}</span></div>@endif
-      @endforeach
-    @else
-      <p class="body-text">{!! nl2br(e(trim($babRencanaText))) !!}</p>
-    @endif
+    @foreach($rLines as $line)
+      @if(preg_match('/^(\d+[\.\)])\s+(.*)$/', trim($line), $matches))
+        <div class="list-row"><span class="list-num">{{ $matches[1] }}</span><span class="list-text">{!! nl2br(e($matches[2])) !!}</span></div>
+      @else
+        <p class="body-text">{!! nl2br(e(trim($line))) !!}</p>
+      @endif
+    @endforeach
   @else
     <p class="body-text">-</p>
   @endif
@@ -932,7 +931,7 @@
     @php
       $persentase = $composite ?? $avgCap;
       $compKat = $performanceForCategory !== null ? $performanceCategoryText : $capKategori;
-      $twTextArr = [1=>'pertama',2=>'kedua',3=>'ketiga',4=>'keempat'];
+      $twTextArr = [1=>'satu',2=>'dua',3=>'tiga',4=>'empat'];
       $twTxt     = $twTextArr[$tw] ?? (string)$tw;
       $arahFb    = $persentase === null ? '' : ($persentase >= 91
         ? 'upaya tindak lanjut diarahkan untuk menjaga konsistensi mutu, memperluas praktik baik, dan memastikan keberlanjutan kinerja unggul.'

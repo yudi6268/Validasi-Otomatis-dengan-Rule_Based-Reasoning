@@ -22,140 +22,105 @@ class AdminController extends Controller
     {
         $activeSection = $request->query('section', 'dashboard');
 
-        // Get statistics
-        $totalUsers = User::count();
-        $totalPerjanjian = Perjanjian::count();
-        // Program/Kegiatan/SubKegiatan totals removed from Admin dashboard
-        // $totalTemplates = Template::count();
-        $totalNotifications = Notification::count();
+        // CACHE EVERYTHING FOR 5 MINUTES (300 seconds)
+        // because Admin dashboard is heavy and doesn't need to be down-to-the-millisecond realtime
+        $dashboardData = \Illuminate\Support\Facades\Cache::remember('admin_dashboard_data', 300, function() {
+            $totalUsers = User::count();
+            $totalPerjanjian = Perjanjian::count();
+            $totalNotifications = Notification::count();
 
-        // Get all users for modal and dashboard table preview
-        $allUsers = User::orderBy('nama')->get();
-        $users = User::latest()->take(10)->get();
+            $users = User::orderByDesc('created_at')->take(10)->get();
+            $allUsers = collect(); // Deprecated for performance
 
-        // Get recent perjanjian (last 5)
-        $recentPerjanjian = Perjanjian::with('user')->latest()->take(5)->get();
-
-        // Get program/kegiatan/sub-kegiatan data from MASTER tables (REALTIME)
-        // Mengambil data dari tabel programs, kegiatan, sub_kegiatan bukan dari snapshot perjanjian
-        $allPrograms = Program::where('is_active', true)
-            ->orderBy('kode_program')
-            ->get()
-            ->map(function($program) {
-                return [
-                    'id' => $program->id,
-                    'kode' => $program->kode_program,
-                    'nama' => $program->nama_program,
-                    'deskripsi' => $program->deskripsi
-                ];
-            })
-            ->toArray();
-        
-        $allKegiatan = Kegiatan::where('is_active', true)
-            ->with('program')
-            ->orderBy('kode_kegiatan')
-            ->get()
-            ->map(function($kegiatan) {
-                return [
-                    'id' => $kegiatan->id,
-                    'kode' => $kegiatan->kode_kegiatan,
-                    'nama' => $kegiatan->nama_kegiatan,
-                    'program' => $kegiatan->program ? $kegiatan->program->nama_program : '-',
-                    'deskripsi' => $kegiatan->deskripsi
-                ];
-            })
-            ->toArray();
-        
-        $allSubKegiatan = SubKegiatan::where('is_active', true)
-            ->with('kegiatan.program')
-            ->orderBy('kode_sub_kegiatan')
-            ->get()
-            ->map(function($sub) {
-                return [
-                    'id' => $sub->id,
-                    'kode' => $sub->kode_sub_kegiatan,
-                    'nama' => $sub->nama_sub_kegiatan,
-                    'kegiatan' => $sub->kegiatan ? $sub->kegiatan->nama_kegiatan : '-',
-                    'program' => $sub->kegiatan && $sub->kegiatan->program ? $sub->kegiatan->program->nama_program : '-',
-                    'deskripsi' => $sub->deskripsi
-                ];
-            })
-            ->toArray();
-        
-        // Count totals
-        $totalPrograms = count($allPrograms);
-        $totalKegiatan = count($allKegiatan);
-        $totalSubKegiatan = count($allSubKegiatan);
-
-        // Count perjanjian by status (sama dengan user dashboard)
-        // Status: waiting (belum signature & not rejected), approved (ada signature & not rejected), rejected (rejected=true)
-        $allPerjanjians = Perjanjian::all();
-        
-        $totalWaiting = $allPerjanjians->filter(function($item) {
-            return empty($item->pihak2_signature) && (empty($item->rejected) || $item->rejected == false);
-        })->count();
-        
-        $totalApproved = $allPerjanjians->filter(function($item) {
-            return !empty($item->pihak2_signature) && (empty($item->rejected) || $item->rejected == false);
-        })->count();
-        
-        $totalRejected = $allPerjanjians->filter(function($item) {
-            return !empty($item->rejected) && $item->rejected == true;
-        })->count();
-        
-        $perjanjianByStatus = collect([
-            'waiting' => $totalWaiting,
-            'approved' => $totalApproved,
-            'rejected' => $totalRejected
-        ]);
-
-        // Get budget data per source from tabelB
-        $budgetBySource = [];
-        $perjanjians = Perjanjian::whereNotNull('tabelB')->get();
-        
-        foreach ($perjanjians as $perjanjian) {
-            $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB, true);
+            // Gunakan SQL Count agar tidak membebani memory dan koneksi
+            $totalWaiting = Perjanjian::where(function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNull('pihak2_signature')->orWhere('pihak2_signature', '');
+                })->where(function($sub2) {
+                    $sub2->whereNull('rejected')->orWhere('rejected', false);
+                });
+            })->count();
             
-            if (!empty($tabelB['sumber_dana']) && !empty($tabelB['anggaran'])) {
-                $sumberDana = $tabelB['sumber_dana'];
-                $anggaran = $tabelB['anggaran'];
-                
-                foreach ($sumberDana as $index => $sumber) {
-                    $nilai = isset($anggaran[$index]) ? floatval(str_replace([',', '.'], '', $anggaran[$index])) : 0;
-                    
-                    if (!isset($budgetBySource[$sumber])) {
-                        $budgetBySource[$sumber] = 0;
+            $totalApproved = Perjanjian::where(function($q) {
+                $q->whereNotNull('pihak2_signature')
+                  ->where('pihak2_signature', '!=', '')
+                  ->where(function($sub2) {
+                      $sub2->whereNull('rejected')->orWhere('rejected', false);
+                  });
+            })->count();
+            
+            $totalRejected = Perjanjian::where('rejected', true)->count();
+            
+            $perjanjianByStatus = collect([
+                'waiting' => $totalWaiting,
+                'approved' => $totalApproved,
+                'rejected' => $totalRejected
+            ]);
+
+            // Ambil tabelB saja untuk anggaran, memangkas transfer data 90%
+            $budgetBySource = [];
+            $perjanjiansTabelB = Perjanjian::select('tabelB')->whereNotNull('tabelB')->get();
+            foreach ($perjanjiansTabelB as $perjanjian) {
+                $tabelB = is_array($perjanjian->tabelB) ? $perjanjian->tabelB : json_decode($perjanjian->tabelB, true);
+                if (!empty($tabelB['sumber_dana']) && !empty($tabelB['anggaran'])) {
+                    foreach ($tabelB['sumber_dana'] as $index => $sumber) {
+                        $nilai = isset($tabelB['anggaran'][$index]) ? floatval(str_replace([',', '.'], '', $tabelB['anggaran'][$index])) : 0;
+                        if (!isset($budgetBySource[$sumber])) {
+                            $budgetBySource[$sumber] = 0;
+                        }
+                        $budgetBySource[$sumber] += $nilai;
                     }
-                    $budgetBySource[$sumber] += $nilai;
                 }
             }
-        }
 
-        // Get jabatan statistics
-        $jabatanStats = Jabatan::withCount('users')->get();
+            // Untuk modal dan recent, ambil kolom yang DIBUTUHKAN saja, limit 5 untuk performa
+            $recentPerjanjian = Perjanjian::with('user:id,nama,jabatan')
+                ->select('id', 'user_id', 'pihak1_name', 'pihak1_jabatan', 'tahun', 'created_at', 'rejected', 'pihak2_signature')
+                ->latest()
+                ->take(5)
+                ->get();
 
-        // Get ALL perjanjian for dashboard modal (with status)
-        $allPerjanjianModal = Perjanjian::with('user')->latest()->get()->map(function ($p) {
-            if (!empty($p->rejected) && $p->rejected == true) {
-                $statusText = 'Ditolak';
-                $badgeClass = 'bg-danger';
-            } elseif (!empty($p->pihak2_signature)) {
-                $statusText = 'Disetujui';
-                $badgeClass = 'bg-success';
-            } else {
-                $statusText = 'Menunggu';
-                $badgeClass = 'bg-warning text-dark';
-            }
-            return [
-                'id'         => $p->id,
-                'nama'       => $p->pihak1_name ?? ($p->user->nama ?? 'N/A'),
-                'jabatan'    => $p->pihak1_jabatan ?? ($p->user->jabatan ?? '-'),
-                'tahun'      => $p->tahun ?? '-',
-                'tanggal'    => $p->created_at ? $p->created_at->format('d/m/Y') : '-',
-                'statusText' => $statusText,
-                'badgeClass' => $badgeClass,
-            ];
-        })->toArray();
+            $allPerjanjianModal = $recentPerjanjian->map(function ($p) {
+                if (!empty($p->rejected) && $p->rejected == true) {
+                    $statusText = 'Ditolak';
+                    $badgeClass = 'bg-danger';
+                } elseif (!empty($p->pihak2_signature)) {
+                    $statusText = 'Disetujui';
+                    $badgeClass = 'bg-success';
+                } else {
+                    $statusText = 'Menunggu';
+                    $badgeClass = 'bg-warning text-dark';
+                }
+                return [
+                    'id'         => $p->id,
+                    'nama'       => $p->pihak1_name ?? ($p->user->nama ?? 'N/A'),
+                    'jabatan'    => $p->pihak1_jabatan ?? ($p->user->jabatan ?? '-'),
+                    'tahun'      => $p->tahun ?? '-',
+                    'tanggal'    => $p->created_at ? $p->created_at->format('d/m/Y') : '-',
+                    'statusText' => $statusText,
+                    'badgeClass' => $badgeClass,
+                ];
+            })->toArray();
+
+            // Mengambil count data master untuk dashboard
+            $totalPrograms = Program::count();
+            $totalKegiatan = Kegiatan::count();
+            $totalSubKegiatan = SubKegiatan::count();
+
+            $allPrograms = [];
+            $allKegiatan = [];
+            $allSubKegiatan = [];
+
+            $jabatanStats = collect(); // Deprecated for performance
+            $totalJabatan = Jabatan::count();
+
+            return compact(
+                'totalUsers', 'totalPerjanjian', 'totalNotifications', 'totalPrograms', 'totalKegiatan', 'totalSubKegiatan',
+                'users', 'allUsers', 'recentPerjanjian', 'perjanjianByStatus', 'jabatanStats', 'totalJabatan', 'allPrograms', 'allKegiatan', 'allSubKegiatan', 'allPerjanjianModal'
+            );
+        });
+        
+        extract($dashboardData);
 
         return view('admin.dashboard', compact(
             'activeSection',
@@ -170,6 +135,7 @@ class AdminController extends Controller
             'recentPerjanjian',
             'perjanjianByStatus',
             'jabatanStats',
+            'totalJabatan',
             'allPrograms',
             'allKegiatan',
             'allSubKegiatan',

@@ -55,13 +55,13 @@
     </div>
     <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
         <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center"
-             style="border-inline-start: 4px solid #FF9800; background: linear-gradient(135deg, #FFF3E0, #FFE0B2); min-height: 120px;"
-             data-bs-toggle="modal" data-bs-target="#jabatanModal">
+             style="border-inline-start: 4px solid #FF9800; background: linear-gradient(135deg, #FFF3E0, #FFE0B2); min-height: 120px; cursor: pointer;"
+             onclick="window.location.href='{{ route('admin.jabatan.index') }}'">
             <div class="icon mb-2" style="background: #FF9800; color: white; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.5rem;">
                 <i class="fas fa-briefcase"></i>
             </div>
             <div style="font-size: 1rem; color: #FF9800; font-weight: 700;">Total Jabatan</div>
-            <div style="font-size: 1.3rem; color: #FF9800; font-weight: 700;">{{ $jabatanStats->count() }}</div>
+            <div style="font-size: 1.3rem; color: #FF9800; font-weight: 700;">{{ $totalJabatan }}</div>
         </div>
     </div>
 </div>
@@ -71,7 +71,7 @@
     <div class="col-md-4">
         <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" 
              style="border-inline-start: 4px solid #9C27B0; background: linear-gradient(135deg, #F3E5F5, #E1BEE7); min-height: 140px; cursor: pointer;"
-             data-bs-toggle="modal" data-bs-target="#programModal">
+             onclick="window.location.href='{{ route('admin.program.index') }}'">
             <div class="icon mb-2" style="background: #9C27B0; color: white; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.8rem;">
                 <i class="fas fa-folder-open"></i>
             </div>
@@ -84,7 +84,7 @@
     <div class="col-md-4">
         <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" 
              style="border-inline-start: 4px solid #FF5722; background: linear-gradient(135deg, #FBE9E7, #FFCCBC); min-height: 140px; cursor: pointer;"
-             data-bs-toggle="modal" data-bs-target="#kegiatanModal">
+             onclick="window.location.href='{{ route('admin.program.index') }}'">
             <div class="icon mb-2" style="background: #FF5722; color: white; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.8rem;">
                 <i class="fas fa-tasks"></i>
             </div>
@@ -97,7 +97,7 @@
     <div class="col-md-4">
         <div class="stat-card w-100 h-100 d-flex flex-column align-items-center justify-content-center" 
              style="border-inline-start: 4px solid #3F51B5; background: linear-gradient(135deg, #E8EAF6, #C5CAE9); min-height: 140px; cursor: pointer;"
-             data-bs-toggle="modal" data-bs-target="#subKegiatanModal">
+             onclick="window.location.href='{{ route('admin.program.index') }}'">
             <div class="icon mb-2" style="background: #3F51B5; color: white; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.8rem;">
                 <i class="fas fa-list-ul"></i>
             </div>

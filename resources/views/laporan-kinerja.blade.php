@@ -2506,9 +2506,9 @@
       const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
       const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
       const triwulan = parseInt((document.getElementById('triwulanEdit') || {}).value || '1', 10);
-      const triwulanText = triwulan === 1 ? 'triwulan pertama' :
-                          triwulan === 2 ? 'triwulan kedua' :
-                          triwulan === 3 ? 'triwulan ketiga' : 'triwulan keempat';
+      const triwulanText = triwulan === 1 ? 'triwulan satu' :
+                          triwulan === 2 ? 'triwulan dua' :
+                          triwulan === 3 ? 'triwulan tiga' : 'triwulan empat';
       const jabatanText = perjanjianData?.jabatan ? `pada jabatan ${perjanjianData.jabatan}` : '';
 
       const validKinerja = kinerjaInputs.map(input => {
@@ -2615,9 +2615,9 @@
       const kinerjaInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="kinerja-"]'));
       const anggaranInputs = Array.from(document.querySelectorAll('.row-realisasi-input[data-row^="anggaran-"]'));
       const triwulan = parseInt((document.getElementById('triwulanEdit') || {}).value || '1', 10);
-      const triwulanText = triwulan === 1 ? 'triwulan pertama' :
-                          triwulan === 2 ? 'triwulan kedua' :
-                          triwulan === 3 ? 'triwulan ketiga' : 'triwulan keempat';
+      const triwulanText = triwulan === 1 ? 'triwulan satu' :
+                          triwulan === 2 ? 'triwulan dua' :
+                          triwulan === 3 ? 'triwulan tiga' : 'triwulan empat';
 
       const totalAnggaranActual = anggaranInputs.reduce((sum, input) => {
         const value = parseNumberValue(input.value);
@@ -3044,7 +3044,7 @@
       const overallScale = getOrdinalScaleInfo(overallPercentage);
 
       // Format triwulan teks
-      const triwulanText = triwulan === 1 ? 'pertama' : triwulan === 2 ? 'kedua' : triwulan === 3 ? 'ketiga' : 'keempat';
+      const triwulanText = triwulan === 1 ? 'satu' : triwulan === 2 ? 'dua' : triwulan === 3 ? 'tiga' : 'empat';
 
       // Format persentase dengan koma
       const persentaseFormatted = formatPercentageIDR(overallPercentage);
@@ -3839,19 +3839,15 @@
             new bootstrap.Modal(modalEl).show();
           } else {
             showAlert('Laporan kinerja Triwulan ' + triwulanAktif + ' sudah ada. Gunakan tombol Edit untuk mengubah.', 'error');
-            setTimeout(function() {
-              window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
-            }, 2500);
+            // Remove setTimeout, immediately redirect
+            window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
           }
         } else {
-          setTimeout(function () {
-            openRealisasiModal(triwulanAktif, true); // forceEmpty = true, opens immediately
-          }, 50);
+          openRealisasiModal(triwulanAktif, true); // forceEmpty = true, opens immediately
 
           var realisasiModalTambah = document.getElementById('realisasiModal');
           if (realisasiModalTambah) {
             realisasiModalTambah.addEventListener('hidden.bs.modal', function () {
-              setTimeout(function () {
                 if (window._editFormCompleted) return;
                 var anyOpen = document.querySelector(
                   '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
@@ -3859,7 +3855,6 @@
                 if (!anyOpen) {
                   window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
                 }
-              }, 150);
             });
           }
         }

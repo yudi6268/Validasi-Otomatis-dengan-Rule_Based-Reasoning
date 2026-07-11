@@ -35,10 +35,8 @@ class ProgramController extends Controller
         try {
             $search = $request->get('search', '');
             $status = $request->get('status', 'all'); // all|active|inactive
-            
-            // Fetch programs from database - SORT BY KODE
-            $query = DB::table('programs')
-                ->select('id', 'kode_program', 'nama_program', 'is_active');
+            // Fetch programs with eager loading to prevent N+1 problem (which causes 8s lag)
+            $query = \App\Models\Program::with(['kegiatan.subKegiatan']);
             
             if (!empty($search)) {
                 $query->where('nama_program', 'ilike', '%' . $search . '%');
@@ -50,39 +48,35 @@ class ProgramController extends Controller
                 $query->where('is_active', false);
             }
             
-            $programs = $query->orderBy('kode_program')->get()->toArray();
+            $programsModels = $query->orderBy('kode_program')->get();
             
-            // Convert to array and fetch nested data
-            foreach ($programs as &$program) {
-                $program = (array)$program;
-                
-                // Fetch kegiatan for this program - SORT BY KODE
-                $kegiatans = DB::table('kegiatan')
-                    ->select('id', 'kode_kegiatan', 'nama_kegiatan', 'program_id', 'is_active')
-                    ->where('program_id', $program['id'])
-                    ->orderBy('kode_kegiatan')
-                    ->get()
-                    ->toArray();
-                
-                // Convert kegiatan and fetch sub-kegiatan
-                $program['kegiatan'] = array_map(function($kegiatan) {
-                    $kegiatan = (array)$kegiatan;
-                    
-                    // Fetch sub-kegiatan - SORT BY KODE
-                    $subs = DB::table('sub_kegiatan')
-                        ->select('id', 'kode_sub_kegiatan', 'nama_sub_kegiatan', 'kegiatan_id', 'is_active')
-                        ->where('kegiatan_id', $kegiatan['id'])
-                        ->orderBy('kode_sub_kegiatan')
-                        ->get()
-                        ->toArray();
-                    
-                    $kegiatan['sub_kegiatan'] = array_map(function($sub) {
-                        return (array)$sub;
-                    }, $subs);
-                    
-                    return $kegiatan;
-                }, $kegiatans);
-            }
+            // Transform directly to array matching the previous structure
+            $programs = $programsModels->map(function($program) {
+                return [
+                    'id' => $program->id,
+                    'kode_program' => $program->kode_program,
+                    'nama_program' => $program->nama_program,
+                    'is_active' => $program->is_active,
+                    'kegiatan' => $program->kegiatan->sortBy('kode_kegiatan')->map(function($kegiatan) {
+                        return [
+                            'id' => $kegiatan->id,
+                            'kode_kegiatan' => $kegiatan->kode_kegiatan,
+                            'nama_kegiatan' => $kegiatan->nama_kegiatan,
+                            'program_id' => $kegiatan->program_id,
+                            'is_active' => $kegiatan->is_active,
+                            'sub_kegiatan' => $kegiatan->subKegiatan->sortBy('kode_sub_kegiatan')->map(function($sub) {
+                                return [
+                                    'id' => $sub->id,
+                                    'kode_sub_kegiatan' => $sub->kode_sub_kegiatan,
+                                    'nama_sub_kegiatan' => $sub->nama_sub_kegiatan,
+                                    'kegiatan_id' => $sub->kegiatan_id,
+                                    'is_active' => $sub->is_active,
+                                ];
+                            })->values()->toArray()
+                        ];
+                    })->values()->toArray()
+                ];
+            })->toArray();
 
             return view('admin.program.index', compact('programs', 'search', 'status'));
         } catch (\Exception $e) {

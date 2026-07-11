@@ -13,6 +13,9 @@ class LoginController extends Controller
 {
     public function login(Request $request)
     {
+        $start = microtime(true);
+        \Log::info("LOGIN PROFILING: Start");
+
         try {
             $credentials = $request->validate([
                 'user_id' => 'required|string',
@@ -21,41 +24,42 @@ class LoginController extends Controller
                 'user_id.required' => 'ID Pegawai wajib diisi',
                 'password.required' => 'Password wajib diisi'
             ]);
+            
+            \Log::info("LOGIN PROFILING: Validation done. Time: " . (microtime(true) - $start));
 
-
-            $user = User::where('id_pegawai', $credentials['user_id'])->first();
+            $user = \Illuminate\Support\Facades\Cache::remember('user_login_' . $credentials['user_id'], 30, function() use ($credentials) {
+                return User::where('id_pegawai', $credentials['user_id'])->first();
+            });
+            
+            \Log::info("LOGIN PROFILING: Fetch user done. Time: " . (microtime(true) - $start));
 
             if (!$user) {
-                Log::warning('Login attempt with non-existent ID Pegawai', [
-                    'id_pegawai' => $credentials['user_id'],
-                    'ip' => $request->ip()
-                ]);
-
                 throw ValidationException::withMessages([
-                    'login' => ['ID Pegawai tidak ditemukan. Pastikan Anda memasukkan ID Pegawai yang benar. Jika tidak tahu, hubungi administrator.']
+                    'login' => ['ID Pegawai tidak ditemukan.']
                 ]);
             }
 
-            // Cek status user
             if ($user->status !== 'active') {
-                Log::warning('Login attempt for non-active/pending user', [
-                    'id_pegawai' => $credentials['user_id'],
-                    'status' => $user->status,
-                    'ip' => $request->ip()
-                ]);
-                $msg = $user->status === 'pending' 
-                    ? 'Akun Anda masih PENDING (menunggu persetujuan). Hubungi administrator untuk aktivasi akun.' 
-                    : 'Akun Anda NON-AKTIF (dinonaktifkan). Hubungi administrator untuk mengaktifkan kembali akun.';
                 throw ValidationException::withMessages([
-                    'login' => [$msg]
+                    'login' => ['Akun Anda NON-AKTIF.']
                 ]);
             }
 
-            // Attempt to authenticate
-            if (Auth::attempt(['id_pegawai' => $credentials['user_id'], 'password' => $credentials['password']])) {
-                $request->session()->regenerate();
+            \Log::info("LOGIN PROFILING: Status check done. Time: " . (microtime(true) - $start));
+
+            if (\Illuminate\Support\Facades\Hash::check($credentials['password'], $user->password)) {
+                \Log::info("LOGIN PROFILING: Hash::check done. Time: " . (microtime(true) - $start));
                 
-                $hasUnreadNotifications = Notification::unread()->forUser($user->id)->exists();
+                Auth::login($user);
+                \Log::info("LOGIN PROFILING: Auth::login done. Time: " . (microtime(true) - $start));
+                
+                $request->session()->regenerate();
+                \Log::info("LOGIN PROFILING: session()->regenerate done. Time: " . (microtime(true) - $start));
+                
+                $hasUnreadNotifications = \Illuminate\Support\Facades\Cache::remember('unread_notifs_' . $user->id, 60, function() use ($user) {
+                    return Notification::unread()->forUser($user->id)->exists();
+                });
+                \Log::info("LOGIN PROFILING: Notification fetch done. Time: " . (microtime(true) - $start));
                 
                 // Log successful login
                 Log::info('User logged in successfully', [

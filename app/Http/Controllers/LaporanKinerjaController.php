@@ -13,10 +13,13 @@ use App\Services\SmartValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class LaporanKinerjaController extends Controller
 {
     protected $supabase;
+    /** @var array<string,array<int,string>> */
+    private static array $tableColumnsCache = [];
 
     private function isActualWadir($user): bool
     {
@@ -125,9 +128,12 @@ class LaporanKinerjaController extends Controller
                         'viewMode'       => 'list',
                     ]);
                 }
-                $laporans = Laporan::where('perjanjian_id', $perjanjian->id)
-                    ->orderBy('created_at', 'asc')
-                    ->get();
+                
+                $laporans = \Illuminate\Support\Facades\Cache::remember('laporans_perjanjian_' . $perjanjian->id, 60, function() use ($perjanjian) {
+                    return Laporan::where('perjanjian_id', $perjanjian->id)
+                        ->orderBy('created_at', 'asc')
+                        ->get();
+                });
 
                 // Edit mode: wadir opens specific laporan in form view
                 $laporanIdParam = $request->query('laporan_id');
@@ -166,23 +172,25 @@ class LaporanKinerjaController extends Controller
         // ------------------------------------------------------------------
         // Normal flow: staff viewing their own laporan
         // ------------------------------------------------------------------
-        $perjanjianDisetujui = Perjanjian::where('user_id', $user->id)
-            ->where(function($query) {
-                // Cek status baru dan variasi legacy agar input realisasi langsung mengikuti perubahan status.
-                $query->whereIn('status', ['disetujui', 'approved'])
-                    ->orWhere(function($q) {
-                        $q->whereNotNull('pihak2_signature')
-                            ->where(function($sub) {
-                                $sub->whereNull('rejected')
-                                    ->orWhere('rejected', false)
-                                    ->orWhere('rejected', 0)
-                                    ->orWhere('rejected', '0');
-                            });
-                    });
-            })
-            ->orderBy('updated_at', 'desc')
-            ->orderBy('agreement_date', 'desc')
-            ->first();
+        $perjanjianDisetujui = \Illuminate\Support\Facades\Cache::remember('perjanjian_disetujui_user_' . $user->id, 60, function() use ($user) {
+            return Perjanjian::where('user_id', $user->id)
+                ->where(function($query) {
+                    // Cek status baru dan variasi legacy agar input realisasi langsung mengikuti perubahan status.
+                    $query->whereIn('status', ['disetujui', 'approved'])
+                        ->orWhere(function($q) {
+                            $q->whereNotNull('pihak2_signature')
+                                ->where(function($sub) {
+                                    $sub->whereNull('rejected')
+                                        ->orWhere('rejected', false)
+                                        ->orWhere('rejected', 0)
+                                        ->orWhere('rejected', '0');
+                                });
+                        });
+                })
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('agreement_date', 'desc')
+                ->first();
+        });
 
         if (!$perjanjianDisetujui) {
             return view('laporan-kinerja', [
@@ -196,9 +204,11 @@ class LaporanKinerjaController extends Controller
             ]);
         }
 
-        $laporans = Laporan::where('perjanjian_id', $perjanjianDisetujui->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $laporans = \Illuminate\Support\Facades\Cache::remember('laporans_perjanjian_' . $perjanjianDisetujui->id, 60, function() use ($perjanjianDisetujui) {
+            return Laporan::where('perjanjian_id', $perjanjianDisetujui->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+        });
 
         $triwulanAktif = (int) $this->getTriwulanAktif();
 
@@ -579,6 +589,8 @@ class LaporanKinerjaController extends Controller
      */
     public function saveRealisasi(Request $request, $laporanId = null)
     {
+        $startedAt = microtime(true);
+
         try {
             $validationReset = false; // Initialize early
             
@@ -598,6 +610,13 @@ class LaporanKinerjaController extends Controller
 
             $triwulanAktif = (int) $this->getTriwulanAktif();
             if ((int) $validated['triwulan'] !== $triwulanAktif) {
+                $this->logEndpointDuration('saveRealisasi', $startedAt, [
+                    'status' => 422,
+                    'reason' => 'invalid_triwulan',
+                    'requested_triwulan' => (int) $validated['triwulan'],
+                    'active_triwulan' => $triwulanAktif,
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Input laporan hanya diizinkan pada Triwulan aktif (Triwulan ' . $triwulanAktif . ').'
@@ -615,6 +634,12 @@ class LaporanKinerjaController extends Controller
 
                 // Verifikasi access
                 if ($perjanjian->user_id !== auth()->id()) {
+                    $this->logEndpointDuration('saveRealisasi', $startedAt, [
+                        'status' => 403,
+                        'reason' => 'forbidden_perjanjian_access',
+                        'perjanjian_id' => (int) $perjanjianId,
+                    ]);
+
                     return response()->json([
                         'success' => false,
                         'message' => 'Anda tidak berhak mengakses perjanjian ini'
@@ -642,12 +667,23 @@ class LaporanKinerjaController extends Controller
 
                 // Verifikasi access
                 if ($perjanjian->user_id !== auth()->id()) {
+                    $this->logEndpointDuration('saveRealisasi', $startedAt, [
+                        'status' => 403,
+                        'reason' => 'forbidden_laporan_access',
+                        'laporan_id' => (int) $laporanId,
+                    ]);
+
                     return response()->json([
                         'success' => false,
                         'message' => 'Anda tidak berhak mengakses laporan ini'
                     ], 403);
                 }
             } else {
+                $this->logEndpointDuration('saveRealisasi', $startedAt, [
+                    'status' => 400,
+                    'reason' => 'invalid_request_mode',
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid request'
@@ -659,15 +695,33 @@ class LaporanKinerjaController extends Controller
 
             $realisasiValue = $validated['realisasi'];
             if (!empty($validated['realisasi_rows']) && is_array($validated['realisasi_rows'])) {
-                $realisasiValue = json_encode([
-                    'text' => $validated['realisasi'],
-                    'rows' => array_map(function ($row) {
+                $maxRows = (int) config('services.supabase.validation_max_rows', 80);
+                $rowsInput = $validated['realisasi_rows'];
+                if ($this->isSidangMode() && $maxRows > 0 && count($rowsInput) > $maxRows) {
+                    $rowsInput = array_slice($rowsInput, 0, $maxRows);
+                }
+
+                if ($this->isSidangMode()) {
+                    // Mode sidang: simpan bentuk ringkas untuk menurunkan CPU dan ukuran payload JSON.
+                    $rowsMapped = array_map(function ($row) {
+                        return [
+                            'row' => isset($row['row']) ? (string) $row['row'] : null,
+                            'realisasi' => array_key_exists('realisasi', $row) && $row['realisasi'] !== '' ? floatval($row['realisasi']) : null,
+                            'target' => isset($row['target']) ? floatval($row['target']) : null,
+                            'indicator_type' => $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif'),
+                            'pct' => null,
+                            'performance_pct' => null,
+                            'ket' => isset($row['ket']) ? (string) $row['ket'] : '',
+                        ];
+                    }, $rowsInput);
+                } else {
+                    $rowsMapped = array_map(function ($row) {
                         $realisasiValue = null;
                         $targetValue = isset($row['target']) ? floatval($row['target']) : null;
                         $indicatorType = $this->normalizeIndicatorType($row['indicator_type'] ?? 'positif');
                         $pct = null;
                         $performancePct = null;
-                        
+
                         if (array_key_exists('realisasi', $row) && $row['realisasi'] !== null && $row['realisasi'] !== '') {
                             $realisasiValue = floatval($row['realisasi']);
                             // Capaian selalu realisasi/target*100; analisis performa disesuaikan tipe indikator.
@@ -684,7 +738,12 @@ class LaporanKinerjaController extends Controller
                             'performance_pct' => $performancePct,
                             'ket' => isset($row['ket']) ? (string) $row['ket'] : '',
                         ];
-                    }, $validated['realisasi_rows']),
+                    }, $rowsInput);
+                }
+
+                $realisasiValue = json_encode([
+                    'text' => $validated['realisasi'],
+                    'rows' => $rowsMapped,
                     'followup' => $validated['rencana_tindak_lanjut'] ?? '',
                 ], JSON_UNESCAPED_UNICODE);
             } else {
@@ -765,8 +824,8 @@ class LaporanKinerjaController extends Controller
                 }
             }
 
-            // Mirror laporan ke Supabase (best-effort, tidak mengganggu simpan utama)
-            $this->syncLaporanToSupabase($laporan, $triwulan);
+            // Mirror laporan ke Supabase setelah response dikirim agar tidak menambah waktu tunggu user.
+            $this->syncLaporanToSupabaseAfterResponse((int) $laporan->id, $triwulan);
 
             $workflowStatus = 'draft_saved';
             $validation = null;
@@ -780,6 +839,11 @@ class LaporanKinerjaController extends Controller
                 $highIssues = collect($validation['issues'] ?? [])->where('severity', 'high')->count();
                 $isPassed = ($validation['score'] ?? 0) >= 75 && $highIssues === 0;
 
+                // Forward Chaining Inference Engine: Auto-fill kesimpulan jika kosong
+                if (empty($laporan->kesimpulan) && !empty($validation['summary'])) {
+                    $laporan->kesimpulan = "=== HASIL ANALISIS SISTEM (RULE-BASED INFERENCE) ===\n\n" . $validation['summary'];
+                }
+
                 if ($isPassed) {
                     $workflowStatus = 'forwarded_to_pimpinan';
                     $laporan->rejected = false;
@@ -788,25 +852,27 @@ class LaporanKinerjaController extends Controller
                     $laporan->tanggapan_pihak2 = false;
                     $laporan->save();
 
-                    $perjanjian = $laporan->perjanjian;
-                    $pimpinan = null;
-                    if ($perjanjian) {
-                        if (!empty($perjanjian->pihak2_nip)) {
-                            $pimpinan = User::where('nip', $perjanjian->pihak2_nip)->first();
+                    if (!$this->isSidangMode()) {
+                        $perjanjian = $laporan->perjanjian;
+                        $pimpinan = null;
+                        if ($perjanjian) {
+                            if (!empty($perjanjian->pihak2_nip)) {
+                                $pimpinan = User::where('nip', $perjanjian->pihak2_nip)->first();
+                            }
+                            if (!$pimpinan && !empty($perjanjian->pihak2_name)) {
+                                $pimpinan = User::where('nama', $perjanjian->pihak2_name)->first();
+                            }
                         }
-                        if (!$pimpinan && !empty($perjanjian->pihak2_name)) {
-                            $pimpinan = User::where('nama', $perjanjian->pihak2_name)->first();
-                        }
-                    }
 
-                    if ($pimpinan) {
-                        Notification::create([
-                            'user_id' => $pimpinan->id,
-                            'title' => 'Laporan Kinerja Siap Direview',
-                            'message' => 'Laporan kinerja triwulan ' . $triwulan . ' atas nama ' . ($perjanjian->pihak1_name ?? 'pegawai') . ' telah lolos validasi otomatis dan menunggu review pimpinan.',
-                            'type' => 'info',
-                            'is_read' => false,
-                        ]);
+                        if ($pimpinan) {
+                            Notification::create([
+                                'user_id' => $pimpinan->id,
+                                'title' => 'Laporan Kinerja Siap Direview',
+                                'message' => 'Laporan kinerja triwulan ' . $triwulan . ' atas nama ' . ($perjanjian->pihak1_name ?? 'pegawai') . ' telah lolos validasi otomatis dan menunggu review pimpinan.',
+                                'type' => 'info',
+                                'is_read' => false,
+                            ]);
+                        }
                     }
                 } else {
                     $workflowStatus = 'returned_for_revision';
@@ -818,6 +884,19 @@ class LaporanKinerjaController extends Controller
                 }
             }
 
+            $this->logEndpointDuration('saveRealisasi', $startedAt, [
+                'status' => 200,
+                'laporan_id' => (int) $laporan->id,
+                'triwulan' => (int) $triwulan,
+                'finalize' => !empty($validated['finalize']),
+                'workflow_status' => $workflowStatus,
+                'validation_reset' => $validationReset,
+                'sidang_mode' => $this->isSidangMode(),
+            ]);
+
+            \Illuminate\Support\Facades\Cache::forget('laporans_perjanjian_' . $laporan->perjanjian_id);
+            \Illuminate\Support\Facades\Cache::forget('perjanjian_disetujui_user_' . auth()->id());
+
             return response()->json([
                 'success' => true,
                 'message' => 'Realisasi Triwulan ' . $triwulan . ' berhasil disimpan',
@@ -828,6 +907,12 @@ class LaporanKinerjaController extends Controller
                 'data' => $laporan
             ]);
         } catch (\Throwable $e) {
+            $this->logEndpointDuration('saveRealisasi', $startedAt, [
+                'status' => 400,
+                'reason' => 'exception',
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -842,12 +927,20 @@ class LaporanKinerjaController extends Controller
      */
     public function smartValidate(Request $request, $id)
     {
+        $startedAt = microtime(true);
+
         try {
             $laporan = Laporan::findOrFail($id);
             $perjanjian = $laporan->perjanjian;
 
             // Verifikasi akses
             if ($perjanjian->user_id !== auth()->id()) {
+                $this->logEndpointDuration('smartValidate', $startedAt, [
+                    'status' => 403,
+                    'laporan_id' => (int) $id,
+                    'reason' => 'forbidden_access',
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda tidak berhak mengakses laporan ini'
@@ -858,12 +951,27 @@ class LaporanKinerjaController extends Controller
             $validationService = new SmartValidationService();
             $result = $validationService->validateLaporan($laporan, (int) $this->getTriwulanAktif());
 
+            $this->logEndpointDuration('smartValidate', $startedAt, [
+                'status' => 200,
+                'laporan_id' => (int) $id,
+                'score' => (int) ($result['score'] ?? 0),
+                'issue_count' => count($result['issues'] ?? []),
+                'warning_count' => count($result['warnings'] ?? []),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Validasi selesai',
                 'validation' => $result
             ]);
         } catch (\Throwable $e) {
+            $this->logEndpointDuration('smartValidate', $startedAt, [
+                'status' => 500,
+                'laporan_id' => (int) $id,
+                'reason' => 'exception',
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -963,6 +1071,15 @@ class LaporanKinerjaController extends Controller
      */
     private function syncLaporanToSupabase(Laporan $laporan, int $triwulan): void
     {
+        if (!$this->shouldSyncSupabase()) {
+            Log::info('Supabase sync skipped (sidang mode/config disabled)', [
+                'laporan_id' => (int) $laporan->id,
+                'triwulan' => $triwulan,
+                'sidang_mode' => $this->isSidangMode(),
+            ]);
+            return;
+        }
+
         try {
             $payload = [
                 'local_id' => $laporan->id,
@@ -1018,6 +1135,53 @@ class LaporanKinerjaController extends Controller
     }
 
     /**
+     * Jadwalkan sinkronisasi ke Supabase setelah response terkirim.
+     */
+    private function syncLaporanToSupabaseAfterResponse(int $laporanId, int $triwulan): void
+    {
+        if (!$this->shouldSyncSupabase()) {
+            return;
+        }
+
+        app()->terminating(function () use ($laporanId, $triwulan) {
+            try {
+                $freshLaporan = Laporan::find($laporanId);
+                if (!$freshLaporan) {
+                    return;
+                }
+
+                $this->syncLaporanToSupabase($freshLaporan, $triwulan);
+            } catch (\Throwable $e) {
+                Log::warning('Deferred Supabase sync failed for laporan local_id=' . $laporanId . ': ' . $e->getMessage());
+            }
+        });
+    }
+
+    private function shouldSyncSupabase(): bool
+    {
+        return (bool) config('services.supabase.sync_enabled', true) && !$this->isSidangMode();
+    }
+
+    private function isSidangMode(): bool
+    {
+        return (bool) config('services.supabase.sidang_mode', false);
+    }
+
+    private function logEndpointDuration(string $endpoint, float $startedAt, array $context = []): void
+    {
+        if (!(bool) config('services.supabase.timing_log_enabled', false)) {
+            return;
+        }
+
+        $elapsedMs = round((microtime(true) - $startedAt) * 1000, 2);
+
+        Log::info('Endpoint timing', array_merge([
+            'endpoint' => $endpoint,
+            'elapsed_ms' => $elapsedMs,
+        ], $context));
+    }
+
+    /**
      * Bangun payload create laporan yang kompatibel dengan skema DB aktif.
      */
     private function buildLaporanCreatePayload(Perjanjian $perjanjian, int $perjanjianId, int $triwulan): array
@@ -1043,12 +1207,17 @@ class LaporanKinerjaController extends Controller
     private function filterColumnsForTable(string $table, array $data, array $alwaysInclude = []): array
     {
         try {
-            $connection = (new Laporan())->getConnection();
-            $schema = $connection->getSchemaBuilder();
+            if (!isset(self::$tableColumnsCache[$table])) {
+                $connection = (new Laporan())->getConnection();
+                $schema = $connection->getSchemaBuilder();
+                self::$tableColumnsCache[$table] = $schema->getColumnListing($table);
+            }
+
+            $columns = self::$tableColumnsCache[$table];
 
             $filtered = [];
             foreach ($data as $column => $value) {
-                if (in_array($column, $alwaysInclude, true) || $schema->hasColumn($table, $column)) {
+                if (in_array($column, $alwaysInclude, true) || in_array($column, $columns, true)) {
                     $filtered[$column] = $value;
                 }
             }
@@ -1056,7 +1225,26 @@ class LaporanKinerjaController extends Controller
             return $filtered;
         } catch (\Throwable $e) {
             Log::warning('Column filter fallback for table ' . $table . ': ' . $e->getMessage());
-            return $data;
+
+            // Fallback one-shot with default schema listing, still avoiding per-column hasColumn checks.
+            try {
+                if (!isset(self::$tableColumnsCache[$table])) {
+                    self::$tableColumnsCache[$table] = Schema::getColumnListing($table);
+                }
+
+                $columns = self::$tableColumnsCache[$table];
+                $filtered = [];
+                foreach ($data as $column => $value) {
+                    if (in_array($column, $alwaysInclude, true) || in_array($column, $columns, true)) {
+                        $filtered[$column] = $value;
+                    }
+                }
+
+                return $filtered;
+            } catch (\Throwable $inner) {
+                Log::warning('Column listing fallback failed for table ' . $table . ': ' . $inner->getMessage());
+                return $data;
+            }
         }
     }
 

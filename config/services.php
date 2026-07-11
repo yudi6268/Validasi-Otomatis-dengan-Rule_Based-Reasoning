@@ -40,6 +40,14 @@ return [
         'anon_key' => env('SUPABASE_ANON_KEY'),
         'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
         'bucket' => env('SUPABASE_STORAGE_BUCKET', 'uploads'),
+        'connect_timeout' => env('SUPABASE_CONNECT_TIMEOUT', 3),
+        'timeout' => env('SUPABASE_TIMEOUT', 8),
+        'retry_times' => env('SUPABASE_RETRY_TIMES', 1),
+        'retry_sleep_ms' => env('SUPABASE_RETRY_SLEEP_MS', 150),
+        'sync_enabled' => env('SUPABASE_SYNC_ENABLED', true),
+        'sidang_mode' => env('SIDANG_MODE', false),
+        'validation_max_rows' => env('VALIDATION_MAX_ROWS', 80),
+        'timing_log_enabled' => env('TIMING_LOG_ENABLED', false),
     ],
 
 

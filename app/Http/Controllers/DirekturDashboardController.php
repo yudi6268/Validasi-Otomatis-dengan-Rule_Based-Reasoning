@@ -69,78 +69,85 @@ class DirekturDashboardController extends Controller
     {
         $user = Auth::user();
 
-        // All perjanjian where direktur is pihak kedua
-        $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        // CACHE UNTUK DIREKTUR (1 Menit) - Cukup untuk mempercepat tanpa terlalu stale
+        $cacheKey = "direktur_dashboard_data_{$user->id}";
+        
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($user) {
+            // All perjanjian where direktur is pihak kedua
+            $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        $perjanjianItems = $allPerjanjians->map(function ($p) {
-            $status = $this->isRejectedValue($p->rejected) ? 'ditolak'
-                : (!empty($p->pihak2_signature) ? 'disetujui' : 'menunggu');
-            return [
-                'id'               => $p->id,
-                'pihak1_name'      => $p->pihak1_name ?? '-',
-                'pihak1_jabatan'   => $p->pihak1_jabatan ?? '-',
-                'jenis'            => 'Perjanjian Kinerja',
-                'periode'          => $p->periode ?? optional($p->created_at)->format('Y') ?? '-',
-                'tanggal'          => optional($p->created_at)->format('d M Y') ?? '-',
-                'status'           => $status,
-                'rejection_reason' => $p->rejection_reason ?? null,
+            $perjanjianItems = $allPerjanjians->map(function ($p) {
+                $status = $this->isRejectedValue($p->rejected) ? 'ditolak'
+                    : (!empty($p->pihak2_signature) ? 'disetujui' : 'menunggu');
+                return [
+                    'id'               => $p->id,
+                    'pihak1_name'      => $p->pihak1_name ?? '-',
+                    'pihak1_jabatan'   => $p->pihak1_jabatan ?? '-',
+                    'jenis'            => 'Perjanjian Kinerja',
+                    'periode'          => $p->periode ?? optional($p->created_at)->format('Y') ?? '-',
+                    'tanggal'          => optional($p->created_at)->format('d M Y') ?? '-',
+                    'status'           => $status,
+                    'rejection_reason' => $p->rejection_reason ?? null,
+                ];
+            })->values();
+
+            $perjanjianCounts = [
+                'total'     => $perjanjianItems->count(),
+                'disetujui' => $perjanjianItems->where('status', 'disetujui')->count(),
+                'menunggu'  => $perjanjianItems->where('status', 'menunggu')->count(),
+                'ditolak'   => $perjanjianItems->where('status', 'ditolak')->count(),
             ];
-        })->values();
 
-        $perjanjianCounts = [
-            'total'     => $perjanjianItems->count(),
-            'disetujui' => $perjanjianItems->where('status', 'disetujui')->count(),
-            'menunggu'  => $perjanjianItems->where('status', 'menunggu')->count(),
-            'ditolak'   => $perjanjianItems->where('status', 'ditolak')->count(),
-        ];
+            $perjanjianIds = $allPerjanjians->pluck('id');
+            $allLaporans   = Laporan::whereIn('perjanjian_id', $perjanjianIds)
+                ->with('perjanjian')
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        $perjanjianIds = $allPerjanjians->pluck('id');
-        $allLaporans   = Laporan::whereIn('perjanjian_id', $perjanjianIds)
-            ->with('perjanjian')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            $laporanItems = $allLaporans->map(function ($l) {
+                $hasRealisasi = false;
+                for ($tw = 1; $tw <= 4; $tw++) {
+                    if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
+                }
+                $status = 'terkirim';
+                if (!empty($l->pihak2_signature)) {
+                    $status = 'disetujui';
+                } elseif ((!empty($l->rejected) && (string) $l->rejected !== '0') || (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan))) {
+                    $status = 'ditolak';
+                } elseif ($hasRealisasi && !empty($l->kesimpulan) && empty($l->pihak2_signature)) {
+                    $status = 'menunggu';
+                }
+                return [
+                    'id'             => $l->id,
+                    'perjanjian_id'  => $l->perjanjian_id,
+                    'pihak1_name'    => $l->perjanjian?->pihak1_name ?? '-',
+                    'pihak1_jabatan' => $l->perjanjian?->pihak1_jabatan ?? '-',
+                    'uraian'         => $l->uraian_kegiatan ?? 'Laporan Kinerja',
+                    'triwulan'       => $l->triwulan_aktif ?? '-',
+                    'tahun'          => $l->tahun ?? optional($l->created_at)->format('Y') ?? '-',
+                    'status'         => $status,
+                ];
+            })->values();
 
-        $laporanItems = $allLaporans->map(function ($l) {
-            $hasRealisasi = false;
-            for ($tw = 1; $tw <= 4; $tw++) {
-                if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
-            }
-            $status = 'terkirim';
-            if (!empty($l->pihak2_signature)) {
-                $status = 'disetujui';
-            } elseif ((!empty($l->rejected) && (string) $l->rejected !== '0') || (!empty($l->tanggapan_pimpinan) && empty($l->kesimpulan))) {
-                $status = 'ditolak';
-            } elseif ($hasRealisasi && !empty($l->kesimpulan) && empty($l->pihak2_signature)) {
-                $status = 'menunggu';
-            }
-            return [
-                'id'             => $l->id,
-                'perjanjian_id'  => $l->perjanjian_id,
-                'pihak1_name'    => $l->perjanjian?->pihak1_name ?? '-',
-                'pihak1_jabatan' => $l->perjanjian?->pihak1_jabatan ?? '-',
-                'uraian'         => $l->uraian_kegiatan ?? 'Laporan Kinerja',
-                'triwulan'       => $l->triwulan_aktif ?? '-',
-                'tahun'          => $l->tahun ?? optional($l->created_at)->format('Y') ?? '-',
-                'status'         => $status,
+            $laporanCounts = [
+                'total'     => $laporanItems->count(),
+                'disetujui' => $laporanItems->where('status', 'disetujui')->count(),
+                'menunggu'  => $laporanItems->where('status', 'menunggu')->count(),
+                'ditolak'   => $laporanItems->where('status', 'ditolak')->count(),
             ];
-        })->values();
 
-        $laporanCounts = [
-            'total'     => $laporanItems->count(),
-            'disetujui' => $laporanItems->where('status', 'disetujui')->count(),
-            'menunggu'  => $laporanItems->where('status', 'menunggu')->count(),
-            'ditolak'   => $laporanItems->where('status', 'ditolak')->count(),
-        ];
+            $chartData = $this->buildDirectorChartData($allPerjanjians, $allLaporans);
+            
+            return compact(
+                'perjanjianItems', 'perjanjianCounts',
+                'laporanItems', 'laporanCounts',
+                'chartData'
+            );
+        });
 
-        $chartData = $this->buildDirectorChartData($allPerjanjians, $allLaporans);
-
-        return view('dashboard.direktur', compact(
-            'perjanjianItems', 'perjanjianCounts',
-            'laporanItems', 'laporanCounts',
-            'chartData'
-        ));
+        return view('dashboard.direktur', $data);
     }
 
     private function buildDirectorChartData($allPerjanjians, $allLaporans): array

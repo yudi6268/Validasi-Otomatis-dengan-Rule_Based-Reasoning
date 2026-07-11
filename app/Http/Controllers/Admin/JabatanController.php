@@ -48,18 +48,23 @@ class JabatanController extends Controller
     {
         $search = request('search');
 
-        $query = Jabatan::query()->orderBy('nama_jabatan');
+        $allJabatan = \Illuminate\Support\Facades\Cache::remember('jabatan_all', 3600, function() {
+            return Jabatan::orderBy('nama_jabatan')->get();
+        });
 
         if ($search) {
-            $query->where(function ($query) use ($search) {
-                $query->where('nama_jabatan', 'ilike', "%{$search}%")
-                    ->orWhereRaw("tugas::text ILIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("fungsi::text ILIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("membawahi::text ILIKE ?", ["%{$search}%"]);
+            $searchLower = strtolower($search);
+            $jabatan = $allJabatan->filter(function($j) use ($searchLower) {
+                $fungsiStr = is_array($j->fungsi) ? implode(' ', $j->fungsi) : ($j->fungsi ?? '');
+                $membStr = is_array($j->membawahi) ? implode(' ', $j->membawahi) : ($j->membawahi ?? '');
+                return str_contains(strtolower($j->nama_jabatan ?? ''), $searchLower)
+                    || str_contains(strtolower($j->tugas ?? ''), $searchLower)
+                    || str_contains(strtolower($fungsiStr), $searchLower)
+                    || str_contains(strtolower($membStr), $searchLower);
             });
+        } else {
+            $jabatan = $allJabatan;
         }
-
-        $jabatan = $query->get();
 
         if (request()->ajax() || request()->get('ajax') == 1) {
             return view('admin.jabatan.partials.table', compact('jabatan'))->render();
@@ -163,6 +168,7 @@ class JabatanController extends Controller
             }
 
             DB::commit();
+            \Illuminate\Support\Facades\Cache::forget('jabatan_all');
             Log::info('Jabatan ' . $jabatan->id . ' successfully saved and synced to Supabase');
         } catch (\Throwable $throwable) {
             Log::error('Jabatan store error: ' . $throwable->getMessage(), ['trace' => $throwable->getTraceAsString()]);
@@ -233,6 +239,7 @@ class JabatanController extends Controller
             }
 
             DB::commit();
+            \Illuminate\Support\Facades\Cache::forget('jabatan_all');
         } catch (\Throwable $throwable) {
             DB::rollBack();
             return redirect()->back()
@@ -270,6 +277,7 @@ class JabatanController extends Controller
             }
 
             DB::commit();
+            \Illuminate\Support\Facades\Cache::forget('jabatan_all');
             Log::info('Jabatan ' . $id . ' successfully deleted from both local DB and Supabase');
         } catch (\Throwable $throwable) {
             Log::error('Jabatan delete error: ' . $throwable->getMessage(), ['id' => $id]);

@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Schema;
  */
 class SmartValidationService
 {
+    /** @var array<string,bool> */
+    private static array $laporanColumnCache = [];
+
     /**
      * Validasi lengkap sebuah laporan
      * 
@@ -44,6 +47,28 @@ class SmartValidationService
         $warnings = array_merge($warnings, $basicCheck['warnings']);
         $suggestions = array_merge($suggestions, $basicCheck['suggestions']);
         $score -= $basicCheck['scoreDeduction'];
+
+        // Mode sidang: gunakan validasi ringan agar respons tetap cepat saat demo.
+        if ($this->isSidangMode()) {
+            $liteCheck = $this->validateConsistencyLite($laporan, $activeTriwulan);
+            $issues = array_merge($issues, $liteCheck['issues']);
+            $warnings = array_merge($warnings, $liteCheck['warnings']);
+            $suggestions = array_merge($suggestions, $liteCheck['suggestions']);
+            $score -= $liteCheck['scoreDeduction'];
+
+            $score = max(0, $score);
+
+            return [
+                'is_valid' => empty($issues),
+                'score' => $score,
+                'issues' => $issues,
+                'warnings' => $warnings,
+                'suggestions' => $suggestions,
+                'summary' => $this->inferConclusions($laporan, $score, $issues, $warnings, $suggestions, $activeTriwulan),
+                'validated_at' => now()->toISOString(),
+                'validation_mode' => 'sidang_lite',
+            ];
+        }
 
         // 2. Validasi konsistensi target-realisasi
         $consistencyCheck = $this->validateTargetRealisasiConsistency($laporan, $activeTriwulan);
@@ -74,7 +99,7 @@ class SmartValidationService
             'issues' => $issues,
             'warnings' => $warnings,
             'suggestions' => $suggestions,
-            'summary' => $this->generateSummary($score, $issues, $warnings),
+            'summary' => $this->inferConclusions($laporan, $score, $issues, $warnings, $suggestions, $activeTriwulan),
             'validated_at' => now()->toISOString(),
         ];
     }
@@ -173,7 +198,7 @@ class SmartValidationService
             || !empty($laporan->bab_kendala);
 
         // Jika kolom kesimpulan tidak tersedia pada skema aktif, BAB III tidak dianggap missing.
-        $hasKesimpulanColumn = $this->hasLaporanColumn('kesimpulan');
+        $hasKesimpulanColumn = $this->isSidangMode() ? false : $this->hasLaporanColumn('kesimpulan');
         $isBabIIILengkap = !$hasKesimpulanColumn || !empty($laporan->kesimpulan);
 
         // Fallback: pada beberapa skema lama, penutup tidak tersimpan di kolom kesimpulan,
@@ -276,6 +301,12 @@ class SmartValidationService
             }
 
             $normalizedRows = $this->normalizeRowsForValidation($realisasi['rows']);
+            if ($this->isSidangMode()) {
+                $maxRows = (int) config('services.supabase.validation_max_rows', 200);
+                if ($maxRows > 0 && count($normalizedRows) > $maxRows) {
+                    $normalizedRows = array_slice($normalizedRows, 0, $maxRows);
+                }
+            }
             $allRowIds = array_map(function ($row) {
                 return isset($row['row']) ? (string) $row['row'] : '';
             }, $normalizedRows);
@@ -581,15 +612,99 @@ class SmartValidationService
         ];
     }
 
+    /**
+     * Validasi konsistensi ringan untuk mode sidang.
+     */
+    private function validateConsistencyLite(Laporan $laporan, int $activeTriwulan): array
+    {
+        $issues = [];
+        $warnings = [];
+        $suggestions = [];
+        $scoreDeduction = 0;
+
+        $field = 'realisasi_tb' . $activeTriwulan;
+        $raw = $laporan->$field;
+        $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+
+        if (!is_array($decoded) || empty($decoded['rows']) || !is_array($decoded['rows'])) {
+            return [
+                'issues' => $issues,
+                'warnings' => $warnings,
+                'suggestions' => $suggestions,
+                'scoreDeduction' => $scoreDeduction,
+            ];
+        }
+
+        $rows = $this->normalizeRowsForValidation($decoded['rows']);
+        $maxRows = (int) config('services.supabase.validation_max_rows', 120);
+        if ($maxRows > 0 && count($rows) > $maxRows) {
+            $rows = array_slice($rows, 0, $maxRows);
+            $warnings[] = [
+                'type' => 'sampling',
+                'field' => $field,
+                'message' => 'Mode sidang menggunakan pemeriksaan cepat pada sampel data.',
+                'severity' => 'low',
+            ];
+        }
+
+        foreach ($rows as $idx => $row) {
+            $rowId = (string) ($row['row'] ?? (string) ($idx + 1));
+            $target = $row['target'] ?? null;
+            $realisasiValue = $row['realisasi'] ?? null;
+
+            if (is_numeric($realisasiValue) && floatval($realisasiValue) < 0) {
+                $issues[] = [
+                    'type' => 'invalid_value',
+                    'field' => $field . '.rows.' . $idx . '.realisasi',
+                    'message' => 'Nilai realisasi tidak boleh negatif pada baris ' . $rowId,
+                    'severity' => 'high',
+                    'fix' => 'Ubah nilai realisasi menjadi bilangan positif atau nol.',
+                ];
+                $scoreDeduction += 5;
+            }
+
+            if (is_numeric($target) && floatval($target) > 0 && ($realisasiValue === null || $realisasiValue === '')) {
+                $warnings[] = [
+                    'type' => 'missing_data',
+                    'field' => $field . '.rows.' . $idx,
+                    'message' => 'Target ada namun realisasi kosong pada baris ' . $rowId,
+                    'severity' => 'medium',
+                    'fix' => 'Isi realisasi atau beri keterangan yang sesuai.',
+                ];
+                $scoreDeduction += 2;
+            }
+        }
+
+        return [
+            'issues' => $issues,
+            'warnings' => $warnings,
+            'suggestions' => $suggestions,
+            'scoreDeduction' => $scoreDeduction,
+        ];
+    }
+
     private function hasLaporanColumn(string $column): bool
     {
+        if (array_key_exists($column, self::$laporanColumnCache)) {
+            return self::$laporanColumnCache[$column];
+        }
+
         try {
             $connection = (new Laporan())->getConnection();
-            return $connection->getSchemaBuilder()->hasColumn('laporans', $column);
+            $exists = $connection->getSchemaBuilder()->hasColumn('laporans', $column);
+            self::$laporanColumnCache[$column] = $exists;
+            return $exists;
         } catch (\Throwable $e) {
             // Fallback to default schema facade if connection-specific lookup fails.
-            return Schema::hasColumn('laporans', $column);
+            $exists = Schema::hasColumn('laporans', $column);
+            self::$laporanColumnCache[$column] = $exists;
+            return $exists;
         }
+    }
+
+    private function isSidangMode(): bool
+    {
+        return (bool) config('services.supabase.sidang_mode', false);
     }
 
     private function hasTargetReference(Laporan $laporan, Perjanjian $perjanjian, int $activeTriwulan): bool
@@ -749,24 +864,32 @@ class SmartValidationService
     }
 
     /**
-     * Generate ringkasan validasi
+     * Inference Engine (Forward Chaining)
+     * Mengambil simpulan (kesimpulan) pada setiap BAB berdasarkan fakta-fakta validasi.
      */
-    private function generateSummary(int $score, array $issues, array $warnings): string
+    private function inferConclusions(Laporan $laporan, int $score, array $issues, array $warnings, array $suggestions, int $activeTriwulan): string
     {
         $issueCount = count($issues);
-        $warningCount = count($warnings);
+        
+        // Kumpulkan fakta dari suggestions dan warnings
+        $capaianFacts = array_filter($suggestions, fn($s) => in_array($s['type'], ['achievement', 'improvement', 'attention']));
+        $capaianFact = !empty($capaianFacts) ? reset($capaianFacts)['message'] : "Realisasi belum dapat disimpulkan secara utuh.";
 
-        if ($score >= 90 && $issueCount === 0) {
-            return "✅ Laporan sangat baik! Skor: $score/100";
-        } elseif ($score >= 75 && $issueCount === 0) {
-            return "✅ Laporan baik. Skor: $score/100";
-        } elseif ($score >= 60 && $issueCount <= 2) {
-            return "⚠️ Laporan cukup lengkap. Skor: $score/100 - Perbaiki $issueCount issue";
-        } elseif ($score >= 40) {
-            return "⚠️ Laporan perlu perbaikan. Skor: $score/100 - $issueCount issues, $warningCount warnings";
-        } else {
-            return "❌ Laporan belum lengkap. Skor: $score/100 - $issueCount issues harus diperbaiki";
-        }
+        $kendalaFacts = array_filter($warnings, fn($w) => $w['type'] === 'unusual_value' || $w['type'] === 'missing_data');
+        $kendalaCount = count($kendalaFacts);
+
+        $bab1 = "**Simpulan BAB I (Pelaksanaan):** Berdasarkan fakta data (score: $score/100), $capaianFact " 
+              . ($issueCount == 0 ? "Seluruh uraian kegiatan dan sasaran telah terisi dengan sangat baik." : "Masih terdapat $issueCount kekurangan pada isian form C yang perlu dilengkapi.");
+
+        $bab2 = "**Simpulan BAB II (Tindak Lanjut):** " 
+              . ($kendalaCount > 0 ? "Terdapat $kendalaCount anomali/kendala data target vs realisasi. Sistem menyarankan (Forward Chaining) agar rencana tindak lanjut difokuskan pada perbaikan anomali tersebut." : "Realisasi konsisten dengan target. Rencana tindak lanjut dapat difokuskan pada mempertahankan kinerja positif.");
+
+        $bab3 = "**Simpulan BAB III (Penutup):** "
+              . ($score >= 80 ? "Secara keseluruhan laporan Kinerja Triwulan $activeTriwulan dinyatakan Valid (Sukses). Kesimpulan akhir: Kinerja sangat memuaskan dan memenuhi standar." : 
+                ($score >= 60 ? "Secara keseluruhan laporan Kinerja Triwulan $activeTriwulan dinyatakan Cukup. Kesimpulan akhir: Kinerja memenuhi syarat namun memerlukan beberapa perbaikan administratif." : 
+                "Laporan Kinerja Triwulan $activeTriwulan dinyatakan Kurang/Belum Valid. Kesimpulan akhir: Wajib melakukan revisi mendasar sesuai petunjuk sistem."));
+
+        return "$bab1\n\n$bab2\n\n$bab3";
     }
 
     /**

@@ -23,6 +23,17 @@ class SupabaseService
         $this->bucket = config('services.supabase.bucket', 'uploads');
     }
 
+    private function httpClient()
+    {
+        return Http::connectTimeout((int) config('services.supabase.connect_timeout', 3))
+            ->timeout((int) config('services.supabase.timeout', 8))
+            ->retry(
+                (int) config('services.supabase.retry_times', 1),
+                (int) config('services.supabase.retry_sleep_ms', 150),
+                throw: false
+            );
+    }
+
     /**
      * Upload file to Supabase Storage
      *
@@ -39,7 +50,7 @@ class SupabaseService
             $fileContent = file_get_contents($filePath);
             $mimeType = mime_content_type($filePath);
 
-            $response = Http::withHeaders([
+                        $response = $this->httpClient()->withHeaders([
                 'Authorization' => 'Bearer ' . $this->serviceKey,
                 'Content-Type' => $mimeType,
             ])->withBody($fileContent, $mimeType)
@@ -91,7 +102,7 @@ class SupabaseService
                 ];
             }
 
-            $response = Http::withHeaders([
+                        $response = $this->httpClient()->withHeaders([
                 'Authorization' => 'Bearer ' . $this->serviceKey,
                 'Content-Type' => 'image/png',
             ])->withBody($imageContent, 'image/png')
@@ -140,7 +151,7 @@ class SupabaseService
     public function deleteFile($path)
     {
         try {
-            $response = Http::withHeaders([
+            $response = $this->httpClient()->withHeaders([
                 'Authorization' => 'Bearer ' . $this->serviceKey,
             ])->delete("{$this->storageUrl}/object/{$this->bucket}/{$path}");
 
@@ -175,7 +186,7 @@ class SupabaseService
         try {
             $path = $folder ? trim($folder, '/') : '';
             
-            $response = Http::withHeaders([
+            $response = $this->httpClient()->withHeaders([
                 'Authorization' => 'Bearer ' . $this->serviceKey,
             ])->get("{$this->storageUrl}/object/list/{$this->bucket}", [
                 'prefix' => $path,
@@ -211,7 +222,7 @@ class SupabaseService
     public function insert($table, $data)
     {
         try {
-            $response = Http::withHeaders([
+            $response = $this->httpClient()->withHeaders([
                 'apikey' => $this->key,
                 'Authorization' => 'Bearer ' . $this->serviceKey,
                 'Content-Type' => 'application/json',
@@ -270,7 +281,7 @@ class SupabaseService
                 $url .= "?{$query}";
             }
 
-            $response = Http::withHeaders($headers)->patch($url, $data);
+            $response = $this->httpClient()->withHeaders($headers)->patch($url, $data);
 
             if ($response->successful()) {
                 return [
@@ -333,7 +344,7 @@ class SupabaseService
                 $url .= "?{$query}";
             }
             
-            $response = Http::withHeaders($headers)->delete($url);
+            $response = $this->httpClient()->withHeaders($headers)->delete($url);
 
             if ($response->successful()) {
                 return [
@@ -369,7 +380,7 @@ class SupabaseService
                 'apikey' => $this->key,
                 'Authorization' => 'Bearer ' . $this->serviceKey,
             ];
-            $response = Http::withHeaders($headers)->get("{$this->url}/rest/v1/{$table}", $filters);
+            $response = $this->httpClient()->withHeaders($headers)->get("{$this->url}/rest/v1/{$table}", $filters);
 
             if ($response->successful()) {
                 return [

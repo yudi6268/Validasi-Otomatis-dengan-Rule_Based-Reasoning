@@ -21,18 +21,43 @@ class RuleBasedReasoningService
         return 'positif';
     }
 
+    public static function parseNumeric($value): ?float
+    {
+        if ($value === null || $value === '') return null;
+        if (is_float($value) || is_int($value)) return (float) $value;
+        
+        $valStr = trim((string) $value);
+        
+        // Check if it's formatted in Indonesian locale (e.g. 1.000.000,50)
+        if (strpos($valStr, '.') !== false && strpos($valStr, ',') !== false) {
+            $valStr = str_replace('.', '', $valStr);
+            $valStr = str_replace(',', '.', $valStr);
+        } 
+        // If it only contains comma, assume it's decimal separator (e.g. 1,5)
+        elseif (strpos($valStr, ',') !== false) {
+            $valStr = str_replace(',', '.', $valStr);
+        }
+        
+        // Remove all characters except numbers, dot, and minus
+        $valStr = preg_replace('/[^0-9\.\-]/', '', $valStr);
+        
+        // Check if there are multiple dots (e.g. 1.000.000) which means thousands separator was used but no decimal
+        if (substr_count($valStr, '.') > 1) {
+            $valStr = str_replace('.', '', $valStr);
+        }
+        
+        return is_numeric($valStr) ? floatval($valStr) : null;
+    }
+
     public static function calculateCapaianPercentage($target, $realisasi): ?float
     {
-        if ($realisasi === null || $realisasi === '') {
-            return null;
-        }
+        $realisasiValue = self::parseNumeric($realisasi);
 
-        $realisasiValue = is_numeric($realisasi) ? floatval($realisasi) : null;
         if ($realisasiValue === null) {
             return null;
         }
 
-        $targetValue = is_numeric($target) ? floatval($target) : null;
+        $targetValue = self::parseNumeric($target);
         if ($targetValue === null || $targetValue <= 0.0) {
             // Sesuai kebutuhan bisnis: target 0 => capaian 0 agar tetap tercantum di tabel.
             return 0.0;
@@ -48,14 +73,14 @@ class RuleBasedReasoningService
             return null;
         }
 
-        $targetValue = is_numeric($target) ? floatval($target) : null;
+        $targetValue = self::parseNumeric($target);
         if ($targetValue === null || $targetValue <= 0.0) {
             return 0.0;
         }
 
         $normalizedType = self::normalizeIndicatorType($indicatorType);
         if ($normalizedType === 'negatif') {
-            $realisasiValue = is_numeric($realisasi) ? floatval($realisasi) : null;
+            $realisasiValue = self::parseNumeric($realisasi);
             if ($realisasiValue === null) {
                 return null;
             }

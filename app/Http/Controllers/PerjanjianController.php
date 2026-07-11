@@ -618,20 +618,27 @@ class PerjanjianController extends Controller
         $pihak2Jabatan = $pihak2Data['jabatan'] ?? 'Direktur';
         
         // Ambil data program, kegiatan, dan sub kegiatan untuk dropdown (diurutkan berdasarkan kode)
-        // Include relasi untuk auto-populate
-        $programs = Program::where('is_active', true)
-            ->with(['kegiatan' => function($query) {
-                $query->where('is_active', true)
-                      ->orderBy('kode_kegiatan')
-                      ->with(['subKegiatan' => function($q) {
-                          $q->where('is_active', true)->orderBy('kode_sub_kegiatan');
-                      }]);
-            }])
-            ->orderBy('kode_program')
-            ->get();
+        // Cache selama 1 jam (3600 detik) karena data ini jarang berubah
+        $programs = \Illuminate\Support\Facades\Cache::remember('master_programs', 3600, function() {
+            return Program::where('is_active', true)
+                ->with(['kegiatan' => function($query) {
+                    $query->where('is_active', true)
+                          ->orderBy('kode_kegiatan')
+                          ->with(['subKegiatan' => function($q) {
+                              $q->where('is_active', true)->orderBy('kode_sub_kegiatan');
+                          }]);
+                }])
+                ->orderBy('kode_program')
+                ->get();
+        });
         
-        $kegiatans = Kegiatan::where('is_active', true)->with('program')->orderBy('kode_kegiatan')->get();
-        $subKegiatans = SubKegiatan::where('is_active', true)->with('kegiatan')->orderBy('kode_sub_kegiatan')->get();
+        $kegiatans = \Illuminate\Support\Facades\Cache::remember('master_kegiatans', 3600, function() {
+            return Kegiatan::where('is_active', true)->with('program')->orderBy('kode_kegiatan')->get();
+        });
+        
+        $subKegiatans = \Illuminate\Support\Facades\Cache::remember('master_subkegiatans', 3600, function() {
+            return SubKegiatan::where('is_active', true)->with('kegiatan')->orderBy('kode_sub_kegiatan')->get();
+        });
         
         // Ambil tahun yang tersedia dari settings
         $availableYears = Setting::getAvailableYears();
@@ -679,11 +686,16 @@ class PerjanjianController extends Controller
         
         $query->orderBy('id', 'desc');
 
+        $cacheKey = 'perjanjian_list_user_' . ($user->id ?? 'guest');
+        $perjanjianList = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function() use ($query) {
+            return $query->get();
+        });
+
         // If AJAX request for filtered list, return JSON
         if (request()->ajax() || request()->wantsJson()) {
             $filter = request()->get('filter');
 
-            $items = $query->get()->map(function($item) {
+            $items = $perjanjianList->map(function($item) {
                 $item = $this->applyTaggedPihakPertamaFallback($item);
 
                 // Gunakan kolom 'status' baru (menunggu, disetujui, ditolak, draft)
@@ -730,7 +742,7 @@ class PerjanjianController extends Controller
             return response()->json(['data' => $items]);
         }
 
-        $items = $query->get()->map(function ($item) {
+        $items = $perjanjianList->map(function ($item) {
             return $this->applyTaggedPihakPertamaFallback($item);
         });
 
@@ -1332,6 +1344,8 @@ class PerjanjianController extends Controller
             Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ': ' . $e->getMessage());
         }
         
+        \Illuminate\Support\Facades\Cache::forget('perjanjian_list_user_' . auth()->id());
+        
         // Return JSON when requested via fetch/AJAX
         if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
             return response()->json([
@@ -1504,6 +1518,8 @@ class PerjanjianController extends Controller
                     Log::warning('Supabase insert exception for perjanjian local_id=' . $save->id . ': ' . $e->getMessage());
                 }
 
+                \Illuminate\Support\Facades\Cache::forget('perjanjian_list_user_' . auth()->id());
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Data perjanjian berhasil disimpan ke Supabase!',
