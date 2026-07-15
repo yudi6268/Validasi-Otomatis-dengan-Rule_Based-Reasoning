@@ -17,18 +17,20 @@ COPY public ./public
 COPY vite.config.js ./
 RUN npm run build
 
-FROM php:8.2-cli-alpine AS app
+FROM php:8.2-cli AS app
 
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     bash \
     libzip-dev \
-    oniguruma-dev \
+    libonig-dev \
     unzip \
     curl \
-    icu-dev \
+    libicu-dev \
     libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libpq-dev \
+    wkhtmltopdf \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
@@ -36,8 +38,11 @@ RUN apk add --no-cache \
         gd \
         intl \
         pdo_mysql \
+        pdo_pgsql \
+        pgsql \
         zip \
-    && rm -rf /var/cache/apk/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
 
