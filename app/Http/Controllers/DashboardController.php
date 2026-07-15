@@ -154,20 +154,36 @@ class DashboardController extends Controller
                 $nip = str_replace(' ', '', trim((string) ($user->nip ?? '')));
 
                 $query->orWhere(function ($q) use ($nama, $jabatan, $nip) {
-                    if ($nip !== '') {
-                        $q->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
-                    } else {
-                        $q->whereRaw('1 = 0');
-                    }
-                })
-                ->orWhere(function ($q) use ($nama, $jabatan) {
-                    if ($nama !== '' && $jabatan !== '') {
-                        $q->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
-                          ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
-                    } elseif ($nama !== '') {
-                        $q->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
-                    } else {
-                        $q->whereRaw('1 = 0');
+                    $q->where(function ($qq) use ($nama, $jabatan, $nip) {
+                        $qq->where(function ($qqq) use ($nip) {
+                            if ($nip !== '') {
+                                $qqq->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
+                            } else {
+                                $qqq->whereRaw('1 = 0');
+                            }
+                        })
+                        ->orWhere(function ($qqq) use ($nama, $jabatan) {
+                            if ($nama !== '' && $jabatan !== '') {
+                                $qqq->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
+                                  ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
+                            } elseif ($nama !== '') {
+                                $qqq->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
+                            } else {
+                                $qqq->whereRaw('1 = 0');
+                            }
+                        });
+                    });
+
+                    // Role-Based Isolation
+                    if (stripos($jabatan, 'wakil direktur') !== false || stripos($jabatan, 'wadir') !== false) {
+                        $q->where(function($qq) {
+                            $qq->where('pihak2_jabatan', 'ILIKE', '%wakil direktur%')
+                               ->orWhere('pihak2_jabatan', 'ILIKE', '%wadir%');
+                        });
+                    } elseif (stripos($jabatan, 'direktur') !== false) {
+                        $q->where('pihak2_jabatan', 'ILIKE', '%direktur%')
+                          ->where('pihak2_jabatan', 'NOT ILIKE', '%wakil%')
+                          ->where('pihak2_jabatan', 'NOT ILIKE', '%wadir%');
                     }
                 });
             };
@@ -245,21 +261,25 @@ class DashboardController extends Controller
                 return $statusMap[$status] ?? 'terkirim';
             };
 
-            $totalPerjanjian = $wadirPerjanjianItems->count();
-            $perjanjianSent = $wadirPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
+            $bawahanPerjanjianItems = $isPihakKeduaMode ? $wadirPerjanjianItems->filter(function($item) use ($user) {
+                return (int) $item->user_id !== (int) $user->id;
+            }) : $wadirPerjanjianItems;
+
+            $totalPerjanjian = $bawahanPerjanjianItems->count();
+            $perjanjianSent = $bawahanPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
                 return $normalizeStatus($item) === 'terkirim';
             })->count();
-            $perjanjianApproved = $wadirPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
+            $perjanjianApproved = $bawahanPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
                 return $normalizeStatus($item) === 'disetujui';
             })->count();
-            $perjanjianRejected = $wadirPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
+            $perjanjianRejected = $bawahanPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
                 return $normalizeStatus($item) === 'ditolak';
             })->count();
-            $perjanjianWaiting = $wadirPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
+            $perjanjianWaiting = $bawahanPerjanjianItems->filter(function ($item) use ($normalizeStatus) {
                 return $normalizeStatus($item) === 'menunggu';
             })->count();
 
-            $perjanjianItems = $wadirPerjanjianItems
+            $perjanjianItems = $bawahanPerjanjianItems
                 ->sortByDesc('updated_at')
                 ->map(function ($item) use ($normalizeStatus) {
                     return [
@@ -313,19 +333,24 @@ class DashboardController extends Controller
                 return [$p->id => $normalizeStatus($p)];
             });
 
-            $totalLaporan = $laporansForWaiting->count();
+            $ownPerjanjianIds = $wadirPerjanjianItems->filter(fn($p) => $p->user_id === $user->id)->pluck('id')->toArray();
+            $laporansBawahanForWaiting = $laporansForWaiting->filter(function($l) use ($ownPerjanjianIds) {
+                return !in_array($l->perjanjian_id, $ownPerjanjianIds);
+            });
 
-            $laporanApprovedByPimpinan = $laporansForWaiting->filter(function($l) use ($perjanjianStatusById){
+            $totalLaporan = $laporansBawahanForWaiting->count();
+
+            $laporanApprovedByPimpinan = $laporansBawahanForWaiting->filter(function($l) use ($perjanjianStatusById){
                 $perjanjianStatus = $perjanjianStatusById[$l->perjanjian_id] ?? 'terkirim';
                 return $perjanjianStatus === 'disetujui' && !empty($l->pihak2_signature);
             })->count();
 
-            $laporanValidatedCount = $laporansForWaiting->filter(function($l){
+            $laporanValidatedCount = $laporansBawahanForWaiting->filter(function($l){
                 return !empty($l->kesimpulan);
             })->count();
 
             $laporanWaitingReviewCount = 0;
-            foreach ($laporansForWaiting as $lap) {
+            foreach ($laporansBawahanForWaiting as $lap) {
                 $perjanjianStatus = $perjanjianStatusById[$lap->perjanjian_id] ?? 'terkirim';
 
                 if ($perjanjianStatus !== 'disetujui') {
@@ -358,7 +383,7 @@ class DashboardController extends Controller
                 }
             }
             
-        $laporanItems = $laporansForWaiting->map(function($l) use ($perjanjianStatusById) {
+        $laporanItems = $laporansBawahanForWaiting->map(function($l) use ($perjanjianStatusById) {
             $hasRealisasi = false;
             for ($tw = 1; $tw <= 4; $tw++) {
                 if (!empty($l->{'realisasi_tb' . $tw})) { $hasRealisasi = true; break; }
@@ -391,7 +416,6 @@ class DashboardController extends Controller
         $laporanTerkirimCount  = $laporanItems->filter(fn($i) => $i['status'] === 'terkirim')->count();
 
         // Triwulan laporan milik Wadir sendiri (bukan bawahan) untuk cek duplikat di tombol Tambah Laporan
-        $ownPerjanjianIds = $wadirPerjanjianItems->filter(fn($p) => $p->user_id === $user->id)->pluck('id')->toArray();
         $ownLaporanTriwulans = $laporansForWaiting->whereIn('perjanjian_id', $ownPerjanjianIds)
             ->pluck('triwulan_aktif')
             ->filter()

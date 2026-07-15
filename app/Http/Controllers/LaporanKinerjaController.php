@@ -381,11 +381,42 @@ class LaporanKinerjaController extends Controller
         // Untuk Wadir aktual: lihat seluruh perjanjian yang disupervisi.
         // Untuk user dashboard non-Wadir aktual: batasi ke data milik sendiri agar endpoint tidak 403.
         if ($isActualWadir) {
-            $wadirPerjanjians = Perjanjian::where(function ($q) use ($user) {
-                $q->where('pihak2_name', $user->nama)
-                  ->orWhere('pihak2_jabatan', $user->jabatan)
-                  ->orWhere('pihak2_nip', $user->nip)
-                  ->orWhere('user_id', $user->id);
+            $wadirPerjanjians = Perjanjian::where(function ($query) use ($user) {
+                $nama = trim((string) ($user->nama ?? ''));
+                $jabatan = trim((string) ($user->jabatan ?? ''));
+                $nip = str_replace(' ', '', trim((string) ($user->nip ?? '')));
+
+                $query->where(function ($qq) use ($nama, $jabatan, $nip) {
+                    $qq->where(function ($qqq) use ($nip) {
+                        if ($nip !== '') {
+                            $qqq->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
+                        } else {
+                            $qqq->whereRaw('1 = 0');
+                        }
+                    })
+                    ->orWhere(function ($qqq) use ($nama, $jabatan) {
+                        if ($nama !== '' && $jabatan !== '') {
+                            $qqq->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
+                               ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
+                        } elseif ($nama !== '') {
+                            $qqq->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
+                        } else {
+                            $qqq->whereRaw('1 = 0');
+                        }
+                    });
+                });
+
+                // Role-Based Isolation
+                if (stripos($jabatan, 'wakil direktur') !== false || stripos($jabatan, 'wadir') !== false) {
+                    $query->where(function($qq) {
+                        $qq->where('pihak2_jabatan', 'ILIKE', '%wakil direktur%')
+                           ->orWhere('pihak2_jabatan', 'ILIKE', '%wadir%');
+                    });
+                } elseif (stripos($jabatan, 'direktur') !== false) {
+                    $query->where('pihak2_jabatan', 'ILIKE', '%direktur%')
+                      ->where('pihak2_jabatan', 'NOT ILIKE', '%wakil%')
+                      ->where('pihak2_jabatan', 'NOT ILIKE', '%wadir%');
+                }
             })->get();
         } else {
             $wadirPerjanjians = Perjanjian::where('user_id', $user->id)->get();

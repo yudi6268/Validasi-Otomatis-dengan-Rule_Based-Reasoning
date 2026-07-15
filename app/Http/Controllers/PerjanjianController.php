@@ -269,23 +269,37 @@ class PerjanjianController extends Controller
         $nip = str_replace(' ', '', trim((string) ($user->nip ?? '')));
 
         $query->orWhere(function ($q) use ($nama, $jabatan, $nip) {
-            $q->where(function ($qq) use ($nip) {
-                if ($nip !== '') {
-                    $qq->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
-                } else {
-                    $qq->whereRaw('1 = 0');
-                }
-            })
-            ->orWhere(function ($qq) use ($nama, $jabatan) {
-                if ($nama !== '' && $jabatan !== '') {
-                    $qq->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
-                       ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
-                } elseif ($nama !== '') {
-                    $qq->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
-                } else {
-                    $qq->whereRaw('1 = 0');
-                }
+            $q->where(function ($qq) use ($nama, $jabatan, $nip) {
+                $qq->where(function ($qqq) use ($nip) {
+                    if ($nip !== '') {
+                        $qqq->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
+                    } else {
+                        $qqq->whereRaw('1 = 0');
+                    }
+                })
+                ->orWhere(function ($qqq) use ($nama, $jabatan) {
+                    if ($nama !== '' && $jabatan !== '') {
+                        $qqq->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
+                           ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
+                    } elseif ($nama !== '') {
+                        $qqq->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
+                    } else {
+                        $qqq->whereRaw('1 = 0');
+                    }
+                });
             });
+
+            // Role-Based Isolation
+            if (stripos($jabatan, 'wakil direktur') !== false || stripos($jabatan, 'wadir') !== false) {
+                $q->where(function($qq) {
+                    $qq->where('pihak2_jabatan', 'ILIKE', '%wakil direktur%')
+                       ->orWhere('pihak2_jabatan', 'ILIKE', '%wadir%');
+                });
+            } elseif (stripos($jabatan, 'direktur') !== false) {
+                $q->where('pihak2_jabatan', 'ILIKE', '%direktur%')
+                  ->where('pihak2_jabatan', 'NOT ILIKE', '%wakil%')
+                  ->where('pihak2_jabatan', 'NOT ILIKE', '%wadir%');
+            }
         });
     }
 
