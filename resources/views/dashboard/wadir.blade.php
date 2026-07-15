@@ -1574,9 +1574,9 @@
           fetch('/api/validasi-laporan/' + laporan.id + '/' + tw)
             .then(function(r){ return r.json(); })
             .then(function(data){
-              resolve({ tw: tw, available: true, validated: !!data.validated });
+              resolve({ tw: tw, available: true, validated: !!data.validated, laporan_id: laporan.id });
             })
-            .catch(function(){ resolve({ tw: tw, available: true, validated: false }); });
+            .catch(function(){ resolve({ tw: tw, available: true, validated: false, laporan_id: laporan.id }); });
         });
       });
 
@@ -1595,7 +1595,7 @@
           } else if (r.validated) {
             html += '<button class="btn-logout" disabled style="background:#dcfce7;color:#166534;padding:10px 18px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:not-allowed;">Tervalidasi</button>';
           } else {
-            html += '<button class="btn-logout" style="background:#0f766e;color:#fff;padding:10px 18px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" onclick="window.location.href=\'/laporan-kinerja/validasi-summary?tw=' + r.tw + '\';">Validasi</button>';
+            html += '<button class="btn-logout" style="background:#0f766e;color:#fff;padding:10px 18px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" onclick="window.location.href=\'/laporan-kinerja/validasi-summary?tw=' + r.tw + '&laporan_id=' + r.laporan_id + '\';">Validasi</button>';
           }
 
           html += '</div>';

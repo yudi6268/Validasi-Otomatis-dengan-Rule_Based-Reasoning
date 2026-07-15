@@ -1218,16 +1218,9 @@
 
       @if ($activeSection === 'laporan')
         @if(isset($editLaporanId) && $editLaporanId)
-          <div id="editModeLoader" style="text-align:center;padding:80px 20px;color:#8f9ba5;">
-            <i class="fas fa-spinner fa-spin" style="font-size:36px;margin-bottom:16px;display:block;color:#00B5A0;"></i>
-            <p style="font-size:15px;font-weight:600;color:#1B2A41;">Memuat form edit laporan kinerja...</p>
-          </div>
+          {{-- Loader dihapus --}}
         @elseif(request()->get('tambah') === '1')
-          {{-- Tambah mode: full-screen overlay covers entire viewport while modal opens --}}
-          <div id="tambahOverlay" style="position:fixed;inset:0;background:#f0f4f8;z-index:1045;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
-            <i class="fas fa-spinner fa-spin" style="font-size:36px;color:#00B5A0;"></i>
-            <p style="font-size:15px;font-weight:600;color:#1B2A41;margin:0;">Memuat form laporan kinerja...</p>
-          </div>
+          {{-- Loader dihapus --}}
         @else
         {{-- 4 Kartu Triwulan --}}
         <div class="triwulan-grid">
@@ -3831,12 +3824,14 @@
         if (realisasiModalTambah) {
           realisasiModalTambah.addEventListener('hidden.bs.modal', function () {
               if (window._editFormCompleted) return;
-              var anyOpen = document.querySelector(
-                '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
-              );
-              if (!anyOpen) {
-                window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
-              }
+              setTimeout(function() {
+                var anyOpen = document.querySelector(
+                  '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
+                );
+                if (!anyOpen) {
+                  window.location.href = '{{ route("dashboard.wadir", ["panel" => "laporan"]) }}';
+                }
+              }, 300);
           });
         }
       }
@@ -3861,12 +3856,15 @@
         if (realisasiModalEl) {
           realisasiModalEl.addEventListener('hidden.bs.modal', function () {
             if (window._editFormCompleted) return;
-            var anyOpen = document.querySelector(
-              '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
-            );
-            if (!anyOpen) {
-              window.location.href = dashboardLaporanUrl;
-            }
+            
+            setTimeout(function() {
+              var anyOpen = document.querySelector(
+                '#realisasiModal.show, #rencanaTindakLanjutModal.show, #kesimpulanModal.show'
+              );
+              if (!anyOpen) {
+                window.location.href = dashboardLaporanUrl;
+              }
+            }, 300);
           });
         }
       }

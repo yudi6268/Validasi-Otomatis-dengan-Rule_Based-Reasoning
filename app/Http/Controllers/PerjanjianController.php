@@ -259,86 +259,33 @@ class PerjanjianController extends Controller
 
     protected function queryMatchesCreatorIdentity($query, $user): void
     {
-        $normalizedNama = $this->normalizeComparableString($user->nama ?? null);
-        $normalizedJabatan = $this->normalizeComparableString($user->jabatan ?? null);
-        $normalizedNip = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
-        $strictIdentity = User::whereRaw('LOWER(TRIM(nama)) = LOWER(TRIM(?))', [trim((string) ($user->nama ?? ''))])
-            ->where('id', '!=', $user->id)
-            ->where(function ($q) use ($user) {
-                                $q->where('role', '!=', (string) ($user->role ?? ''))
-                                    ->orWhereRaw("LOWER(TRIM(COALESCE(jabatan, ''))) != LOWER(TRIM(?))", [trim((string) ($user->jabatan ?? ''))]);
-            })
-            ->exists();
-
         $query->orWhere('user_id', $user->id);
-
-        $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip, $strictIdentity) {
-            if ($strictIdentity) {
-                if ($normalizedNip !== '') {
-                    $q->whereRaw("regexp_replace(COALESCE(pihak1_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip]);
-                }
-
-                if ($normalizedNama !== '' && $normalizedJabatan !== '') {
-                    $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
-                        $qq->whereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama])
-                           ->whereRaw('LOWER(TRIM(pihak1_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
-                    });
-                } elseif ($normalizedNama !== '') {
-                    $q->orWhereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama]);
-                }
-
-                return;
-            }
-
-            if ($normalizedNama !== '') {
-                $q->whereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama])
-                  ->orWhereRaw('LOWER(TRIM(pihak1_name)) LIKE LOWER(TRIM(?))', ['%' . $normalizedNama . '%']);
-            }
-
-            if ($normalizedJabatan !== '') {
-                $q->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan])
-                  ->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) LIKE LOWER(TRIM(?))', ['%' . $normalizedJabatan . '%']);
-            }
-
-            if ($normalizedNip !== '') {
-                $q->orWhereRaw("regexp_replace(COALESCE(pihak1_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip]);
-            }
-        });
     }
 
     protected function queryMatchesPihakKeduaIdentity($query, $user): void
     {
-        $normalizedNama = $this->normalizeComparableString($user->nama ?? null);
-        $normalizedJabatan = $this->normalizeComparableString($user->jabatan ?? null);
-        $normalizedNip = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
-        $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip) {
-            // Identitas pihak kedua harus ketat agar nama sama beda akun/role tidak tercampur.
-            if ($normalizedNip !== '') {
-                if ($normalizedJabatan !== '') {
-                                        $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip])
-                                            ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+        $nama = trim((string) ($user->nama ?? ''));
+        $jabatan = trim((string) ($user->jabatan ?? ''));
+        $nip = str_replace(' ', '', trim((string) ($user->nip ?? '')));
+
+        $query->orWhere(function ($q) use ($nama, $jabatan, $nip) {
+            $q->where(function ($qq) use ($nip) {
+                if ($nip !== '') {
+                    $qq->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
                 } else {
-                    $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNip]);
+                    $qq->whereRaw('1 = 0');
                 }
-            }
-
-            if ($normalizedNama !== '' && $normalizedJabatan !== '') {
-                $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
-                    $qq->whereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama])
-                       ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
-                });
-
-                $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
-                    $qq->whereRaw('LOWER(TRIM(pihak2_name)) LIKE LOWER(TRIM(?))', ['%#' . $normalizedNama . '%'])
-                       ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
-                });
-
-                return;
-            }
-
-            if ($normalizedNama !== '' && $normalizedJabatan === '') {
-                $q->orWhereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama]);
-            }
+            })
+            ->orWhere(function ($qq) use ($nama, $jabatan) {
+                if ($nama !== '' && $jabatan !== '') {
+                    $qq->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
+                       ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
+                } elseif ($nama !== '') {
+                    $qq->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
+                } else {
+                    $qq->whereRaw('1 = 0');
+                }
+            });
         });
     }
 
@@ -528,6 +475,8 @@ class PerjanjianController extends Controller
         $perjanjian->catatan_penolakan = null;
         $perjanjian->save();
 
+        $this->syncPerjanjianToSupabaseAfterResponse($perjanjian->id, 'update');
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Perjanjian berhasil disetujui.']);
         }
@@ -576,6 +525,8 @@ class PerjanjianController extends Controller
         $perjanjian->rejected = true;
         $perjanjian->rejection_reason = $request->rejection_reason;
         $perjanjian->save();
+
+        $this->syncPerjanjianToSupabaseAfterResponse($perjanjian->id, 'update');
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Perjanjian berhasil ditolak.']);
         }
@@ -1304,45 +1255,8 @@ class PerjanjianController extends Controller
             \Log::info("✓ Status berhasil diubah dari 'ditolak' ke '{$perjanjian->status}'");
         }
 
-        // Mirror update to Supabase (use nomor_perjanjian as stable key)
-        try {
-            $payload = [
-                'pihak2_name' => $perjanjian->pihak2_name,
-                'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
-                'pihak2_nip' => $perjanjian->pihak2_nip,
-                'location' => $perjanjian->location,
-                'agreement_date' => $perjanjian->agreement_date,
-                'jabatan' => $perjanjian->jabatan,
-                'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
-                'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
-                'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
-                'pihak1_ttd' => $perjanjian->pihak1_ttd,
-                'status' => $perjanjian->status,
-                'catatan_penolakan' => $perjanjian->catatan_penolakan,
-                'rejected' => $perjanjian->rejected,
-                'rejection_reason' => $perjanjian->rejection_reason,
-                'pihak2_signature' => null,
-                'pihak2_ttd_path' => null,
-                'tabelA' => $perjanjian->tabelA,
-                'tabelB' => $perjanjian->tabelB,
-                'tabelC' => $perjanjian->tabelC,
-                'tabelD' => $perjanjian->tabelC, // Tabel D shares the same hierarchical JSON structure
-            ];
-
-            $filters = ['local_id' => 'eq.' . $perjanjian->id];
-            $res = $this->supabase->update('perjanjians', $filters, $payload);
-            if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
-                $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
-                $res = $this->supabase->update('perjanjians', $filters, $payload);
-            }
-            if (empty($res['success'])) {
-                Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id, ['response' => $res, 'filters' => $filters, 'payload_keys' => array_keys($payload)]);
-            } else {
-                Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id, ['response' => $res]);
-            }
-        } catch (\Exception $e) {
-            Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ': ' . $e->getMessage());
-        }
+        // Supabase sync moved to background via terminating response
+        $this->syncPerjanjianToSupabaseAfterResponse($perjanjian->id, 'update');
         
         \Illuminate\Support\Facades\Cache::forget('perjanjian_list_user_' . auth()->id());
         
@@ -1482,41 +1396,8 @@ class PerjanjianController extends Controller
                 'tabelD' => $tabelC, // Tabel D shares the same hierarchical JSON structure
             ]);
 
-                // Mirror to Supabase
-                try {
-                    $payload = [
-                        'local_id' => $save->id,
-                        'tahun' => $save->tahun,
-                        'nomor_perjanjian' => $save->nomor_perjanjian,
-                        'user_id' => $save->user_id,
-                        'pihak1_name' => $save->pihak1_name,
-                        'pihak1_jabatan' => $save->pihak1_jabatan,
-                        'pihak1_pangkat' => $save->pihak1_pangkat,
-                        'pihak1_nip' => $save->pihak1_nip,
-                        'pihak1_ttd' => $save->pihak1_ttd,
-                        'pihak2_name' => $save->pihak2_name,
-                        'pihak2_jabatan' => $save->pihak2_jabatan,
-                        'pihak2_pangkat' => $save->pihak2_pangkat,
-                        'pihak2_nip' => $save->pihak2_nip,
-                        'location' => $save->location,
-                        'agreement_date' => $save->agreement_date,
-                        'jabatan' => $save->jabatan,
-                        'tabelA' => $save->tabelA,
-                        'tabelB' => $save->tabelB,
-                        'tabelC' => $save->tabelC,
-                        'tabelD' => $save->tabelC, // Tabel D shares the same hierarchical JSON structure
-                        'status' => $save->status ?? 'menunggu',
-                    ];
-
-                    $res = $this->supabase->insert('perjanjians', [$payload]);
-                    if (empty($res['success'])) {
-                        Log::warning('Supabase insert failed for perjanjian local_id=' . $save->id . ': ' . ($res['error'] ?? 'unknown'));
-                    } else {
-                        Log::info('Supabase insert succeeded for perjanjian local_id=' . $save->id);
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('Supabase insert exception for perjanjian local_id=' . $save->id . ': ' . $e->getMessage());
-                }
+                // Supabase sync moved to background via terminating response
+                $this->syncPerjanjianToSupabaseAfterResponse($save->id, 'insert');
 
                 \Illuminate\Support\Facades\Cache::forget('perjanjian_list_user_' . auth()->id());
                 
@@ -1565,6 +1446,8 @@ class PerjanjianController extends Controller
             
             // Since migration has onDelete('set null'), we can safely delete
             $perjanjian->delete();
+
+            $this->syncPerjanjianToSupabaseAfterResponse($id, 'delete');
             
             \Log::info("Perjanjian deleted successfully");
             
@@ -1642,5 +1525,68 @@ class PerjanjianController extends Controller
             'success' => true,
             'data' => $subKegiatans
         ]);
+    }
+
+    private function syncPerjanjianToSupabaseAfterResponse($perjanjianId, string $action = 'update'): void
+    {
+        if (!(bool) config('services.supabase.sync_enabled', true)) {
+            return;
+        }
+
+        app()->terminating(function () use ($perjanjianId, $action) {
+            try {
+                if ($action === 'delete') {
+                    $this->supabase->delete('perjanjians', ['local_id' => 'eq.' . $perjanjianId]);
+                    return;
+                }
+
+                $perjanjian = \App\Models\Perjanjian::find($perjanjianId);
+                if (!$perjanjian) return;
+
+                $payload = [
+                    'local_id' => $perjanjian->id,
+                    'tahun' => $perjanjian->tahun,
+                    'nomor_perjanjian' => $perjanjian->nomor_perjanjian,
+                    'user_id' => $perjanjian->user_id,
+                    'pihak1_name' => $perjanjian->pihak1_name,
+                    'pihak1_jabatan' => $perjanjian->pihak1_jabatan,
+                    'pihak1_pangkat' => $perjanjian->pihak1_pangkat,
+                    'pihak1_nip' => $perjanjian->pihak1_nip,
+                    'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                    'pihak2_name' => $perjanjian->pihak2_name,
+                    'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                    'pihak2_pangkat' => $perjanjian->pihak2_pangkat,
+                    'pihak2_nip' => $perjanjian->pihak2_nip,
+                    'location' => $perjanjian->location,
+                    'agreement_date' => $perjanjian->agreement_date,
+                    'jabatan' => $perjanjian->jabatan,
+                    'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                    'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                    'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                    'status' => $perjanjian->status,
+                    'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                    'rejected' => $perjanjian->rejected,
+                    'rejection_reason' => $perjanjian->rejection_reason,
+                    'pihak2_signature' => $perjanjian->pihak2_signature,
+                    'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
+                    'tabelA' => $perjanjian->tabelA,
+                    'tabelB' => $perjanjian->tabelB,
+                    'tabelC' => $perjanjian->tabelC,
+                    'tabelD' => $perjanjian->tabelC,
+                ];
+
+                if ($action === 'insert') {
+                    $this->supabase->insert('perjanjians', [$payload]);
+                } else {
+                    $filters = ['local_id' => 'eq.' . $perjanjian->id];
+                    $res = $this->supabase->update('perjanjians', $filters, $payload);
+                    if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                        $this->supabase->update('perjanjians', ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian], $payload);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Deferred Supabase sync failed for perjanjian local_id=' . $perjanjianId . ': ' . $e->getMessage());
+            }
+        });
     }
 }

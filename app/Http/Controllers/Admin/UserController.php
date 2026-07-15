@@ -93,44 +93,49 @@ class UserController extends Controller
 
         $user = User::create($validated);
 
-        // Insert user into Supabase
-        $supabaseData = [
-            'id_pegawai' => $user->id_pegawai,
-            'nama' => $user->nama,
-            'nip' => $user->nip,
-            'jabatan' => $user->jabatan,
-            'pangkat' => $user->pangkat,
-            'divisi' => $user->divisi,
-            'email' => $user->email,
-            'role' => $user->role,
-            'status' => $user->status,
-            'created_at' => $user->created_at,
-            'updated_at' => $user->updated_at,
-        ];
-        $this->supabase->insert('users', $supabaseData);
+        // Defer Supabase insert and Email sending to after response
+        app()->terminating(function() use ($user, $generatedPassword) {
+            try {
+                $supabaseData = [
+                    'id_pegawai' => $user->id_pegawai,
+                    'nama' => $user->nama,
+                    'nip' => $user->nip,
+                    'jabatan' => $user->jabatan,
+                    'pangkat' => $user->pangkat,
+                    'divisi' => $user->divisi,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'status' => $user->status,
+                    'created_at' => $user->created_at,
+                    'updated_at' => $user->updated_at,
+                ];
+                $this->supabase->insert('users', $supabaseData);
+            } catch (\Exception $e) {
+                \Log::error('Deferred Supabase insert failed for user ' . $user->id . ': ' . $e->getMessage());
+            }
 
-        // Kirim email dengan password ke user
-        try {
-            Mail::send('emails.welcome-user', [
-                'user' => $user,
-                'password' => $generatedPassword
-            ], function ($message) use ($user) {
-                $message->to($user->email, $user->nama)
-                        ->subject('Akun Anda Telah Dibuat - Sistem Perjanjian Kinerja');
-            });
+            try {
+                Mail::send('emails.welcome-user', [
+                    'user' => $user,
+                    'password' => $generatedPassword
+                ], function ($message) use ($user) {
+                    $message->to($user->email, $user->nama)
+                            ->subject('Akun Anda Telah Dibuat - Sistem Perjanjian Kinerja');
+                });
 
-            \Log::info('Email password berhasil dikirim ke user baru', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'admin_id' => auth()->id()
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Gagal mengirim email password ke user baru', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'error' => $e->getMessage()
-            ]);
-        }
+                \Log::info('Email password berhasil dikirim ke user baru (deferred)', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'admin_id' => auth()->id()
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Gagal mengirim email password ke user baru (deferred)', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        });
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User berhasil ditambahkan! Password telah dikirim ke email ' . $user->email);

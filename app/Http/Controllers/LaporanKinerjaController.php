@@ -85,6 +85,43 @@ class LaporanKinerjaController extends Controller
         return RuleBasedReasoningService::calculatePerformancePercentage($target, $realisasi, $indicatorType);
     }
 
+    private function canAccessLaporan($user, $perjanjian): bool
+    {
+        if (!$user || !$perjanjian) {
+            return false;
+        }
+
+        if ((int) $perjanjian->user_id === (int) $user->id) {
+            return true;
+        }
+
+        $isWadirUser = $this->isActualWadir($user);
+        $isPihak2 = $this->matchesPerjanjianPihakKedua($user, $perjanjian);
+
+        return $isWadirUser || $isPihak2 || $user->role === 'admin';
+    }
+
+    private function canEditLaporan($user, $perjanjian): bool
+    {
+        if (!$user || !$perjanjian) {
+            return false;
+        }
+
+        // Pihak pertama (pemilik) selalu bisa edit laporannya sendiri
+        if ((int) $perjanjian->user_id === (int) $user->id) {
+            return true;
+        }
+
+        // Jika user adalah pihak kedua di perjanjian ini, MAKA DILARANG EDIT.
+        // Pihak kedua hanya boleh melihat, menyetujui, atau menolak.
+        if ($this->matchesPerjanjianPihakKedua($user, $perjanjian)) {
+            return false;
+        }
+
+        // Selain pemilik dan pihak kedua, Wadir dan Admin bisa mengedit (jika memiliki akses global)
+        return $this->isActualWadir($user) || $user->role === 'admin';
+    }
+
     public function __construct(SupabaseService $supabase)
     {
         $this->supabase = $supabase;
@@ -139,8 +176,8 @@ class LaporanKinerjaController extends Controller
                 $laporanIdParam = $request->query('laporan_id');
                 $mode = $request->query('mode');
                 if ($laporanIdParam && $mode === 'edit') {
-                    if (!$isWadirUser && $user->role !== 'user') {
-                        abort(403, 'Akses edit laporan hanya untuk akun user atau Wakil Direktur.');
+                    if (!$this->canEditLaporan($user, $perjanjian)) {
+                        abort(403, 'Akses ditolak: Pihak Kedua tidak diizinkan mengubah laporan kinerja milik Pihak Pertama.');
                     }
 
                     $selectedLaporan = $laporans->firstWhere('id', (int) $laporanIdParam) ?? $laporans->first();
@@ -235,18 +272,28 @@ class LaporanKinerjaController extends Controller
         }
         $user = Auth::user();
 
-        $triwulanAktif = (int) $this->getTriwulanAktif();
+        $triwulanAktif = $request->query('tw') ? (int) $request->query('tw') : (int) $this->getTriwulanAktif();
+        $laporanId = $request->query('laporan_id');
 
-        // Find user's most recent approved perjanjian
-                $perjanjian = Perjanjian::where('user_id', $user->id)
-            ->where(function ($q) {
-                $q->where('status', 'disetujui')
-                  ->orWhere('status', 'approved')
-                  ->orWhereNotNull('pihak2_signature');
-            })
-            ->orderByDesc('tahun')
-            ->orderByDesc('created_at')
-            ->first();
+        if ($laporanId) {
+            $laporan = Laporan::with('perjanjian')->findOrFail($laporanId);
+            $perjanjian = $laporan->perjanjian;
+        } else {
+            // Find user's most recent approved perjanjian
+            $perjanjian = Perjanjian::where('user_id', $user->id)
+                ->where(function ($q) {
+                    $q->where('status', 'disetujui')
+                      ->orWhere('status', 'approved')
+                      ->orWhereNotNull('pihak2_signature');
+                })
+                ->orderByDesc('tahun')
+                ->orderByDesc('created_at')
+                ->first();
+                
+            $laporan = $perjanjian ? Laporan::where('perjanjian_id', $perjanjian->id)
+                ->orderByDesc('created_at')
+                ->first() : null;
+        }
 
         if (!$perjanjian) {
             return view('laporan.validasi-summary', [
@@ -257,10 +304,6 @@ class LaporanKinerjaController extends Controller
                 'stats'         => ['total' => 0, 'valid' => 0, 'tidak_valid' => 0, 'revisi' => 0, 'peringatan' => 0],
             ]);
         }
-
-        $laporan = Laporan::where('perjanjian_id', $perjanjian->id)
-            ->orderByDesc('created_at')
-            ->first();
 
         $twResult = null;
         if ($laporan) {
@@ -413,6 +456,7 @@ class LaporanKinerjaController extends Controller
                 'status'        => $status,
                 'tahun'         => $l->tahun ?? ($perjanjian->tahun ?? date('Y')),
                 'updated_at'    => ($l->updated_at ?? $l->created_at)?->toDateString(),
+                'user_id'       => $perjanjian->user_id,
             ];
         })->values();
 
@@ -562,7 +606,7 @@ class LaporanKinerjaController extends Controller
             
             // Verifikasi akses
             $perjanjian = $laporan->perjanjian;
-            if ($perjanjian->user_id !== auth()->id()) {
+            if (!$this->canAccessLaporan(auth()->user(), $perjanjian)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda tidak berhak mengakses laporan ini'
@@ -632,8 +676,8 @@ class LaporanKinerjaController extends Controller
                 $perjanjianId = $request->input('perjanjian_id');
                 $perjanjian = Perjanjian::findOrFail($perjanjianId);
 
-                // Verifikasi access
-                if ($perjanjian->user_id !== auth()->id()) {
+                // Verifikasi access untuk edit
+                if (!$this->canEditLaporan(auth()->user(), $perjanjian)) {
                     $this->logEndpointDuration('saveRealisasi', $startedAt, [
                         'status' => 403,
                         'reason' => 'forbidden_perjanjian_access',
@@ -642,7 +686,7 @@ class LaporanKinerjaController extends Controller
 
                     return response()->json([
                         'success' => false,
-                        'message' => 'Anda tidak berhak mengakses perjanjian ini'
+                        'message' => 'Anda tidak berhak mengubah laporan ini karena Anda adalah Pihak Kedua.'
                     ], 403);
                 }
 
@@ -665,8 +709,8 @@ class LaporanKinerjaController extends Controller
                 $laporan = Laporan::findOrFail($laporanId);
                 $perjanjian = $laporan->perjanjian;
 
-                // Verifikasi access
-                if ($perjanjian->user_id !== auth()->id()) {
+                // Verifikasi access untuk edit
+                if (!$this->canEditLaporan(auth()->user(), $perjanjian)) {
                     $this->logEndpointDuration('saveRealisasi', $startedAt, [
                         'status' => 403,
                         'reason' => 'forbidden_laporan_access',
@@ -675,7 +719,7 @@ class LaporanKinerjaController extends Controller
 
                     return response()->json([
                         'success' => false,
-                        'message' => 'Anda tidak berhak mengakses laporan ini'
+                        'message' => 'Anda tidak berhak mengubah laporan ini karena Anda adalah Pihak Kedua.'
                     ], 403);
                 }
             } else {
@@ -934,7 +978,7 @@ class LaporanKinerjaController extends Controller
             $perjanjian = $laporan->perjanjian;
 
             // Verifikasi akses
-            if ($perjanjian->user_id !== auth()->id()) {
+            if (!$this->canAccessLaporan(auth()->user(), $perjanjian)) {
                 $this->logEndpointDuration('smartValidate', $startedAt, [
                     'status' => 403,
                     'laporan_id' => (int) $id,

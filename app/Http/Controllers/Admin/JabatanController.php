@@ -140,36 +140,32 @@ class JabatanController extends Controller
             $jabatan = Jabatan::create($data);
             Log::info('Jabatan created locally:', $jabatan->toArray());
 
-            $supabaseData = [
-                'id' => $jabatan->id,
-                'nama_jabatan' => $jabatan->nama_jabatan,
-                'tugas' => $jabatan->tugas,
-                'fungsi' => $jabatan->fungsi,
-                'membawahi' => $jabatan->membawahi,
-                'is_active' => $jabatan->is_active,
-                'created_at' => $jabatan->created_at?->toDateTimeString(),
-                'updated_at' => $jabatan->updated_at?->toDateTimeString(),
-            ];
-
-            if (!$this->isSameDatabase()) {
-                Log::info('Attempting Supabase insert with data:', $supabaseData);
-                $supabaseResult = $this->supabase->insert('jabatan', [$supabaseData]);
-                Log::info('Supabase insert result:', $supabaseResult);
-
-                if (!$supabaseResult['success']) {
-                    Log::error('Supabase insert failed for jabatan ' . $jabatan->id . ': ' . ($supabaseResult['error'] ?? 'Unknown error'));
-                    DB::rollBack();
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Gagal sinkronisasi Supabase: ' . ($supabaseResult['error'] ?? 'Unknown error'));
-                }
-            } else {
-                Log::info('Skipping Supabase API insert because database connection is directly pointing to Supabase');
-            }
-
             DB::commit();
             \Illuminate\Support\Facades\Cache::forget('jabatan_all');
-            Log::info('Jabatan ' . $jabatan->id . ' successfully saved and synced to Supabase');
+            
+            if (!$this->isSameDatabase()) {
+                $supabaseData = [
+                    'id' => $jabatan->id,
+                    'nama_jabatan' => $jabatan->nama_jabatan,
+                    'tugas' => $jabatan->tugas,
+                    'fungsi' => $jabatan->fungsi,
+                    'membawahi' => $jabatan->membawahi,
+                    'is_active' => $jabatan->is_active,
+                    'created_at' => $jabatan->created_at?->toDateTimeString(),
+                    'updated_at' => $jabatan->updated_at?->toDateTimeString(),
+                ];
+
+                app()->terminating(function() use ($supabaseData, $jabatan) {
+                    Log::info('Attempting deferred Supabase insert with data:', $supabaseData);
+                    $supabaseResult = $this->supabase->insert('jabatan', [$supabaseData]);
+                    if (!$supabaseResult['success']) {
+                        Log::error('Deferred Supabase insert failed for jabatan ' . $jabatan->id . ': ' . ($supabaseResult['error'] ?? 'Unknown error'));
+                    } else {
+                        Log::info('Deferred Supabase insert successful for jabatan ' . $jabatan->id);
+                    }
+                });
+            }
+
         } catch (\Throwable $throwable) {
             Log::error('Jabatan store error: ' . $throwable->getMessage(), ['trace' => $throwable->getTraceAsString()]);
             DB::rollBack();
@@ -217,29 +213,27 @@ class JabatanController extends Controller
         try {
             $jabatan->update($data);
 
-            $supabaseData = [
-                'nama_jabatan' => $jabatan->nama_jabatan,
-                'tugas' => $jabatan->tugas,
-                'fungsi' => $jabatan->fungsi,
-                'membawahi' => $jabatan->membawahi,
-                'is_active' => $jabatan->is_active,
-                'updated_at' => $jabatan->updated_at?->toDateTimeString(),
-            ];
-
-            if (!$this->isSameDatabase()) {
-                $supabaseResult = $this->supabase->update('jabatan', ['id' => 'eq.' . $id], $supabaseData);
-                if (!$supabaseResult['success']) {
-                    DB::rollBack();
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Gagal sinkronisasi Supabase: ' . ($supabaseResult['error'] ?? 'Unknown error'));
-                }
-            } else {
-                Log::info('Skipping Supabase API update because database connection is directly pointing to Supabase');
-            }
-
             DB::commit();
             \Illuminate\Support\Facades\Cache::forget('jabatan_all');
+
+            if (!$this->isSameDatabase()) {
+                $supabaseData = [
+                    'nama_jabatan' => $jabatan->nama_jabatan,
+                    'tugas' => $jabatan->tugas,
+                    'fungsi' => $jabatan->fungsi,
+                    'membawahi' => $jabatan->membawahi,
+                    'is_active' => $jabatan->is_active,
+                    'updated_at' => $jabatan->updated_at?->toDateTimeString(),
+                ];
+
+                app()->terminating(function() use ($id, $supabaseData) {
+                    $supabaseResult = $this->supabase->update('jabatan', ['id' => 'eq.' . $id], $supabaseData);
+                    if (!$supabaseResult['success']) {
+                        Log::error('Deferred Supabase update failed for jabatan ' . $id . ': ' . ($supabaseResult['error'] ?? 'Unknown error'));
+                    }
+                });
+            }
+
         } catch (\Throwable $throwable) {
             DB::rollBack();
             return redirect()->back()
@@ -261,24 +255,18 @@ class JabatanController extends Controller
             Log::info('Deleting jabatan ' . $id . ' from local database');
             $jabatan->delete();
 
-            if (!$this->isSameDatabase()) {
-                Log::info('Attempting Supabase delete for jabatan ' . $id);
-                $supabaseResult = $this->supabase->delete('jabatan', ['id' => 'eq.' . $id]);
-                Log::info('Supabase delete result:', $supabaseResult);
-
-                if (!$supabaseResult['success']) {
-                    Log::error('Supabase delete failed for jabatan ' . $id . ': ' . ($supabaseResult['error'] ?? 'Unknown error'));
-                    DB::rollBack();
-                    return redirect()->back()
-                        ->with('error', 'Gagal sinkronisasi Supabase saat menghapus: ' . ($supabaseResult['error'] ?? 'Unknown error'));
-                }
-            } else {
-                Log::info('Skipping Supabase API delete because database connection is directly pointing to Supabase');
-            }
-
             DB::commit();
             \Illuminate\Support\Facades\Cache::forget('jabatan_all');
-            Log::info('Jabatan ' . $id . ' successfully deleted from both local DB and Supabase');
+
+            if (!$this->isSameDatabase()) {
+                app()->terminating(function() use ($id) {
+                    Log::info('Attempting deferred Supabase delete for jabatan ' . $id);
+                    $supabaseResult = $this->supabase->delete('jabatan', ['id' => 'eq.' . $id]);
+                    if (!$supabaseResult['success']) {
+                        Log::error('Deferred Supabase delete failed for jabatan ' . $id . ': ' . ($supabaseResult['error'] ?? 'Unknown error'));
+                    }
+                });
+            }
         } catch (\Throwable $throwable) {
             Log::error('Jabatan delete error: ' . $throwable->getMessage(), ['id' => $id]);
             DB::rollBack();

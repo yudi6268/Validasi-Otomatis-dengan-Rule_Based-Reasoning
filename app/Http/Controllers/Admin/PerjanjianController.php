@@ -104,43 +104,54 @@ class PerjanjianController extends Controller
 
     private function syncPerjanjianToSupabase(Perjanjian $perjanjian)
     {
-        try {
-            $payload = [
-                'pihak2_name' => $perjanjian->pihak2_name,
-                'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
-                'pihak2_nip' => $perjanjian->pihak2_nip,
-                'location' => $perjanjian->location,
-                'agreement_date' => $perjanjian->agreement_date,
-                'jabatan' => $perjanjian->jabatan,
-                'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
-                'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
-                'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
-                'pihak1_ttd' => $perjanjian->pihak1_ttd,
-                'status' => $perjanjian->status,
-                'catatan_penolakan' => $perjanjian->catatan_penolakan,
-                'rejected' => $perjanjian->rejected,
-                'rejection_reason' => $perjanjian->rejection_reason,
-                'pihak2_signature' => $perjanjian->pihak2_signature,
-                'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
-                'tabelA' => $perjanjian->tabelA,
-                'tabelB' => $perjanjian->tabelB,
-                'tabelC' => $perjanjian->tabelC,
-            ];
-
-            $filters = ['local_id' => 'eq.' . $perjanjian->id];
-            $res = $this->supabase->update('perjanjians', $filters, $payload);
-            if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
-                $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
-                $res = $this->supabase->update('perjanjians', $filters, $payload);
-            }
-            if (empty($res['success'])) {
-                Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in Admin: ' . ($res['error'] ?? 'unknown'));
-            } else {
-                Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in Admin');
-            }
-        } catch (\Exception $e) {
-            Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in Admin: ' . $e->getMessage());
+        if (!(bool) config('services.supabase.sync_enabled', true)) {
+            return;
         }
+
+        $perjanjianId = $perjanjian->id;
+
+        app()->terminating(function () use ($perjanjianId) {
+            try {
+                $perjanjian = Perjanjian::find($perjanjianId);
+                if (!$perjanjian) return;
+
+                $payload = [
+                    'pihak2_name' => $perjanjian->pihak2_name,
+                    'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                    'pihak2_nip' => $perjanjian->pihak2_nip,
+                    'location' => $perjanjian->location,
+                    'agreement_date' => $perjanjian->agreement_date,
+                    'jabatan' => $perjanjian->jabatan,
+                    'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                    'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                    'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                    'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                    'status' => $perjanjian->status,
+                    'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                    'rejected' => $perjanjian->rejected,
+                    'rejection_reason' => $perjanjian->rejection_reason,
+                    'pihak2_signature' => $perjanjian->pihak2_signature,
+                    'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
+                    'tabelA' => $perjanjian->tabelA,
+                    'tabelB' => $perjanjian->tabelB,
+                    'tabelC' => $perjanjian->tabelC,
+                ];
+
+                $filters = ['local_id' => 'eq.' . $perjanjian->id];
+                $res = $this->supabase->update('perjanjians', $filters, $payload);
+                if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                    $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                    $res = $this->supabase->update('perjanjians', $filters, $payload);
+                }
+                if (empty($res['success'])) {
+                    Log::warning('Deferred Supabase update failed for perjanjian #' . $perjanjian->id . ' in Admin: ' . ($res['error'] ?? 'unknown'));
+                } else {
+                    Log::info('Deferred Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in Admin');
+                }
+            } catch (\Exception $e) {
+                Log::warning('Deferred Supabase update exception for perjanjian #' . $perjanjianId . ' in Admin: ' . $e->getMessage());
+            }
+        });
     }
 }
 

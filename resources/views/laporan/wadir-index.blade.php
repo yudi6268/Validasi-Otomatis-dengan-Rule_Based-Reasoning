@@ -188,8 +188,9 @@
                 $deleteUrl = route('laporan.destroy', $item['id']);
                 $triwulanText = $item['triwulan'] ? 'Triwulan ' . $item['triwulan'] : '-';
                 $isApproved = $item['status'] === 'disetujui';
-                $isUserAccount = auth()->user()?->role === 'user';
-                $canEdit = $isUserAccount;
+                $isApproved = $item['status'] === 'disetujui';
+                $isOwner = auth()->id() == ($item['user_id'] ?? 0);
+                $canEdit = auth()->user()?->role === 'user' && $isOwner;
             @endphp
             <div class="perjanjian-card" onclick="window.open('{{ $pdfViewUrl }}','_blank')">
                 <div class="card-icon">

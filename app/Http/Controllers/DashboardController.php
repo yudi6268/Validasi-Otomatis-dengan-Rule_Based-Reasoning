@@ -145,79 +145,37 @@ class DashboardController extends Controller
         
         $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($user, $isPihakKeduaMode, $jabatanLower) {
             $matchesCreatorIdentity = function ($query) use ($user) {
-                $normalizedNama = trim((string) ($user->nama ?? ''));
-                $normalizedJabatan = trim((string) ($user->jabatan ?? ''));
-                $normalizedNip = trim((string) ($user->nip ?? ''));
-                $normalizedNipDigits = preg_replace('/\D+/', '', $normalizedNip);
-
                 $query->orWhere('user_id', $user->id);
-
-                $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip, $normalizedNipDigits) {
-                    if ($normalizedNama !== '') {
-                        $q->whereRaw('LOWER(TRIM(pihak1_name)) = LOWER(TRIM(?))', [$normalizedNama])
-                          ->orWhereRaw('LOWER(TRIM(pihak1_name)) LIKE LOWER(TRIM(?))', ['%' . $normalizedNama . '%']);
-                    }
-
-                    if ($normalizedJabatan !== '') {
-                        $q->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan])
-                          ->orWhereRaw('LOWER(TRIM(pihak1_jabatan)) LIKE LOWER(TRIM(?))', ['%' . $normalizedJabatan . '%']);
-                    }
-
-                    if ($normalizedNip !== '') {
-                        $q->orWhereRaw("LOWER(REPLACE(TRIM(COALESCE(pihak1_nip, '')), ' ', '')) = LOWER(REPLACE(TRIM(?), ' ', ''))", [$normalizedNip]);
-                    }
-
-                    if (!empty($normalizedNipDigits)) {
-                        $q->orWhereRaw("regexp_replace(COALESCE(pihak1_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits]);
-                    }
-                });
             };
 
             $matchesPihakKeduaIdentity = function ($query) use ($user) {
-                $normalizedNama = trim((string) ($user->nama ?? ''));
-                $normalizedJabatan = trim((string) ($user->jabatan ?? ''));
-                $normalizedNip = trim((string) ($user->nip ?? ''));
-                $normalizedNipDigits = preg_replace('/\D+/', '', $normalizedNip);
+                $nama = trim((string) ($user->nama ?? ''));
+                $jabatan = trim((string) ($user->jabatan ?? ''));
+                $nip = str_replace(' ', '', trim((string) ($user->nip ?? '')));
 
-                $query->orWhere(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNip, $normalizedNipDigits) {
-                    if (!empty($normalizedNipDigits)) {
-                        if ($normalizedJabatan !== '') {
-                            $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits])
-                              ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
-                        } else {
-                            $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits]);
-                        }
-                    } elseif ($normalizedNip !== '') {
-                        if ($normalizedJabatan !== '') {
-                            $q->whereRaw("LOWER(REPLACE(TRIM(COALESCE(pihak2_nip, '')), ' ', '')) = LOWER(REPLACE(TRIM(?), ' ', ''))", [$normalizedNip])
-                              ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
-                        } else {
-                            $q->whereRaw("LOWER(REPLACE(TRIM(COALESCE(pihak2_nip, '')), ' ', '')) = LOWER(REPLACE(TRIM(?), ' ', ''))", [$normalizedNip]);
-                        }
+                $query->orWhere(function ($q) use ($nama, $jabatan, $nip) {
+                    if ($nip !== '') {
+                        $q->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
+                    } else {
+                        $q->whereRaw('1 = 0');
                     }
-
-                    if ($normalizedNama !== '' && $normalizedJabatan !== '') {
-                        $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
-                            $qq->whereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama])
-                               ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
-                        });
-
-                        $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
-                            $qq->whereRaw('LOWER(TRIM(pihak2_name)) LIKE LOWER(TRIM(?))', ['%#' . $normalizedNama . '%'])
-                               ->whereRaw('LOWER(TRIM(pihak2_jabatan)) = LOWER(TRIM(?))', [$normalizedJabatan]);
-                        });
-
-                        return;
-                    }
-
-                    if ($normalizedNama !== '' && $normalizedJabatan === '') {
-                        $q->orWhereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama]);
+                })
+                ->orWhere(function ($q) use ($nama, $jabatan) {
+                    if ($nama !== '' && $jabatan !== '') {
+                        $q->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
+                          ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
+                    } elseif ($nama !== '') {
+                        $q->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
+                    } else {
+                        $q->whereRaw('1 = 0');
                     }
                 });
             };
 
+            $selectedPerjanjianColumns = ['id', 'user_id', 'nomor_perjanjian', 'pihak1_name', 'pihak1_jabatan', 'pihak1_nip', 'pihak1_pangkat', 'pihak2_name', 'pihak2_jabatan', 'pihak2_nip', 'pihak2_signature', 'status', 'rejected', 'agreement_date', 'created_at', 'updated_at', 'tabelC'];
+
             if ($user->role === 'user') {
-                $wadirPerjanjianItems = Perjanjian::with('user')->where(function ($q) use ($matchesCreatorIdentity, $matchesPihakKeduaIdentity, $isPihakKeduaMode) {
+                $wadirPerjanjianItems = Perjanjian::with('user:id,nama,jabatan,nip,pangkat')->select($selectedPerjanjianColumns)->where(function ($q) use ($matchesCreatorIdentity, $matchesPihakKeduaIdentity, $isPihakKeduaMode) {
                         $matchesCreatorIdentity($q);
                         if ($isPihakKeduaMode) {
                             $matchesPihakKeduaIdentity($q);
@@ -225,11 +183,11 @@ class DashboardController extends Controller
                     })->get();
             } else {
                 if ($isPihakKeduaMode) {
-                    $wadirPerjanjianItems = Perjanjian::with('user')->where(function ($q) use ($matchesPihakKeduaIdentity) {
+                    $wadirPerjanjianItems = Perjanjian::with('user:id,nama,jabatan,nip,pangkat')->select($selectedPerjanjianColumns)->where(function ($q) use ($matchesPihakKeduaIdentity) {
                             $matchesPihakKeduaIdentity($q);
                         })->get();
                 } else {
-                    $wadirPerjanjianItems = Perjanjian::with('user')->where(function ($q) use ($matchesCreatorIdentity) {
+                    $wadirPerjanjianItems = Perjanjian::with('user:id,nama,jabatan,nip,pangkat')->select($selectedPerjanjianColumns)->where(function ($q) use ($matchesCreatorIdentity) {
                                 $matchesCreatorIdentity($q);
                             })
                             ->orWhere(function ($q) use ($matchesPihakKeduaIdentity) {
@@ -322,7 +280,9 @@ class DashboardController extends Controller
             })->values();
 
             $perjanjianIds = $wadirPerjanjianItems->pluck('id')->toArray();
-            $laporansForWaiting = \App\Models\Laporan::whereIn('perjanjian_id', $perjanjianIds)->get();
+            $laporansForWaiting = \App\Models\Laporan::select(['id', 'perjanjian_id', 'user_id', 'triwulan_aktif', 'tahun', 'periode', 'uraian_kegiatan', 'kesimpulan', 'tanggapan_pimpinan', 'rejected', 'pihak2_signature', 'realisasi_tb1', 'realisasi_tb2', 'realisasi_tb3', 'realisasi_tb4', 'updated_at', 'created_at', 'validation_results'])
+                ->whereIn('perjanjian_id', $perjanjianIds)->get();
+            $groupedLaporans = $laporansForWaiting->groupBy('perjanjian_id');
 
             $chartData = [];
             if ($isPihakKeduaMode) {
@@ -341,10 +301,10 @@ class DashboardController extends Controller
                         ->sortByDesc('updated_at')
                         ->first();
 
-                    $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan, $laporansForWaiting);
+                    $chartData = $this->buildWadirChartData($chartPerjanjian, $chartLaporan, $groupedLaporans);
                 }
             } else {
-                $chartData = $this->buildAggregatedWadirChartData($perjanjians, $laporansForWaiting);
+                $chartData = $this->buildAggregatedWadirChartData($perjanjians, $groupedLaporans);
             }
 
             $notifications = [];
@@ -443,11 +403,8 @@ class DashboardController extends Controller
         $isActiveTrwValidated = false;
 
         // Sumber data panel validasi:
-        // - Untuk akun Wadir/Direktur (pihak kedua), gunakan seluruh perjanjian yang direview.
-        // - Untuk akun user biasa, batasi ke perjanjian milik sendiri.
-        $validasiPerjanjianIds = $isPihakKeduaMode
-            ? $perjanjianIds
-            : $ownPerjanjianIds;
+        // Panel Validasi pada Dashboard (semua role) digunakan untuk menampilkan hasil validasi laporan milik akun tersebut (Pihak 1).
+        $validasiPerjanjianIds = $ownPerjanjianIds;
 
         $validasiLaporanItems = $laporansForWaiting
             ->whereIn('perjanjian_id', $validasiPerjanjianIds)
@@ -868,29 +825,28 @@ class DashboardController extends Controller
         $field = 'realisasi_tb' . $tw;
 
         if ($allLaporans !== null) {
-            $laporan = $allLaporans->where('perjanjian_id', $perjanjianId)
-                                   ->where('triwulan_aktif', $tw)
-                                   ->sortByDesc('id')
-                                   ->sortByDesc('updated_at')
-                                   ->first();
+            $laporans = $allLaporans->get($perjanjianId) ?? collect();
+            
+            $laporan = $laporans->where('triwulan_aktif', $tw)
+                                ->sortByDesc('id')
+                                ->sortByDesc('updated_at')
+                                ->first();
             if ($laporan && !empty($laporan->{$field})) {
                 return $laporan;
             }
 
-            $fallback = $allLaporans->where('perjanjian_id', $perjanjianId)
-                                    ->whereNotNull($field)
-                                    ->filter(function($item) use ($field) { return $item->{$field} !== ''; })
-                                    ->sortByDesc('id')
-                                    ->sortByDesc('updated_at')
-                                    ->first();
+            $fallback = $laporans->whereNotNull($field)
+                                 ->filter(function($item) use ($field) { return $item->{$field} !== ''; })
+                                 ->sortByDesc('id')
+                                 ->sortByDesc('updated_at')
+                                 ->first();
             if ($fallback) {
                 return $fallback;
             }
 
-            return $allLaporans->where('perjanjian_id', $perjanjianId)
-                               ->sortByDesc('id')
-                               ->sortByDesc('updated_at')
-                               ->first();
+            return $laporans->sortByDesc('id')
+                            ->sortByDesc('updated_at')
+                            ->first();
         }
 
         // Prioritas 1: record yang memang ditandai triwulan aktif tersebut.

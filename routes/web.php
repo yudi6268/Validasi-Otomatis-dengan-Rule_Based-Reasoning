@@ -15,23 +15,6 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\BrowsershotPdfController;
 use Illuminate\Support\Facades\Auth;
 
-Route::get('/test-speed', function() {
-    $out = [];
-    $start = microtime(true);
-    
-    $user = App\Models\User::where('email', '!=', 'admin@example.com')->first();
-    if (!$user) $user = App\Models\User::first();
-    $out[] = "User fetched: " . (microtime(true) - $start) . "s";
-    
-    Auth::login($user);
-    $out[] = "User logged in: " . (microtime(true) - $start) . "s";
-
-    app('App\Http\Controllers\DashboardController')->wadir();
-    $out[] = "Wadir executed: " . (microtime(true) - $start) . "s";
-    
-    return implode("<br>", $out);
-});
-
 Route::get('/healthz', function () {
     return response()->json([
         'status' => 'ok',
@@ -178,31 +161,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/pdf/test', [App\Http\Controllers\BrowsershotPdfController::class, 'testPdf'])->name('pdf.test');
     }
 });
-
-if (app()->environment('local')) {
-    Route::get('/test-login-latency', function() {
-        $start = microtime(true);
-        $user = \App\Models\User::first();
-        $t1 = microtime(true) - $start;
-        
-        \Illuminate\Support\Facades\Auth::login($user);
-        $t2 = microtime(true) - $start;
-        
-        request()->session()->regenerate();
-        $t3 = microtime(true) - $start;
-        
-        $hasUnreadNotifications = \App\Models\Notification::unread()->forUser($user->id)->exists();
-        $t4 = microtime(true) - $start;
-        
-        return response()->json([
-            'fetch_user' => $t1,
-            'auth_login' => $t2,
-            'session_regen' => $t3,
-            'notifications' => $t4,
-            'total' => microtime(true) - $start
-        ]);
-    });
-}
 
 // === FORGOT PASSWORD - Public Routes ===
 Route::get('/forgot-password', [ForgotPasswordController::class, 'showForgotForm'])->name('forgot.form');

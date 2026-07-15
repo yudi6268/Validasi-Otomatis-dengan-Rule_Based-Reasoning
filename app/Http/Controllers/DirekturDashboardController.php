@@ -24,28 +24,28 @@ class DirekturDashboardController extends Controller
 
     protected function applyDirekturPihakKeduaScope($query, $user, bool $excludeBagianBidangMaker = true)
     {
-        $normalizedNama = trim((string) ($user->nama ?? ''));
-        $normalizedJabatan = trim((string) ($user->jabatan ?? ''));
-        $normalizedNipDigits = preg_replace('/\D+/', '', (string) ($user->nip ?? ''));
+        $nama = trim((string) ($user->nama ?? ''));
+        $jabatan = trim((string) ($user->jabatan ?? ''));
+        $nip = str_replace(' ', '', trim((string) ($user->nip ?? '')));
 
-        $query->where(function ($q) use ($normalizedNama, $normalizedJabatan, $normalizedNipDigits) {
-            if ($normalizedNipDigits !== '') {
-                if ($normalizedJabatan !== '') {
-                    $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits])
-                      ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
+        $query->where(function ($q) use ($nama, $jabatan, $nip) {
+            $q->where(function ($qq) use ($nip) {
+                if ($nip !== '') {
+                    $qq->whereRaw("REPLACE(COALESCE(pihak2_nip, ''), ' ', '') = ?", [$nip]);
                 } else {
-                    $q->whereRaw("regexp_replace(COALESCE(pihak2_nip, ''), '[^0-9]', '', 'g') = ?", [$normalizedNipDigits]);
+                    $qq->whereRaw('1 = 0');
                 }
-            }
-
-            if ($normalizedNama !== '' && $normalizedJabatan !== '') {
-                $q->orWhere(function ($qq) use ($normalizedNama, $normalizedJabatan) {
-                          $qq->whereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama])
-                              ->whereRaw("LOWER(TRIM(COALESCE(pihak2_jabatan, ''))) = LOWER(TRIM(?))", [$normalizedJabatan]);
-                });
-            } elseif ($normalizedNama !== '') {
-                $q->orWhereRaw('LOWER(TRIM(pihak2_name)) = LOWER(TRIM(?))', [$normalizedNama]);
-            }
+            })
+            ->orWhere(function ($qq) use ($nama, $jabatan) {
+                if ($nama !== '' && $jabatan !== '') {
+                    $qq->where('pihak2_name', 'ILIKE', '%' . $nama . '%')
+                       ->where('pihak2_jabatan', 'ILIKE', '%' . $jabatan . '%');
+                } elseif ($nama !== '') {
+                    $qq->where('pihak2_name', 'ILIKE', '%' . $nama . '%');
+                } else {
+                    $qq->whereRaw('1 = 0');
+                }
+            });
         });
 
         if ($excludeBagianBidangMaker) {
@@ -73,8 +73,8 @@ class DirekturDashboardController extends Controller
         $cacheKey = "direktur_dashboard_data_{$user->id}";
         
         $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($user) {
-            // All perjanjian where direktur is pihak kedua
-            $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::query(), $user)
+            $selectedPerjanjianCols = ['id', 'user_id', 'created_at', 'rejected', 'pihak2_signature', 'pihak1_name', 'pihak1_jabatan', 'periode', 'rejection_reason', 'tabelC', 'pihak2_nip', 'pihak2_name', 'pihak2_jabatan'];
+            $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::select($selectedPerjanjianCols), $user)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -100,9 +100,9 @@ class DirekturDashboardController extends Controller
                 'ditolak'   => $perjanjianItems->where('status', 'ditolak')->count(),
             ];
 
-            $perjanjianIds = $allPerjanjians->pluck('id');
-            $allLaporans   = Laporan::whereIn('perjanjian_id', $perjanjianIds)
-                ->with('perjanjian')
+            $selectedLaporanCols = ['id', 'perjanjian_id', 'created_at', 'realisasi_tb1', 'realisasi_tb2', 'realisasi_tb3', 'realisasi_tb4', 'pihak2_signature', 'rejected', 'tanggapan_pimpinan', 'kesimpulan', 'uraian_kegiatan', 'triwulan_aktif', 'tahun'];
+            $allLaporans   = Laporan::select($selectedLaporanCols)->whereIn('perjanjian_id', $perjanjianIds)
+                ->with('perjanjian:id,pihak1_name,pihak1_jabatan')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -197,7 +197,7 @@ class DirekturDashboardController extends Controller
                 $sasaranCount = isset($tabelB['sasaran']) && is_array($tabelB['sasaran']) ? count($tabelB['sasaran']) : 0;
                 
                 if (!isset($latestLaporans[$pId][$tw])) {
-                    $latestLaporans[$pId][$tw] = $this->resolveLaporanForTriwulan((int) $pId, $tw);
+                    $latestLaporans[$pId][$tw] = $this->resolveLaporanForTriwulan((int) $pId, $tw, $allLaporans);
                 }
                 $laporan = $latestLaporans[$pId][$tw] ?? null;
                 
@@ -479,34 +479,41 @@ class DirekturDashboardController extends Controller
         }
     }
 
-    private function resolveLaporanForTriwulan(int $perjanjianId, int $tw): ?Laporan
+    private function resolveLaporanForTriwulan(int $perjanjianId, int $tw, $allLaporans): ?Laporan
     {
         $field = 'realisasi_tb' . $tw;
 
-        $laporan = Laporan::where('perjanjian_id', $perjanjianId)
-            ->where('triwulan_aktif', $tw)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
+        $laporans = $allLaporans->where('perjanjian_id', $perjanjianId);
+
+        if ($laporans->isEmpty()) {
+            return null;
+        }
+
+        $laporan = $laporans->where('triwulan_aktif', $tw)
+            ->filter(function ($l) use ($field) {
+                return !empty($l->{$field});
+            })
+            ->sortByDesc('id')
+            ->sortByDesc('updated_at')
             ->first();
 
-        if ($laporan && !empty($laporan->{$field})) {
+        if ($laporan) {
             return $laporan;
         }
 
-        $fallback = Laporan::where('perjanjian_id', $perjanjianId)
-            ->whereNotNull($field)
-            ->where($field, '!=', '')
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->first();
+        $fallback = $laporans->filter(function ($l) use ($field) {
+            return !empty($l->{$field});
+        })
+        ->sortByDesc('id')
+        ->sortByDesc('updated_at')
+        ->first();
 
         if ($fallback) {
             return $fallback;
         }
 
-        return Laporan::where('perjanjian_id', $perjanjianId)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
+        return $laporans->sortByDesc('id')
+            ->sortByDesc('updated_at')
             ->first();
     }
 
@@ -996,44 +1003,50 @@ class DirekturDashboardController extends Controller
             $perjanjian->status = 'disetujui';
             $perjanjian->save();
 
-            // Sync to Supabase
-            try {
-                $payload = [
-                    'pihak2_name' => $perjanjian->pihak2_name,
-                    'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
-                    'pihak2_nip' => $perjanjian->pihak2_nip,
-                    'location' => $perjanjian->location,
-                    'agreement_date' => $perjanjian->agreement_date,
-                    'jabatan' => $perjanjian->jabatan,
-                    'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
-                    'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
-                    'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
-                    'pihak1_ttd' => $perjanjian->pihak1_ttd,
-                    'status' => $perjanjian->status,
-                    'catatan_penolakan' => $perjanjian->catatan_penolakan,
-                    'rejected' => $perjanjian->rejected,
-                    'rejection_reason' => $perjanjian->rejection_reason,
-                    'pihak2_signature' => $perjanjian->pihak2_signature,
-                    'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
-                    'tabelA' => $perjanjian->tabelA,
-                    'tabelB' => $perjanjian->tabelB,
-                    'tabelC' => $perjanjian->tabelC,
-                ];
+            // Sync to Supabase in background
+            app()->terminating(function () use ($perjanjian) {
+                if (!config('services.supabase.sync_enabled', true)) {
+                    return;
+                }
+                try {
+                    $payload = [
+                        'pihak2_name' => $perjanjian->pihak2_name,
+                        'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                        'pihak2_nip' => $perjanjian->pihak2_nip,
+                        'location' => $perjanjian->location,
+                        'agreement_date' => $perjanjian->agreement_date,
+                        'jabatan' => $perjanjian->jabatan,
+                        'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                        'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                        'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                        'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                        'status' => $perjanjian->status,
+                        'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                        'rejected' => $perjanjian->rejected,
+                        'rejection_reason' => $perjanjian->rejection_reason,
+                        'pihak2_signature' => $perjanjian->pihak2_signature,
+                        'pihak2_ttd_path' => $perjanjian->pihak2_ttd_path,
+                        'tabelA' => $perjanjian->tabelA,
+                        'tabelB' => $perjanjian->tabelB,
+                        'tabelC' => $perjanjian->tabelC,
+                    ];
 
-                $filters = ['local_id' => 'eq.' . $perjanjian->id];
-                $res = $this->supabase->update('perjanjians', $filters, $payload);
-                if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
-                    $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
-                    $res = $this->supabase->update('perjanjians', $filters, $payload);
+                    $supabase = app(\App\Services\SupabaseService::class);
+                    $filters = ['local_id' => 'eq.' . $perjanjian->id];
+                    $res = $supabase->update('perjanjians', $filters, $payload);
+                    if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                        $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                        $res = $supabase->update('perjanjians', $filters, $payload);
+                    }
+                    if (empty($res['success'])) {
+                        Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in approvePerjanjian: ' . ($res['error'] ?? 'unknown'));
+                    } else {
+                        Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in approvePerjanjian');
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in approvePerjanjian: ' . $e->getMessage());
                 }
-                if (empty($res['success'])) {
-                    Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in approvePerjanjian: ' . ($res['error'] ?? 'unknown'));
-                } else {
-                    Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in approvePerjanjian');
-                }
-            } catch (\Exception $e) {
-                Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in approvePerjanjian: ' . $e->getMessage());
-            }
+            });
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -1088,44 +1101,50 @@ class DirekturDashboardController extends Controller
             $perjanjian->status = 'ditolak';
             $perjanjian->save();
 
-            // Sync to Supabase
-            try {
-                $payload = [
-                    'pihak2_name' => $perjanjian->pihak2_name,
-                    'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
-                    'pihak2_nip' => $perjanjian->pihak2_nip,
-                    'location' => $perjanjian->location,
-                    'agreement_date' => $perjanjian->agreement_date,
-                    'jabatan' => $perjanjian->jabatan,
-                    'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
-                    'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
-                    'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
-                    'pihak1_ttd' => $perjanjian->pihak1_ttd,
-                    'status' => $perjanjian->status,
-                    'catatan_penolakan' => $perjanjian->catatan_penolakan,
-                    'rejected' => $perjanjian->rejected,
-                    'rejection_reason' => $perjanjian->rejection_reason,
-                    'pihak2_signature' => null,
-                    'pihak2_ttd_path' => null,
-                    'tabelA' => $perjanjian->tabelA,
-                    'tabelB' => $perjanjian->tabelB,
-                    'tabelC' => $perjanjian->tabelC,
-                ];
+            // Sync to Supabase in background
+            app()->terminating(function () use ($perjanjian) {
+                if (!config('services.supabase.sync_enabled', true)) {
+                    return;
+                }
+                try {
+                    $payload = [
+                        'pihak2_name' => $perjanjian->pihak2_name,
+                        'pihak2_jabatan' => $perjanjian->pihak2_jabatan,
+                        'pihak2_nip' => $perjanjian->pihak2_nip,
+                        'location' => $perjanjian->location,
+                        'agreement_date' => $perjanjian->agreement_date,
+                        'jabatan' => $perjanjian->jabatan,
+                        'jabatan_pelaksana' => $perjanjian->jabatan_pelaksana,
+                        'tugas_pelaksana' => $perjanjian->tugas_pelaksana,
+                        'fungsi_pelaksana' => $perjanjian->fungsi_pelaksana,
+                        'pihak1_ttd' => $perjanjian->pihak1_ttd,
+                        'status' => $perjanjian->status,
+                        'catatan_penolakan' => $perjanjian->catatan_penolakan,
+                        'rejected' => $perjanjian->rejected,
+                        'rejection_reason' => $perjanjian->rejection_reason,
+                        'pihak2_signature' => null,
+                        'pihak2_ttd_path' => null,
+                        'tabelA' => $perjanjian->tabelA,
+                        'tabelB' => $perjanjian->tabelB,
+                        'tabelC' => $perjanjian->tabelC,
+                    ];
 
-                $filters = ['local_id' => 'eq.' . $perjanjian->id];
-                $res = $this->supabase->update('perjanjians', $filters, $payload);
-                if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
-                    $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
-                    $res = $this->supabase->update('perjanjians', $filters, $payload);
+                    $supabase = app(\App\Services\SupabaseService::class);
+                    $filters = ['local_id' => 'eq.' . $perjanjian->id];
+                    $res = $supabase->update('perjanjians', $filters, $payload);
+                    if (empty($res['success']) && !empty($perjanjian->nomor_perjanjian)) {
+                        $filters = ['nomor_perjanjian' => 'eq.' . $perjanjian->nomor_perjanjian];
+                        $res = $supabase->update('perjanjians', $filters, $payload);
+                    }
+                    if (empty($res['success'])) {
+                        Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian: ' . ($res['error'] ?? 'unknown'));
+                    } else {
+                        Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian');
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian: ' . $e->getMessage());
                 }
-                if (empty($res['success'])) {
-                    Log::warning('Supabase update failed for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian: ' . ($res['error'] ?? 'unknown'));
-                } else {
-                    Log::info('Supabase update succeeded for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian');
-                }
-            } catch (\Exception $e) {
-                Log::warning('Supabase update exception for perjanjian #' . $perjanjian->id . ' in rejectPerjanjian: ' . $e->getMessage());
-            }
+            });
             // Create notification for the user who created the perjanjian
             $pengusul = User::where('nama', $perjanjian->pihak1_name)->first();
             if ($pengusul) {
@@ -1417,57 +1436,63 @@ class DirekturDashboardController extends Controller
 
     private function syncLaporanToSupabase(Laporan $laporan, int $triwulan): void
     {
-        try {
-            $payload = [
-                'local_id' => $laporan->id,
-                'perjanjian_id' => $laporan->perjanjian_id,
-                'periode' => $laporan->periode,
-                'tahun' => $laporan->tahun,
-                'uraian_kegiatan' => $laporan->uraian_kegiatan,
-                'sasaran' => $laporan->sasaran,
-                'bobot' => $laporan->bobot,
-                'sumber_data' => $laporan->sumber_data,
-                'pihak1_name' => $laporan->pihak1_name,
-                'pihak2_name' => $laporan->pihak2_name,
-                'tabelA' => $laporan->tabelA,
-                'tabelB' => $laporan->tabelB,
-                'tabelC' => $laporan->tabelC,
-                'bab_capaian' => $laporan->bab_capaian,
-                'bab_rencana' => $laporan->bab_rencana,
-                'rencana_tindak_lanjut' => $laporan->rencana_tindak_lanjut,
-                'kesimpulan' => $laporan->kesimpulan,
-                'triwulan_aktif' => $triwulan,
-                'realisasi_tb1' => $laporan->realisasi_tb1,
-                'realisasi_tb2' => $laporan->realisasi_tb2,
-                'realisasi_tb3' => $laporan->realisasi_tb3,
-                'realisasi_tb4' => $laporan->realisasi_tb4,
-                'pihak2_signature' => $laporan->pihak2_signature,
-                'rejected' => $laporan->rejected,
-                'rejection_reason' => $laporan->rejection_reason,
-                'tanggapan_pimpinan' => $laporan->tanggapan_pimpinan,
-                'updated_at' => now()->toDateTimeString(),
-            ];
-
-            $existing = $this->supabase->select('laporans', [
-                'local_id' => 'eq.' . $laporan->id,
-                'select' => 'id',
-            ]);
-
-            if (!empty($existing['success']) && !empty($existing['data'])) {
-                $filters = ['local_id' => 'eq.' . $laporan->id];
-                $res = $this->supabase->update('laporans', $filters, $payload);
-                if (empty($res['success'])) {
-                    Log::warning('Supabase update failed for laporan local_id=' . $laporan->id . ': ' . ($res['error'] ?? 'unknown'));
-                }
+        app()->terminating(function () use ($laporan, $triwulan) {
+            if (!config('services.supabase.sync_enabled', true)) {
                 return;
             }
+            try {
+                $payload = [
+                    'local_id' => $laporan->id,
+                    'perjanjian_id' => $laporan->perjanjian_id,
+                    'periode' => $laporan->periode,
+                    'tahun' => $laporan->tahun,
+                    'uraian_kegiatan' => $laporan->uraian_kegiatan,
+                    'sasaran' => $laporan->sasaran,
+                    'bobot' => $laporan->bobot,
+                    'sumber_data' => $laporan->sumber_data,
+                    'pihak1_name' => $laporan->pihak1_name,
+                    'pihak2_name' => $laporan->pihak2_name,
+                    'tabelA' => $laporan->tabelA,
+                    'tabelB' => $laporan->tabelB,
+                    'tabelC' => $laporan->tabelC,
+                    'bab_capaian' => $laporan->bab_capaian,
+                    'bab_rencana' => $laporan->bab_rencana,
+                    'rencana_tindak_lanjut' => $laporan->rencana_tindak_lanjut,
+                    'kesimpulan' => $laporan->kesimpulan,
+                    'triwulan_aktif' => $triwulan,
+                    'realisasi_tb1' => $laporan->realisasi_tb1,
+                    'realisasi_tb2' => $laporan->realisasi_tb2,
+                    'realisasi_tb3' => $laporan->realisasi_tb3,
+                    'realisasi_tb4' => $laporan->realisasi_tb4,
+                    'pihak2_signature' => $laporan->pihak2_signature,
+                    'rejected' => $laporan->rejected,
+                    'rejection_reason' => $laporan->rejection_reason,
+                    'tanggapan_pimpinan' => $laporan->tanggapan_pimpinan,
+                    'updated_at' => now()->toDateTimeString(),
+                ];
 
-            $res = $this->supabase->insert('laporans', [$payload]);
-            if (empty($res['success'])) {
-                Log::warning('Supabase insert failed for laporan local_id=' . $laporan->id . ': ' . ($res['error'] ?? 'unknown'));
+                $supabase = app(\App\Services\SupabaseService::class);
+                $existing = $supabase->select('laporans', [
+                    'local_id' => 'eq.' . $laporan->id,
+                    'select' => 'id',
+                ]);
+
+                if (!empty($existing['success']) && !empty($existing['data'])) {
+                    $filters = ['local_id' => 'eq.' . $laporan->id];
+                    $res = $supabase->update('laporans', $filters, $payload);
+                    if (empty($res['success'])) {
+                        Log::warning('Supabase update failed for laporan local_id=' . $laporan->id . ': ' . ($res['error'] ?? 'unknown'));
+                    }
+                    return;
+                }
+
+                $res = $supabase->insert('laporans', [$payload]);
+                if (empty($res['success'])) {
+                    Log::warning('Supabase insert failed for laporan local_id=' . $laporan->id . ': ' . ($res['error'] ?? 'unknown'));
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Supabase sync exception for laporan local_id=' . $laporan->id . ': ' . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            Log::warning('Supabase sync exception for laporan local_id=' . $laporan->id . ': ' . $e->getMessage());
-        }
+        });
     }
 }
