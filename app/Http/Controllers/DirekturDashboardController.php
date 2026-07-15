@@ -73,7 +73,7 @@ class DirekturDashboardController extends Controller
         $cacheKey = "direktur_dashboard_data_{$user->id}";
         
         $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($user) {
-            $selectedPerjanjianCols = ['id', 'user_id', 'created_at', 'rejected', 'pihak2_signature', 'pihak1_name', 'pihak1_jabatan', 'periode', 'rejection_reason', 'tabelC', 'pihak2_nip', 'pihak2_name', 'pihak2_jabatan'];
+            $selectedPerjanjianCols = ['id', 'user_id', 'created_at', 'rejected', 'pihak2_signature', 'pihak1_name', 'pihak1_jabatan', 'rejection_reason', 'tabelC', 'pihak2_nip', 'pihak2_name', 'pihak2_jabatan'];
             $allPerjanjians = $this->applyDirekturPihakKeduaScope(Perjanjian::select($selectedPerjanjianCols), $user)
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -100,6 +100,7 @@ class DirekturDashboardController extends Controller
                 'ditolak'   => $perjanjianItems->where('status', 'ditolak')->count(),
             ];
 
+            $perjanjianIds = $allPerjanjians->pluck('id');
             $selectedLaporanCols = ['id', 'perjanjian_id', 'created_at', 'realisasi_tb1', 'realisasi_tb2', 'realisasi_tb3', 'realisasi_tb4', 'pihak2_signature', 'rejected', 'tanggapan_pimpinan', 'kesimpulan', 'uraian_kegiatan', 'triwulan_aktif', 'tahun'];
             $allLaporans   = Laporan::select($selectedLaporanCols)->whereIn('perjanjian_id', $perjanjianIds)
                 ->with('perjanjian:id,pihak1_name,pihak1_jabatan')
