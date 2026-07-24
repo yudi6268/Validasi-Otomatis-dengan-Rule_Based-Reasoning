@@ -18,7 +18,7 @@ COPY public ./public
 COPY vite.config.js ./
 RUN npm run build
 
-FROM php:8.2-cli AS app
+FROM php:8.2-cli-bullseye AS app
 
 RUN apt-get update && apt-get install -y \
     bash \
