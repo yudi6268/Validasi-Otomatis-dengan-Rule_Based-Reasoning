@@ -334,8 +334,9 @@ class DashboardController extends Controller
             });
 
             $ownPerjanjianIds = $wadirPerjanjianItems->filter(fn($p) => $p->user_id === $user->id)->pluck('id')->toArray();
-            $laporansBawahanForWaiting = $laporansForWaiting->filter(function($l) use ($ownPerjanjianIds) {
-                return !in_array($l->perjanjian_id, $ownPerjanjianIds);
+            $bawahanPerjanjianIds = $bawahanPerjanjianItems->pluck('id')->toArray();
+            $laporansBawahanForWaiting = $laporansForWaiting->filter(function($l) use ($bawahanPerjanjianIds) {
+                return in_array($l->perjanjian_id, $bawahanPerjanjianIds);
             });
 
             $totalLaporan = $laporansBawahanForWaiting->count();

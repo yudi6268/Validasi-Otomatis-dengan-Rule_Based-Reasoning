@@ -888,7 +888,10 @@
           {{-- ==================== PANEL LAPORAN KINERJA ==================== --}}
           <div class="page-header">
             <h1>Laporan Kinerja</h1>
-                      </div>
+            @if(isset($isPihakKeduaMode) && $isPihakKeduaMode)
+              <p style="color: #666; font-size: 14px; margin-top: 8px;">Ringkasan status laporan kinerja dari bawahan Anda.</p>
+            @endif
+          </div>
 
           <div class="panel-shell">
 
@@ -922,9 +925,12 @@
               @php $twAktifDash = (int) (\App\Models\Setting::where('key','triwulan_aktif')->value('value') ?? 1); @endphp
               <button type="button" class="panel-action-btn primary" onclick="handleTambahLaporan({{ $twAktifDash }})">
                 <i class="fas fa-plus-circle"></i>
-                Tambah Laporan
+                Tambah Laporan Anda
               </button>
-              
+              <a href="{{ route('laporan.kinerja') }}" class="panel-action-btn" style="background: #e2e8f0; color: #334155; text-decoration: none;">
+                <i class="fas fa-list"></i>
+                Lihat Laporan Anda
+              </a>
             </div>
           </div>
         @elseif ($panel === 'validasi')
