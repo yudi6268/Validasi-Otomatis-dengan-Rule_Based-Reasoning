@@ -11,6 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust all proxies (Render Load Balancer)
+        $middleware->trustProxies(at: '*');
+
         // Register middleware aliases
         $middleware->alias([
             'check.jabatan' => \App\Http\Middleware\CheckJabatan::class,
